@@ -1,4 +1,4 @@
-import { BigNumber, ethers, utils } from "ethers"
+import { toBigInt, MaxUint256, parseUnits, formatUnits } from "quais"
 import { normalizeHexAddress } from "@pelagus/hd-keyring"
 import { NormalizedEVMAddress } from "../../types"
 import { AddressOnNetwork } from "../../accounts"
@@ -77,18 +77,18 @@ export function sameEVMAddress(
 }
 
 export function gweiToWei(value: number | bigint): bigint {
-  return BigInt(utils.parseUnits(value.toString(), "gwei").toString())
+  return BigInt(parseUnits(value.toString(), "gwei").toString())
 }
 
 export function convertToEth(value: string | number | bigint): string {
-  if (value && value >= 1) return utils.formatUnits(BigInt(value))
+  if (value && value >= 1) return formatUnits(BigInt(value))
 
   return "0"
 }
 
 export function weiToGwei(value: string | number | bigint): string {
   if (value && value >= 1)
-    return truncateDecimalAmount(utils.formatUnits(BigInt(value), "gwei"), 2)
+    return truncateDecimalAmount(formatUnits(BigInt(value), "gwei"), 2)
 
   return ""
 }
@@ -129,8 +129,8 @@ export function truncateAddress(address: string): string {
   return `${address.slice(0, 6)}…${address.slice(-5)}`
 }
 
-export const isMaxUint256 = (amount: BigNumber | bigint | string): boolean => {
-  return ethers.BigNumber.from(amount).eq(ethers.constants.MaxUint256)
+export const isMaxUint256 = (amount: bigint | string): boolean => {
+  return toBigInt(amount) === MaxUint256
 }
 
 export const wait = (ms: number): Promise<void> =>

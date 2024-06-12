@@ -1,4 +1,4 @@
-import { BigNumber } from "ethers"
+import { toBigInt } from "quais"
 import {
   Block as EthersBlock,
   TransactionReceipt as EthersTransactionReceipt,
@@ -70,11 +70,11 @@ export function blockFromProviderBlock(
 
   return {
     hash: gethResult.hash,
-    blockHeight: BigNumber.from(blockNumber).toNumber(),
+    blockHeight: Number(toBigInt(blockNumber)),
     parentHash: gethResult.parentHash,
     // PoS networks will not have block difficulty.
     difficulty: gethResult.difficulty ? BigInt(gethResult.difficulty) : 0n,
-    timestamp: BigNumber.from(gethResult.timestamp).toNumber(),
+    timestamp: Number(toBigInt(gethResult.timestamp)),
     baseFeePerGas: gethResult.baseFeePerGas
       ? BigInt(gethResult.baseFeePerGas)
       : undefined,
@@ -214,20 +214,18 @@ export function unsignedTransactionFromEVMTransaction(
   const unsignedTransaction: UnsignedTransaction = {
     to: tx.to,
     nonce: tx.nonce,
-    gasLimit: BigNumber.from(tx.gasLimit),
+    gasLimit: toBigInt(tx.gasLimit!),
     data: tx.input || "",
-    value: BigNumber.from(tx.value),
+    value: toBigInt(tx.value!),
     chainId: parseInt(tx.network.chainID, 10),
     type: tx.type,
   }
 
   if (isEIP1559TransactionRequest(tx)) {
-    unsignedTransaction.maxFeePerGas = BigNumber.from(tx.maxFeePerGas)
-    unsignedTransaction.maxPriorityFeePerGas = BigNumber.from(
-      tx.maxPriorityFeePerGas
-    )
+    unsignedTransaction.maxFeePerGas = toBigInt(tx.maxFeePerGas)
+    unsignedTransaction.maxPriorityFeePerGas = toBigInt(tx.maxPriorityFeePerGas)
   } else if ("gasPrice" in tx) {
-    unsignedTransaction.gasPrice = BigNumber.from(tx?.gasPrice ?? 0)
+    unsignedTransaction.gasPrice = toBigInt(tx?.gasPrice ?? 0)
   }
   return unsignedTransaction
 }
@@ -239,18 +237,18 @@ export function ethersTransactionFromSignedTransaction(
     nonce: Number(tx.nonce),
     to: tx.to,
     data: tx.input || "",
-    gasPrice: tx.gasPrice ? BigNumber.from(tx.gasPrice) : undefined,
+    gasPrice: tx.gasPrice ? toBigInt(tx.gasPrice) : undefined,
     type: tx.type,
     chainId: parseInt(tx.network.chainID, 10),
-    value: BigNumber.from(tx.value),
-    gasLimit: BigNumber.from(tx.gasLimit),
+    value: toBigInt(tx.value),
+    gasLimit: toBigInt(tx.gasLimit),
   }
 
   if (isEIP1559SignedTransaction(tx))
     return {
       ...baseTx,
-      maxFeePerGas: BigNumber.from(tx.maxFeePerGas),
-      maxPriorityFeePerGas: BigNumber.from(tx.maxPriorityFeePerGas),
+      maxFeePerGas: toBigInt(tx.maxFeePerGas!),
+      maxPriorityFeePerGas: toBigInt(tx.maxPriorityFeePerGas!),
       r: tx.r,
       from: tx.from,
       s: tx.s,

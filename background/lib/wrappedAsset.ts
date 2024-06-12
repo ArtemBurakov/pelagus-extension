@@ -1,4 +1,5 @@
-import { BigNumber, ethers } from "ethers"
+import { ethers } from "ethers"
+import { toBigInt } from "quais"
 import { EventFragment, Fragment, FunctionFragment } from "ethers/lib/utils"
 import { EVMLog } from "../networks"
 import { HexString } from "../types"
@@ -65,7 +66,7 @@ export function parseLogsForWrappedDepositsAndWithdrawals(
         )
           return {
             contractAddress,
-            amount: (decodedDeposit.amount as BigNumber).toBigInt(),
+            amount: toBigInt(decodedDeposit.amount),
             recipientAddress: decodedDeposit.dst,
             senderAddress: contractAddress,
           }
@@ -85,7 +86,7 @@ export function parseLogsForWrappedDepositsAndWithdrawals(
         )
           return {
             contractAddress,
-            amount: (decodedWithdrawal.amount as BigNumber).toBigInt(),
+            amount: toBigInt(decodedWithdrawal.amount),
             recipientAddress: contractAddress,
             senderAddress: decodedWithdrawal.src,
           }

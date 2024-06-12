@@ -37,7 +37,7 @@ import classNames from "classnames"
 import { ReadOnlyAccountSigner } from "@pelagus/pelagus-background/services/signing"
 import { setSnackbarMessage } from "@pelagus/pelagus-background/redux-slices/ui"
 import { sameEVMAddress } from "@pelagus/pelagus-background/lib/utils"
-import { BigNumber } from "ethers"
+import { toBigInt } from "quais"
 import SharedAssetInput from "../components/Shared/SharedAssetInput"
 import SharedBackButton from "../components/Shared/SharedBackButton"
 import SharedButton from "../components/Shared/SharedButton"
@@ -75,10 +75,8 @@ export default function Send(): ReactElement {
   const [assetType, setAssetType] = useState<"token">("token")
 
   const [nonce, setNonce] = useState<number>(0)
-  const [maxFeePerGas, setMaxFeePerGas] = useState<BigNumber>(BigNumber.from(0))
-  const [maxPriorityFeePerGas, setMaxPriorityFeePerGas] = useState<BigNumber>(
-    BigNumber.from(0)
-  )
+  const [maxFeePerGas, setMaxFeePerGas] = useState(toBigInt(0))
+  const [maxPriorityFeePerGas, setMaxPriorityFeePerGas] = useState(toBigInt(0))
   const [gasLimit, setGasLimit] = useState<number>(100000)
 
   const [advancedVisible, setAdvancedVisible] = useState(false)
@@ -98,8 +96,8 @@ export default function Send(): ReactElement {
       })
     ).then(({ nonce, maxFeePerGas, maxPriorityFeePerGas }) => {
       setNonce(nonce)
-      setMaxFeePerGas(BigNumber.from(maxFeePerGas))
-      setMaxPriorityFeePerGas(BigNumber.from(maxPriorityFeePerGas))
+      setMaxFeePerGas(toBigInt(maxFeePerGas))
+      setMaxPriorityFeePerGas(toBigInt(maxPriorityFeePerGas))
     })
   }, [])
 
@@ -200,8 +198,8 @@ export default function Send(): ReactElement {
           accountSigner: currentAccountSigner,
           gasLimit: BigInt(gasLimit),
           nonce,
-          maxFeePerGas: maxFeePerGas.toBigInt(),
-          maxPriorityFeePerGas: maxPriorityFeePerGas.toBigInt(),
+          maxFeePerGas: maxFeePerGas,
+          maxPriorityFeePerGas: maxPriorityFeePerGas,
         })
       ).then((data) =>
         data?.success
@@ -384,7 +382,7 @@ export default function Send(): ReactElement {
                   placeholder={maxFeePerGas.toString()}
                   spellCheck={false}
                   onChange={(event) =>
-                    setMaxFeePerGas(BigNumber.from(event.target.value))
+                    setMaxFeePerGas(toBigInt(event.target.value))
                   }
                   className={classNames({
                     error: addressErrorMessage !== undefined,
@@ -403,7 +401,7 @@ export default function Send(): ReactElement {
                   placeholder={maxPriorityFeePerGas.toString()}
                   spellCheck={false}
                   onChange={(event) =>
-                    setMaxPriorityFeePerGas(BigNumber.from(event.target.value))
+                    setMaxPriorityFeePerGas(toBigInt(event.target.value))
                   }
                   className={classNames({
                     error: addressErrorMessage !== undefined,

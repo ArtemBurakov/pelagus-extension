@@ -2,7 +2,7 @@ import { Wallet } from "@quais/wallet"
 import { parseAndValidateSignedTransaction } from "./utils"
 import { parse as parseRawTransaction } from "@quais/transactions"
 import HDKeyring, { SerializedHDKeyring } from "@pelagus/hd-keyring"
-import { arrayify } from "ethers/lib/utils"
+import { getBytes } from "quais"
 import { normalizeEVMAddress, sameEVMAddress } from "../../lib/utils"
 import { ServiceCreatorFunction, ServiceLifecycleEvents } from "../types"
 import { getEncryptedVaults, writeLatestEncryptedVault } from "./storage"
@@ -845,12 +845,10 @@ export default class KeyringService extends BaseService<Events> {
       )
 
     try {
-      const messageBytes = arrayify(signingData)
-      const signature = isPrivateKey(signerWithType)
+      const messageBytes = getBytes(signingData)
+      return isPrivateKey(signerWithType)
         ? await signerWithType.signer.signMessage(messageBytes)
         : await signerWithType.signer.signMessageBytes(account, messageBytes)
-
-      return signature
     } catch (error) {
       throw new Error("Signing data failed")
     }

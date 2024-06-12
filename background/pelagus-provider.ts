@@ -1,12 +1,10 @@
-import { Deferrable } from "@ethersproject/properties"
 import {
   JsonRpcSigner,
   TransactionRequest,
   TransactionResponse,
   Web3Provider,
 } from "@ethersproject/providers"
-import { AccessList } from "@ethersproject/transactions"
-import { encodeJSON } from "./lib/utils"
+import { Deferrable } from "./types"
 import { toHexChainID, EVMNetwork } from "./networks"
 import { TransactionAnnotation } from "./services/enrichment"
 
@@ -31,16 +29,5 @@ export default class PelagusWeb3Provider extends Web3Provider {
     addressOrIndex?: string | number
   ): PelagusInternalJsonRpcSigner {
     return super.getSigner(addressOrIndex)
-  }
-
-  static override hexlifyTransaction(
-    transaction: TransactionRequest & { annotation?: TransactionAnnotation },
-    allowExtra?: { [key: string]: boolean }
-  ): { [key: string]: string | AccessList } {
-    const { annotation, ...transactionRequest } = transaction
-    return {
-      ...Web3Provider.hexlifyTransaction(transactionRequest, allowExtra),
-      annotation: encodeJSON(annotation),
-    }
   }
 }

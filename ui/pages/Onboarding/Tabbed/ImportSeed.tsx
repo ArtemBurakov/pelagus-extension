@@ -4,7 +4,7 @@ import {
   keyringNextPage,
 } from "@pelagus/pelagus-background/redux-slices/keyrings"
 import { Redirect, useHistory } from "react-router-dom"
-import { isValidMnemonic } from "@ethersproject/hdnode"
+import { Mnemonic } from "quais"
 import { FeatureFlags, isEnabled } from "@pelagus/pelagus-background/features"
 import { useTranslation } from "react-i18next"
 import { selectCurrentNetwork } from "@pelagus/pelagus-background/redux-slices/selectors"
@@ -70,7 +70,7 @@ export default function ImportSeed(props: Props): ReactElement {
       splitTrimmedRecoveryPhrase.length !== 24
     ) {
       setErrorMessage(t("errors.phraseLengthError"))
-    } else if (isValidMnemonic(plainRecoveryPhrase, es)) {
+    } else if (Mnemonic.isValidMnemonic(plainRecoveryPhrase, es)) {
       setIsImporting(true)
 
       const { success } = (await dispatch(

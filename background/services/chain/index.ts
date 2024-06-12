@@ -1,6 +1,5 @@
 import { TransactionReceipt, TransactionResponse } from "@quais/providers"
-import { BigNumber, utils } from "quais"
-import { Logger } from "quais/lib/utils"
+import { QuaiTransaction, toBigInt } from "quais"
 import logger from "../../lib/logger"
 import getBlockPrices from "../../lib/gas"
 import { HexString, NormalizedEVMAddress, UNIXTime } from "../../types"
@@ -8,14 +7,14 @@ import { AccountBalance, AddressOnNetwork } from "../../accounts"
 import {
   AnyEVMBlock,
   AnyEVMTransaction,
+  BlockPrices,
   EIP1559TransactionRequest,
   EVMNetwork,
-  BlockPrices,
-  TransactionRequest,
-  TransactionRequestWithNonce,
+  sameChainID,
   SignedTransaction,
   toHexChainID,
-  sameChainID,
+  TransactionRequest,
+  TransactionRequestWithNonce,
 } from "../../networks"
 import {
   AnyAssetAmount,
@@ -23,28 +22,27 @@ import {
   SmartContractFungibleAsset,
 } from "../../assets"
 import {
-  HOUR,
-  NETWORK_BY_CHAIN_ID,
-  MINUTE,
   CHAINS_WITH_MEMPOOL,
+  EIP_1559_COMPLIANT_CHAIN_IDS,
+  getProviderForGivenShard,
+  getShardFromAddress,
+  HOUR,
+  MINUTE,
+  NETWORK_BY_CHAIN_ID,
+  QUAI_NETWORK,
   SECOND,
   setProviderForShard,
-  getShardFromAddress,
-  QUAI_NETWORK,
-  getProviderForGivenShard,
-  EIP_1559_COMPLIANT_CHAIN_IDS,
 } from "../../constants"
 import PreferenceService from "../preferences"
 import { ServiceCreatorFunction, ServiceLifecycleEvents } from "../types"
-import { createDB, ChainDatabase, Transaction } from "./db"
+import { ChainDatabase, createDB, Transaction } from "./db"
 import BaseService from "../base"
 import {
   blockFromEthersBlock,
   blockFromProviderBlock,
   enrichTransactionWithReceipt,
-  ethersTransactionFromSignedTransaction,
-  transactionFromEthersTransaction,
   ethersTransactionFromTransactionRequest,
+  transactionFromEthersTransaction,
 } from "./utils"
 import { normalizeEVMAddress, sameEVMAddress } from "../../lib/utils"
 import type {
@@ -94,6 +92,8 @@ const GAS_POLLING_PERIOD = 5 // 5 minutes
 // Transactions with priority for individual accounts will keep the order of loading
 // from adding accounts.
 const TRANSACTIONS_WITH_PRIORITY_MAX_COUNT = 25
+
+const UNPREDICTABLE_GAS_LIMIT = "UNPREDICTABLE_GAS_LIMIT"
 
 interface Events extends ServiceLifecycleEvents {
   initializeActivities: {
@@ -192,7 +192,7 @@ export default class ChainService extends BaseService<Events> {
   /**
    * For each chain id, track an address's last seen nonce. The tracked nonce
    * should generally not be allocated to a new transaction, nor should any
-   * nonces that precede it, unless the intent is deliberately to replace an
+   * nonce's that precede it, unless the intent is deliberately to replace an
    * unconfirmed transaction sharing the same nonce.
    */
   private evmChainLastSeenNoncesByNormalizedAddress: {
@@ -545,10 +545,7 @@ export default class ChainService extends BaseService<Events> {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const anyError: any = error
 
-        if (
-          "code" in anyError &&
-          anyError.code === Logger.errors.UNPREDICTABLE_GAS_LIMIT
-        ) {
+        if ("code" in anyError && anyError.code === UNPREDICTABLE_GAS_LIMIT) {
           gasEstimationError = anyError.error ?? "Unknown transaction error."
         }
       }
@@ -627,10 +624,7 @@ export default class ChainService extends BaseService<Events> {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const anyError: any = error
 
-        if (
-          "code" in anyError &&
-          anyError.code === Logger.errors.UNPREDICTABLE_GAS_LIMIT
-        ) {
+        if ("code" in anyError && anyError.code === UNPREDICTABLE_GAS_LIMIT) {
           gasEstimationError = anyError.error ?? "Unknown transaction error."
         }
       }
@@ -663,24 +657,16 @@ export default class ChainService extends BaseService<Events> {
         maxPriorityFeePerGas = defaults.maxPriorityFeePerGas,
       } = partialRequest as EnrichedEIP1559TransactionSignatureRequest
 
-      const populated = await this.populatePartialEIP1559TransactionRequest(
-        network,
-        {
-          ...(partialRequest as EnrichedEIP1559TransactionSignatureRequest),
-          maxFeePerGas,
-          maxPriorityFeePerGas,
-        }
-      )
-      return populated
+      return await this.populatePartialEIP1559TransactionRequest(network, {
+        ...(partialRequest as EnrichedEIP1559TransactionSignatureRequest),
+        maxFeePerGas,
+        maxPriorityFeePerGas,
+      })
     }
     // Legacy Transaction
-    const populated = await this.populatePartialLegacyEVMTransactionRequest(
-      network,
-      {
-        ...(partialRequest as EnrichedLegacyTransactionRequest),
-      }
-    )
-    return populated
+    return await this.populatePartialLegacyEVMTransactionRequest(network, {
+      ...(partialRequest as EnrichedLegacyTransactionRequest),
+    })
   }
 
   /**
@@ -688,7 +674,7 @@ export default class ChainService extends BaseService<Events> {
    * that it is not yet populated. This process generates a new nonce based on
    * the known on-chain nonce state of the service, attempting to ensure that
    * the nonce will be unique and an increase by 1 over any other confirmed or
-   * pending nonces in the mempool.
+   * pending nonce's in the mempool.
    *
    * Returns the transaction request with a guaranteed-defined nonce, suitable
    * for signing by a signer.
@@ -714,7 +700,7 @@ export default class ChainService extends BaseService<Events> {
     let knownNextNonce
 
     // existingNonce handling only needed when there is a chance for it to
-    // be different from the onchain nonce. This can happen when a chain has
+    // be different from the on chain nonce. This can happen when a chain has
     // mempool. Note: This does not necessarily mean that the chain is EIP-1559
     // compliant.
     if (CHAINS_WITH_MEMPOOL.has(chainID)) {
@@ -729,10 +715,10 @@ export default class ChainService extends BaseService<Events> {
 
       this.evmChainLastSeenNoncesByNormalizedAddress[chainID] ??= {}
       // Use the network count, if needed. Note that the assumption here is that
-      // all nonces for this address are increasing linearly and continuously; if
+      // all nonce's for this address are increasing linearly and continuously; if
       // the address has a pending transaction floating around with a nonce that
       // is not an increase by one over previous transactions, this approach will
-      // allocate more nonces that won't mine.
+      // allocate more nonce's that won't mine.
       this.evmChainLastSeenNoncesByNormalizedAddress[chainID][
         normalizedAddress
       ] = Math.max(existingNonce, chainNonce)
@@ -765,8 +751,8 @@ export default class ChainService extends BaseService<Events> {
   /**
    * Releases the specified nonce for the given network and address. This
    * updates internal service state to allow that nonce to be reused. In cases
-   * where multiple nonces were seen in a row, this will make internally
-   * available for reuse all intervening nonces.
+   * where multiple nonce's were seen in a row, this will make internally
+   * available for reuse all intervening nonce's.
    */
   releaseEVMTransactionNonce(
     transactionRequest:
@@ -805,8 +791,8 @@ export default class ChainService extends BaseService<Events> {
         ] -= 1
       } else if (nonce < lastSeenNonce) {
         // If the nonce we're releasing is below the latest allocated nonce,
-        // release all intervening nonces. This risks transaction replacement
-        // issues, but ensures that we don't start allocating nonces that will
+        // release all intervening nonce's. This risks transaction replacement
+        // issues, but ensures that we don't start allocating nonce's that will
         // never mine (because they will all be higher than the
         // now-released-and-therefore-never-broadcast nonce).
         this.evmChainLastSeenNoncesByNormalizedAddress[chainID][
@@ -874,7 +860,7 @@ export default class ChainService extends BaseService<Events> {
       globalThis.main.SetShard(addrShard)
     }
     let err = false
-    let balance = BigNumber.from(0)
+    let balance = toBigInt(0)
     const provider = getProviderForGivenShard(
       this.providers.evm[network.chainID],
       addrShard
@@ -915,7 +901,7 @@ export default class ChainService extends BaseService<Events> {
       assetAmount: {
         // Data stored in chain db for network base asset might be stale
         asset: await this.db.getBaseAssetForNetwork(network.chainID),
-        amount: balance.toBigInt(),
+        amount: balance,
       },
       dataSource: "local", // TODO do this properly (eg provider isn't Alchemy)
       retrievedAt: Date.now(),
@@ -1014,6 +1000,7 @@ export default class ChainService extends BaseService<Events> {
    * returning the object.
    *
    * @param network the EVM network we're interested in
+   * @param shard
    * @param blockHash the hash of the block we're interested in
    */
   async getBlockDataExternal(
@@ -1026,7 +1013,7 @@ export default class ChainService extends BaseService<Events> {
 
     // Convert shard string. Map 0 to cyprus, 1 to paxos, 2 to hydra
     // zone-0-0 should become cyprus-1
-    // zone-1-2 shoule become paxos-3
+    // zone-1-2 should become paxos-3
     // zone-2-1 should become hydra-2
     const regionNames = ["cyprus", "paxos", "hydra"]
     const shardSplit = shard.split("-")
@@ -1089,6 +1076,7 @@ export default class ChainService extends BaseService<Events> {
    *
    * @param network the EVM network we're interested in
    * @param txHash the hash of the ITX (that emits 1 ETX) transaction we're interested in
+   * @param destinationShard
    */
   async getETX(
     network: EVMNetwork,
@@ -1223,6 +1211,7 @@ export default class ChainService extends BaseService<Events> {
   /**
    * Checks if a transaction with a given hash on a network is in the queue or not.
    *
+   * @param txNetwork
    * @param txHash The hash of a tx to check.
    * @returns true if the tx hash is in the queue, false otherwise.
    */
@@ -1290,10 +1279,7 @@ export default class ChainService extends BaseService<Events> {
     transaction: SignedTransaction
   ): Promise<void> {
     try {
-      const serialized = utils.serializeTransaction(
-        ethersTransactionFromSignedTransaction(transaction),
-        { r: transaction.r, s: transaction.s, v: transaction.v }
-      )
+      const serialized = new QuaiTransaction(transaction.from).serialized
 
       await Promise.all([
         this.providerForNetworkOrThrow(transaction.network)
@@ -1370,7 +1356,7 @@ export default class ChainService extends BaseService<Events> {
 
   /*
    * Periodically fetch block prices and emit an event whenever new data is received
-   * Write block prices to IndexedDB so we have them for later
+   * Write block prices to IndexedDB, so we have them for later
    */
   async pollBlockPrices(): Promise<void> {
     // Schedule next N polls at even interval
@@ -1429,7 +1415,7 @@ export default class ChainService extends BaseService<Events> {
     await this.db.addBlock(block)
     // emit the new block, don't wait to settle
     this.emitter.emit("block", block)
-    // TODO if it matches a known blockheight and the difficulty is higher,
+    // TODO if it matches a known block height and the difficulty is higher,
     // emit a reorg event
   }
 
@@ -1553,6 +1539,9 @@ export default class ChainService extends BaseService<Events> {
    * any related transactions and blocks.
    *
    * @param addressOnNetwork the address and network whose asset transfers we need
+   * @param startBlock
+   * @param endBlock
+   * @param incomingOnly
    */
   private async loadAssetTransfers(
     addressOnNetwork: AddressOnNetwork,
@@ -1929,7 +1918,7 @@ export default class ChainService extends BaseService<Events> {
       // nonce, and the pending transaction has a higher nonce, update our
       // view of it. This helps reduce the number of times when a
       // transaction submitted outside of this wallet causes this wallet to
-      // produce bad transactions with reused nonces.
+      // produce bad transactions with reused nonce's.
       if (
         typeof network.chainID !== "undefined" &&
         typeof this.evmChainLastSeenNoncesByNormalizedAddress[

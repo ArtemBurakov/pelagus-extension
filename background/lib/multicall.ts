@@ -1,8 +1,6 @@
-import { BigNumber } from "ethers"
-
 // Forked from https://github.com/joshstevens19/ethereum-multicall
 export interface AggregateContractResponse {
-  blockNumber: BigNumber
+  blockNumber: BigInt
   returnData: Array<{
     success: true
     returnData: string

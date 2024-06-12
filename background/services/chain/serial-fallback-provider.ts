@@ -1,19 +1,15 @@
 import {
-  EventType,
-  JsonRpcProvider,
+  hexlify,
+  ProviderEvent,
   Listener,
+  JsonRpcProvider,
   WebSocketProvider,
-} from "@ethersproject/providers"
+} from "quais"
 import {
-  JsonRpcProvider as QuaisJsonRpcProvider,
-  WebSocketProvider as QuaisWebSocketProvider,
-} from "@quais/providers"
-import { utils } from "ethers"
-import {
-  SECOND,
-  ShardFromRpcUrl,
-  setProviderForShard,
   NETWORK_BY_CHAIN_ID,
+  SECOND,
+  setProviderForShard,
+  ShardFromRpcUrl,
 } from "../../constants"
 import logger from "../../lib/logger"
 import { AnyEVMTransaction } from "../../networks"
@@ -33,8 +29,8 @@ const WAIT_BEFORE_SUBSCRIBING = 2 * SECOND
 // Wait 100ms before attempting another send if a websocket provider is still connecting.
 const WAIT_BEFORE_SEND_AGAIN = 100
 // How long before a cached balance is considered stale
-const BALANCE_TTL = 1 * SECOND
-// How often to cleanup our hasCode and balance caches.
+const BALANCE_TTL = SECOND
+// How often to clean up our hasCode and balance caches.
 const CACHE_CLEANUP_INTERVAL = 10 * SECOND
 /**
  * Wait the given number of ms, then run the provided function. Returns a
@@ -109,29 +105,23 @@ function isConnectingWebSocketProvider(provider: JsonRpcProvider): boolean {
  * through a series of providers in case previous ones fail.
  *
  * In case of server errors, this provider attempts a number of exponential
- * backoffs and retries before falling back to the next provider in the list.
+ * backoff and retries before falling back to the next provider in the list.
  * WebSocketProviders in the list are checked for WebSocket connections, and
  * attempt reconnects if the underlying WebSocket disconnects.
  *
  * Additionally, subscriptions are tracked and, if the current provider is a
  * WebSocket provider, they are restored on reconnect.
  */
-export default class SerialFallbackProvider extends QuaisJsonRpcProvider {
-  // Functions that will create and initialize a new provider, in priority
-  // order.
+export default class SerialFallbackProvider extends JsonRpcProvider {
+  // Functions that will create and initialize a new provider, in priority order.
   public providerCreators: Array<{
     type: "generic" | "Quai"
     shard?: string
     rpcUrl?: string
-    creator: () =>
-      | WebSocketProvider
-      | JsonRpcProvider
-      | QuaisJsonRpcProvider
-      | QuaisWebSocketProvider
+    creator: () => JsonRpcProvider | WebSocketProvider
   }>
 
-  // The currently-used provider, produced by the provider-creator at
-  // currentProviderIndex.
+  // The currently-used provider, produced by the provider-creator at currentProviderIndex.
   private currentProvider: JsonRpcProvider
   private backoffUrlsToTime: Map<string, number>
   private urlsReadyForReconnect: Map<string, boolean>
@@ -151,11 +141,7 @@ export default class SerialFallbackProvider extends QuaisJsonRpcProvider {
   } = {}
 
   public SetCurrentProvider: (
-    provider:
-      | WebSocketProvider
-      | JsonRpcProvider
-      | QuaisJsonRpcProvider
-      | QuaisWebSocketProvider,
+    provider: JsonRpcProvider | WebSocketProvider,
     index: number
   ) => void
 
@@ -205,24 +191,20 @@ export default class SerialFallbackProvider extends QuaisJsonRpcProvider {
   // Information on event subscriptions, which can be restored on non-WebSocket
   // subscriptions and WebSocket subscriptions both.
   private eventSubscriptions: {
-    eventName: EventType
+    eventName: ProviderEvent
     listener: Listener | (Listener & { wrappedListener: Listener })
     once: boolean
   }[] = []
 
   constructor(
     // Internal network type useful for helper calls, but not exposed to avoid
-    // clashing with Ethers's own `network` stuff.
+    // clashing with Quais own `network` stuff.
     private chainID: string,
     providerCreators: Array<{
       type: "generic" | "Quai"
       shard?: string
       rpcUrl?: string
-      creator: () =>
-        | WebSocketProvider
-        | JsonRpcProvider
-        | QuaisJsonRpcProvider
-        | QuaisWebSocketProvider
+      creator: () => JsonRpcProvider | WebSocketProvider
     }>
   ) {
     const [firstProviderCreator, ...remainingProviderCreators] =
@@ -242,14 +224,10 @@ export default class SerialFallbackProvider extends QuaisJsonRpcProvider {
       this.cleanupStaleCacheEntries()
     }, CACHE_CLEANUP_INTERVAL)
 
-    this.cachedChainId = utils.hexlify(Number(chainID))
+    this.cachedChainId = hexlify(chainID)
     this.providerCreators = providerCreators
     this.SetCurrentProvider = (
-      provider:
-        | WebSocketProvider
-        | JsonRpcProvider
-        | QuaisJsonRpcProvider
-        | QuaisWebSocketProvider,
+      provider: JsonRpcProvider | WebSocketProvider,
       index: number
     ) => {
       this.currentProvider = provider
@@ -367,7 +345,7 @@ export default class SerialFallbackProvider extends QuaisJsonRpcProvider {
   /**
    * A method that caches calls to eth_getCode and eth_getBalance
    *
-   * @param result result of a successful call to an rpc provider
+   * @param result result of a successful call to a rpc provider
    * @param method rpc method sent to the rpc provider
    * @param params corresponding rpc params sent to the rpc provider
    */
@@ -432,7 +410,7 @@ export default class SerialFallbackProvider extends QuaisJsonRpcProvider {
     const hasCodeCache = Object.keys(this.latestHasCodeCache)
     if (balanceCache.length > 0) {
       logger.info(
-        `Cleaning up ${this.network.chainId} balance cache, ${balanceCache.length} entries`
+        `Cleaning up ${this._network.chainId} balance cache, ${balanceCache.length} entries`
       )
       const now = Date.now()
       balanceCache.forEach(([address, balance]) => {
@@ -444,7 +422,7 @@ export default class SerialFallbackProvider extends QuaisJsonRpcProvider {
 
     if (hasCodeCache.length > 0) {
       logger.info(
-        `Cleaning up ${this.network.chainId} hasCode cache, ${hasCodeCache.length} entries`
+        `Cleaning up ${this._network.chainId} hasCode cache, ${hasCodeCache.length} entries`
       )
 
       this.latestHasCodeCache = {}
@@ -570,11 +548,11 @@ export default class SerialFallbackProvider extends QuaisJsonRpcProvider {
   }
 
   /**
-   * Behaves the same as the `JsonRpcProvider` `on` method, but also trakcs the
+   * Behaves the same as the `JsonRpcProvider` `on` method, but also tracks the
    * event subscription so that an underlying provider failure will not prevent
    * it from firing.
    */
-  override on(eventName: EventType, listener: Listener): this {
+  override(eventName: ProviderEvent, listener: Listener): this {
     this.eventSubscriptions.push({
       eventName,
       listener,
@@ -587,11 +565,11 @@ export default class SerialFallbackProvider extends QuaisJsonRpcProvider {
   }
 
   /**
-   * Behaves the same as the `JsonRpcProvider` `once` method, but also trakcs
+   * Behaves the same as the `JsonRpcProvider` `once` method, but also tracks
    * the event subscription so that an underlying provider failure will not
    * prevent it from firing.
    */
-  override once(eventName: EventType, listener: Listener): this {
+  override once(eventName: ProviderEvent, listener: Listener): this {
     const adjustedListener = this.listenerWithCleanup(eventName, listener)
 
     this.eventSubscriptions.push({
@@ -610,7 +588,7 @@ export default class SerialFallbackProvider extends QuaisJsonRpcProvider {
    *
    * Ensures these will not be restored during a reconnect.
    */
-  override off(eventName: EventType, listenerToRemove?: Listener): this {
+  override off(eventName: ProviderEvent, listenerToRemove?: Listener): this {
     this.eventSubscriptions = this.eventSubscriptions.filter(
       ({ eventName: savedEventName, listener: savedListener }) => {
         if (savedEventName === eventName) {
@@ -646,7 +624,7 @@ export default class SerialFallbackProvider extends QuaisJsonRpcProvider {
    * which are done via polling. In these cases, if the provider became
    * available again, even if it was no longer the current provider, it would
    * start calling its event handlers again; disconnecting in this way
-   * unsubscribes all those event handlers so they can be attached to the new
+   * unsubscribes all those event handlers, so they can be attached to the new
    * current provider.
    */
   private disconnectCurrentProvider() {
@@ -673,7 +651,7 @@ export default class SerialFallbackProvider extends QuaisJsonRpcProvider {
    * cleanup to ensure it won't be resubscribed in case of a provider switch.
    */
   private listenerWithCleanup(
-    eventName: EventType,
+    eventName: ProviderEvent,
     listenerToWrap: Listener
   ): Listener & { wrappedListener: Listener } {
     const wrappedListener = (
@@ -771,7 +749,7 @@ export default class SerialFallbackProvider extends QuaisJsonRpcProvider {
           BASE_BACKOFF_MS
         )
       } else if (!err) {
-        // Set a backoff anyways
+        // Set a backoff anyway
         const prevBackoffTime =
           this.backoffUrlsToTime.get(this.currentProvider.connection.url) ??
           BASE_BACKOFF_MS
@@ -937,7 +915,7 @@ export default class SerialFallbackProvider extends QuaisJsonRpcProvider {
 
   /**
    * @param messageId The unique identifier of a given message
-   * @returns number of miliseconds to backoff
+   * @returns number of milliseconds to backoff
    */
   private backoffFor(messageId: symbol): number {
     this.messagesToSend[messageId].backoffCount += 1
@@ -966,9 +944,7 @@ export default class SerialFallbackProvider extends QuaisJsonRpcProvider {
    */
   private shouldSendMessageOnNextProvider(messageId: symbol): boolean {
     const { backoffCount } = this.messagesToSend[messageId]
-    if (backoffCount && backoffCount >= MAX_RETRIES_PER_PROVIDER) return true
-
-    return false
+    return !!(backoffCount && backoffCount >= MAX_RETRIES_PER_PROVIDER)
   }
 }
 
@@ -982,24 +958,17 @@ export function makeSerialFallbackProvider(
         creator: () => {
           const url = new URL(rpcUrl)
           if (globalThis.main.UrlToProvider.has(rpcUrl)) {
-            const provider = globalThis.main.UrlToProvider.get(rpcUrl) as
-              | WebSocketProvider
+            return globalThis.main.UrlToProvider.get(rpcUrl) as
               | JsonRpcProvider
-              | QuaisJsonRpcProvider
-              | QuaisWebSocketProvider
-            return provider
+              | WebSocketProvider
           }
           console.log("Provider not found in map, creating new provider...")
 
-          let provider:
-            | WebSocketProvider
-            | JsonRpcProvider
-            | QuaisJsonRpcProvider
-            | QuaisWebSocketProvider
+          let provider: JsonRpcProvider | WebSocketProvider
           if (/^wss?/.test(url.protocol)) {
-            provider = new QuaisWebSocketProvider(rpcUrl)
+            provider = new WebSocketProvider(rpcUrl)
           }
-          provider = new QuaisJsonRpcProvider(rpcUrl)
+          provider = new JsonRpcProvider(rpcUrl)
           globalThis.main.UrlToProvider.set(rpcUrl, provider)
           return provider
         },

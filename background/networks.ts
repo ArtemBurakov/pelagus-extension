@@ -202,8 +202,8 @@ export function isKnownTxType(arg: unknown): arg is KnownTxTypes {
 export type EIP1559Transaction = EVMTransaction & {
   gasPrice: null
   type: KnownTxTypes
-  maxFeePerGas: bigint
-  maxPriorityFeePerGas: bigint
+  maxFeePerGas: bigint & BigInt
+  maxPriorityFeePerGas: bigint & BigInt
 }
 
 /**

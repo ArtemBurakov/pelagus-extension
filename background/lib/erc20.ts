@@ -1,5 +1,5 @@
 import { BaseProvider } from "@quais/providers"
-import { BigNumber, quais } from "quais"
+import { toBigInt, quais, Interface } from "quais"
 import {
   EventFragment,
   Fragment,
@@ -58,7 +58,7 @@ export const ERC20_ABI = Object.values<Fragment>(ERC20_FUNCTIONS).concat(
   Object.values(ERC20_EVENTS)
 )
 
-export const ERC20_INTERFACE = new quais.utils.Interface(ERC20_ABI)
+export const ERC20_INTERFACE = new Interface(ERC20_ABI)
 
 /*
  * Get an account's balance from an ERC20-compliant contract.
@@ -167,7 +167,7 @@ export function parseLogsForERC20Transfers(logs: EVMLog[]): ERC20TransferLog[] {
 
         return {
           contractAddress,
-          amount: (decoded.amount as BigNumber).toBigInt(),
+          amount: toBigInt(decoded.amount),
           senderAddress: decoded.from,
           recipientAddress: decoded.to,
         }
@@ -210,7 +210,7 @@ export const getTokenBalances = async (
     if (data.returnData === "0x00" || data.returnData === "0x") return []
 
     return {
-      amount: BigInt(BigNumber.from(data.returnData).toString()),
+      amount: toBigInt(data.returnData).toString(),
       smartContract: {
         contractAddress: tokenAddresses[i],
         homeNetwork: network,
