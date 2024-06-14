@@ -1,4 +1,3 @@
-import { getShardFromAddress } from "quais/lib/utils"
 import {
   AnyEVMBlock,
   AnyEVMTransaction,
@@ -35,6 +34,7 @@ import {
   parseLogsForERC20Transfers,
 } from "../../lib/erc20"
 import { isDefined, isFulfilledPromise } from "../../lib/utils/type-guards"
+import { getExtendedZoneForAddress } from "../chain/utils"
 
 async function buildSubannotations(
   chainService: ChainService,
@@ -85,8 +85,8 @@ async function buildSubannotations(
 
           return {
             type:
-              getShardFromAddress(senderAddress) !==
-              getShardFromAddress(recipientAddress)
+              getExtendedZoneForAddress(senderAddress, false) !==
+              getExtendedZoneForAddress(recipientAddress, false)
                 ? ("external-transfer" as const)
                 : ("asset-transfer" as const),
             assetAmount: enrichAssetAmountWithDecimalValues(
@@ -299,12 +299,12 @@ export default async function resolveTransactionAnnotation(
       useDestinationShard && transaction.to
         ? await chainService.getBlockDataExternal(
             network,
-            getShardFromAddress(transaction.to),
+            getExtendedZoneForAddress(transaction.to),
             blockHash
           )
         : await chainService.getBlockDataExternal(
             network,
-            getShardFromAddress(transaction.from),
+            getExtendedZoneForAddress(transaction.from),
             blockHash
           )
     txAnnotation = {

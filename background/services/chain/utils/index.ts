@@ -1,4 +1,4 @@
-import { toBigInt } from "quais"
+import { getZoneForAddress, toBigInt, Zone } from "quais"
 import {
   Block as EthersBlock,
   TransactionReceipt as EthersTransactionReceipt,
@@ -346,4 +346,32 @@ export function transactionFromEthersTransaction(
     return signedTx
   }
   return newTx
+}
+
+export const getExtendedZoneForAddress = (
+  address: string,
+  inHumanForm = true,
+  capitalizeFirstLetter = false
+): string => {
+  const zone = getZoneForAddress(address)
+
+  if (!zone) return ""
+  if (!inHumanForm) return zone
+
+  for (let i = 0; i < Object.entries(Zone).length; i + 1) {
+    const [key, enumValue] = Object.entries(Zone)[i]
+    if (enumValue === zone) {
+      const match = key.match(/([a-zA-Z]+)(\d+)/)
+
+      if (match) {
+        const [, letters, number] = match
+
+        return capitalizeFirstLetter
+          ? `${letters}-${number}`
+          : `${letters.toLowerCase()}-${number}`
+      }
+    }
+  }
+
+  return ""
 }

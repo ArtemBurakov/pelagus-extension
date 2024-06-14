@@ -25,7 +25,6 @@ import {
   CHAINS_WITH_MEMPOOL,
   EIP_1559_COMPLIANT_CHAIN_IDS,
   getProviderForGivenShard,
-  getShardFromAddress,
   HOUR,
   MINUTE,
   NETWORK_BY_CHAIN_ID,
@@ -42,6 +41,7 @@ import {
   blockFromProviderBlock,
   enrichTransactionWithReceipt,
   ethersTransactionFromTransactionRequest,
+  getExtendedZoneForAddress,
   transactionFromEthersTransaction,
 } from "./utils"
 import { normalizeEVMAddress, sameEVMAddress } from "../../lib/utils"
@@ -854,7 +854,7 @@ export default class ChainService extends BaseService<Events> {
   }: AddressOnNetwork): Promise<AccountBalance> {
     const normalizedAddress = normalizeEVMAddress(address)
     const prevShard = globalThis.main.SelectedShard
-    const addrShard = getShardFromAddress(address)
+    const addrShard = getExtendedZoneForAddress(address)
     if (globalThis.main.SelectedShard !== addrShard) {
       // Ideally this never happens, but it might
       globalThis.main.SetShard(addrShard)

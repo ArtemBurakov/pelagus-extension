@@ -9,7 +9,7 @@ import { Activity } from "@pelagus/pelagus-background/redux-slices/activities"
 import SharedAssetIcon from "../Shared/SharedAssetIcon"
 import SharedActivityIcon from "../Shared/SharedActivityIcon"
 import useActivityViewDetails from "../../hooks/activity-hooks"
-import { getShardFromAddress } from "../../../background/constants"
+import { getExtendedZoneForAddress } from "@pelagus/pelagus-background/services/chain/utils"
 
 interface Props {
   onClick: () => void
@@ -80,8 +80,8 @@ export default function WalletActivityListItem(props: Props): ReactElement {
             {activity.status == 2 ||
             (activity.blockHash !== null &&
               activity.to &&
-              getShardFromAddress(activity.from) ==
-                getShardFromAddress(activity.to)) ? (
+              getExtendedZoneForAddress(activity.from, false) ===
+                getExtendedZoneForAddress(activity.to, false)) ? (
               <div className="status settled">{t("transactionSettled")}</div>
             ) : (
               <></>
@@ -89,8 +89,8 @@ export default function WalletActivityListItem(props: Props): ReactElement {
             {activity.blockHash !== null &&
             activity.to &&
             activity.status == 1 &&
-            getShardFromAddress(activity.from) !==
-              getShardFromAddress(activity.to) ? (
+            getExtendedZoneForAddress(activity.from, false) !==
+              getExtendedZoneForAddress(activity.to, false) ? (
               <div className="status approved">{t("transactionApproved")}</div>
             ) : (
               <></>

@@ -1,4 +1,3 @@
-import { getShardFromAddress } from "quais/lib/utils"
 import { EIP2612SignTypedDataAnnotation, EnrichedEVMTransaction } from "./types"
 import { EIP712TypedData, HexString } from "../../types"
 import { EIP2612TypedData } from "../../utils/signing"
@@ -7,6 +6,7 @@ import { normalizeEVMAddress, sameEVMAddress } from "../../lib/utils"
 import { AddressOnNetwork } from "../../accounts"
 import dayjs from "dayjs"
 import { SmartContractFungibleAsset } from "../../assets"
+import { getExtendedZoneForAddress } from "../chain/utils"
 
 export function isEIP2612TypedData(
   typedData: EIP712TypedData
@@ -136,7 +136,8 @@ export function getRelevantTransactionAddresses(
 
   if (
     recipientAddress &&
-    getShardFromAddress(senderAddress) === getShardFromAddress(recipientAddress)
+    getExtendedZoneForAddress(senderAddress, false) ===
+      getExtendedZoneForAddress(recipientAddress, false)
   ) {
     // If sender and recipient are on the same shard, return both accounts
     const result = trackedAccounts

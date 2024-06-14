@@ -1,4 +1,3 @@
-import { getShardFromAddress } from "quais/lib/utils"
 import { assetAmountToDesiredDecimals } from "../../assets"
 import {
   convertToEth,
@@ -12,6 +11,7 @@ import { Transaction } from "../../services/chain/db"
 import { EnrichedEVMTransaction } from "../../services/enrichment"
 import { getRecipient, getSender } from "../../services/enrichment/utils"
 import { HexString } from "../../types"
+import { getExtendedZoneForAddress } from "../../services/chain/utils"
 
 enum TxStatus {
   FAIL = 0,
@@ -190,7 +190,9 @@ const getAnnotationType = (transaction: Transaction) => {
     typeof transaction.input === "undefined"
   ) {
     annotation =
-      to && getShardFromAddress(to) !== getShardFromAddress(from)
+      to &&
+      getExtendedZoneForAddress(to, false) !==
+        getExtendedZoneForAddress(from, false)
         ? "external-transfer"
         : "asset-transfer"
   }

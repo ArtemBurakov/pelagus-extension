@@ -18,7 +18,8 @@ import {
 } from "./multicall"
 import logger from "./logger"
 import SerialFallbackProvider from "../services/chain/serial-fallback-provider"
-import { ShardToMulticall, getShardFromAddress } from "../constants"
+import { ShardToMulticall } from "../constants"
+import { getExtendedZoneForAddress } from "../services/chain/utils"
 
 export const ERC20_FUNCTIONS = {
   allowance: FunctionFragment.from(
@@ -187,7 +188,10 @@ export const getTokenBalances = async (
     CHAIN_SPECIFIC_MULTICALL_CONTRACT_ADDRESSES[network.chainID] ||
     MULTICALL_CONTRACT_ADDRESS
   if (network.isQuai) {
-    multicallAddress = ShardToMulticall(getShardFromAddress(address), network)
+    multicallAddress = ShardToMulticall(
+      getExtendedZoneForAddress(address),
+      network
+    )
   }
 
   const contract = new quais.Contract(multicallAddress, MULTICALL_ABI, provider)
@@ -198,8 +202,9 @@ export const getTokenBalances = async (
   const response = (await contract.callStatic.tryBlockAndAggregate(
     false, // false === don't require all calls to succeed
     tokenAddresses.map((tokenAddress) =>
-      tokenAddress != "" &&
-      getShardFromAddress(address) == getShardFromAddress(tokenAddress)
+      tokenAddress &&
+      getExtendedZoneForAddress(address, false) ===
+        getExtendedZoneForAddress(tokenAddress, false)
         ? [tokenAddress, balanceOfCallData]
         : []
     )

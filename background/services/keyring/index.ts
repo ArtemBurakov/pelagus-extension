@@ -16,10 +16,12 @@ import { HexString, KeyringTypes, EIP712TypedData, UNIXTime } from "../../types"
 import { SignedTransaction, TransactionRequestWithNonce } from "../../networks"
 import BaseService from "../base"
 import { MINUTE } from "../../constants"
-import { ethersTransactionFromTransactionRequest } from "../chain/utils"
+import {
+  ethersTransactionFromTransactionRequest,
+  getExtendedZoneForAddress,
+} from "../chain/utils"
 import { AddressOnNetwork } from "../../accounts"
 import logger from "../../lib/logger"
-import { getShardFromAddress } from "../../redux-slices/selectors"
 
 export const MAX_KEYRING_IDLE_TIME = 60 * MINUTE
 export const MAX_OUTSIDE_IDLE_TIME = 60 * MINUTE
@@ -453,7 +455,7 @@ export default class KeyringService extends BaseService<Events> {
     const DEFAULT_SHARD = "cyprus-1"
     while (!found) {
       address = newKeyring.addAddressesSync(1)[0]
-      const shardFromAddress = getShardFromAddress(address)
+      const shardFromAddress = getExtendedZoneForAddress(address)
       if (
         shardFromAddress !== undefined &&
         shardFromAddress === DEFAULT_SHARD
@@ -611,7 +613,7 @@ export default class KeyringService extends BaseService<Events> {
       if (!isHidden) {
         continue
       }
-      const shardFromAddress = getShardFromAddress(address)
+      const shardFromAddress = getExtendedZoneForAddress(address)
       if (shardFromAddress !== undefined) {
         if (
           shardFromAddress === shard &&
@@ -627,7 +629,7 @@ export default class KeyringService extends BaseService<Events> {
 
     while (!found) {
       newAddress = keyring.addAddressesSync(1)[0]
-      const shardFromAddress = getShardFromAddress(newAddress)
+      const shardFromAddress = getExtendedZoneForAddress(newAddress)
       if (shardFromAddress !== undefined) {
         // Check if address is in correct shard
         if (shardFromAddress === shard) {

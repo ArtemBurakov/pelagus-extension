@@ -7,6 +7,7 @@ import {
   WebSocketProvider as QuaisWebSocketProvider,
 } from "@quais/providers"
 import SerialFallbackProvider from "../services/chain/serial-fallback-provider"
+import { getExtendedZoneForAddress } from "../services/chain/utils"
 
 export const VALID_SHARDS: Array<string> = [
   "cyprus-1",
@@ -378,20 +379,6 @@ export const CHAIN_ID_TO_RPC_URLS: {
   ],
 }
 
-export const getShardFromAddress = function (address: string): string {
-  if (address === "") return "cyprus-1"
-
-  const shardData = QUAI_CONTEXTS.filter((obj) => {
-    const num = Number(address.substring(0, 4))
-    const start = Number(`0x${obj.byte[0]}`)
-    const end = Number(`0x${obj.byte[1]}`)
-    return num >= start && num <= end
-  })
-  if (shardData.length === 0) throw new Error("Invalid address")
-
-  return shardData[0].shard
-}
-
 export function setProviderForShard(
   providers: SerialFallbackProvider
 ): SerialFallbackProvider {
@@ -506,7 +493,7 @@ export function CurrentShardToExplorer(
 ): string {
   let currentShard = ""
   if (address !== undefined) {
-    currentShard = getShardFromAddress(address)
+    currentShard = getExtendedZoneForAddress(address)
   } else {
     if (
       globalThis.main.SelectedShard === undefined ||

@@ -29,10 +29,7 @@ import {
   sameEVMAddress,
   truncateAddress,
 } from "../../lib/utils"
-import {
-  getShardFromAddress,
-  selectAccountSignersByAddress,
-} from "./signingSelectors"
+import { selectAccountSignersByAddress } from "./signingSelectors"
 import {
   selectKeyringsByAddresses,
   selectSourcesByAddress,
@@ -42,6 +39,7 @@ import { EVMNetwork, sameNetwork } from "../../networks"
 import { AccountSigner, SignerType } from "../../services/signing"
 import { assertUnreachable } from "../../lib/utils/type-guards"
 import { SignerImportSource } from "../../services/keyring"
+import { getExtendedZoneForAddress } from "../../services/chain/utils"
 
 // TODO What actual precision do we want here? Probably more than 2
 // TODO decimals? Maybe it's configurable?
@@ -259,8 +257,8 @@ export const selectCurrentAccountBalances = createSelector(
         }
         if (
           !isInCombined &&
-          getShardFromAddress(firstAsset.contractAddress) ==
-            getShardFromAddress(currentAccount.address)
+          getExtendedZoneForAddress(firstAsset.contractAddress, false) ===
+            getExtendedZoneForAddress(currentAccount.address, false)
         ) {
           combinedAssetAmounts.push(allAssetAmounts[i])
         }
@@ -403,7 +401,7 @@ function getNetworkAccountTotalsByCategory(
           accountSigner,
         }
 
-      const shard = getShardFromAddress(address)
+      const shard = getExtendedZoneForAddress(address)
       const { customAccountData, defaultName, balances, defaultAvatar } =
         accountData
       const name = `${customAccountData.name ?? defaultName} (${shard})`

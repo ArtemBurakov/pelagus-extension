@@ -9,7 +9,7 @@ import { AccountSignerWithId } from "../signing"
 import { AccountSignerSettings } from "../ui"
 import { AccountState, addAddressNetwork } from "./accounts"
 import { createBackgroundAsyncThunk } from "./utils"
-import { getShardFromAddress } from "./selectors"
+import { getExtendedZoneForAddress } from "../services/chain/utils"
 
 export const defaultSettings = {
   hideDust: false,
@@ -158,7 +158,7 @@ const uiSlice = createSlice({
       immerState,
       { payload: addressNetwork }: { payload: AddressOnNetwork }
     ) => {
-      const shard = getShardFromAddress(addressNetwork.address)
+      const shard = getExtendedZoneForAddress(addressNetwork.address)
       globalThis.main.SetShard(shard)
       // TODO: Potentially call getLatestBaseAccountBalance here
       immerState.selectedAccount = addressNetwork
@@ -315,7 +315,7 @@ export const setNewNetworkConnectError = createBackgroundAsyncThunk(
 export const setNewSelectedAccount = createBackgroundAsyncThunk(
   "ui/setNewCurrentAddressValue",
   async (addressNetwork: AddressOnNetwork, { dispatch }) => {
-    const shard = getShardFromAddress(addressNetwork.address)
+    const shard = getExtendedZoneForAddress(addressNetwork.address)
     globalThis.main.SetShard(shard)
     globalThis.main.chainService.getLatestBaseAccountBalance(addressNetwork)
     await emitter.emit("newSelectedAccount", addressNetwork)

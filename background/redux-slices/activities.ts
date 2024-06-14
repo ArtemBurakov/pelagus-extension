@@ -19,7 +19,7 @@ import {
   ActivityDetail,
   INFINITE_VALUE,
 } from "./utils/activities-utils"
-import { getShardFromAddress } from "../constants"
+import { getExtendedZoneForAddress } from "../services/chain/utils"
 
 export { Activity, ActivityDetail, INFINITE_VALUE }
 export type Activities = {
@@ -48,8 +48,8 @@ const addActivityToState =
   ) => {
     const isEtx =
       transaction.to &&
-      getShardFromAddress(transaction.from) !==
-        getShardFromAddress(transaction.to)
+      getExtendedZoneForAddress(transaction.from, false) !==
+        getExtendedZoneForAddress(transaction.to, false)
     // Don't add TX if it's an ETX and it's not from the null address, this will lead to duplicate transactions
     // Example: 0xCyprus1 -> 0xCyprus2 (TX1) generates an ITX on Cyprus2 which is 0x00000 -> 0xCyprus2 (TX2)
     // 0xCyprus1 Activities: TX1
@@ -115,7 +115,8 @@ const initializeActivitiesFromTransactions = ({
     if (
       to &&
       isTrackedTo &&
-      (getShardFromAddress(to) === getShardFromAddress(from) ||
+      (getExtendedZoneForAddress(to, false) ===
+        getExtendedZoneForAddress(from, false) ||
         sameEVMAddress(from, "0x0000000000000000000000000000000000000000"))
     ) {
       addActivity(to, network.chainID, transaction)

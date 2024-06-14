@@ -100,7 +100,6 @@ import {
   signDataRequest,
 } from "./redux-slices/signing"
 import { SignTypedDataRequest, MessageSigningRequest } from "./utils/signing"
-import { getShardFromAddress } from "./constants"
 import {
   AccountSigner,
   SignatureResponse,
@@ -139,6 +138,7 @@ import {
 import { isBuiltInNetworkBaseAsset } from "./redux-slices/utils/asset-utils"
 import localStorageShim from "./utils/local-storage-shim"
 import { SignerImportMetadata } from "./services/keyring"
+import { getExtendedZoneForAddress } from "./services/chain/utils"
 
 // This sanitizer runs on store and action data before serializing for remote
 // redux devtools. The goal is to end up with an object that is directly
@@ -465,8 +465,8 @@ export default class Main extends BaseService<never> {
         let newBalance = BigInt(0)
         if (isSmartContractFungibleAsset(asset)) {
           if (
-            getShardFromAddress(asset.contractAddress) !==
-            getShardFromAddress(selectedAccount.address)
+            getExtendedZoneForAddress(asset.contractAddress, false) !==
+            getExtendedZoneForAddress(selectedAccount.address, false)
           ) {
             continue
           }
@@ -531,8 +531,8 @@ export default class Main extends BaseService<never> {
       let newBalance = BigInt(0)
       if (isSmartContractFungibleAsset(asset)) {
         if (
-          getShardFromAddress(asset.contractAddress) !==
-          getShardFromAddress(selectedAccount.address)
+          getExtendedZoneForAddress(asset.contractAddress, false) !==
+          getExtendedZoneForAddress(selectedAccount.address, false)
         ) {
           continue
         }
@@ -648,7 +648,7 @@ export default class Main extends BaseService<never> {
       console.error("No selected address")
       return "cyprus-1"
     }
-    return getShardFromAddress(selectedAddress)
+    return getExtendedZoneForAddress(selectedAddress)
   }
 
   public SetShard(shard: string): void {
@@ -662,7 +662,7 @@ export default class Main extends BaseService<never> {
       this.SelectedShard = "cyprus-1"
       return
     }
-    this.SelectedShard = getShardFromAddress(selectedAddress)
+    this.SelectedShard = getExtendedZoneForAddress(selectedAddress)
   }
 
   async addAccount(addressNetwork: AddressOnNetwork): Promise<void> {
@@ -733,7 +733,8 @@ export default class Main extends BaseService<never> {
       // Enrich ETX or ITX
       if (
         to &&
-        getShardFromAddress(to) !== getShardFromAddress(from) &&
+        getExtendedZoneForAddress(to, false) !==
+          getExtendedZoneForAddress(from, false) &&
         from !== "0x0000000000000000000000000000000000000000"
       ) {
         await this.enrichETXActivity(addressNetwork, txHash, status, to)
@@ -784,7 +785,7 @@ export default class Main extends BaseService<never> {
     const transaction = await this.chainService.getETX(
       addressNetwork.network,
       txHash,
-      getShardFromAddress(to)
+      getExtendedZoneForAddress(to)
     )
 
     if (

@@ -13,7 +13,7 @@ import {
   getMetadata as getERC20Metadata,
   getTokenBalances,
 } from "../../lib/erc20"
-import { getShardFromAddress } from "../../constants"
+import { getExtendedZoneForAddress } from "./utils"
 
 interface ProviderManager {
   providerForNetwork(network: EVMNetwork): SerialFallbackProvider | undefined
@@ -35,7 +35,7 @@ export default class AssetDataHelper {
     smartContractAddress: HexString
   ): Promise<SmartContractAmount> {
     const prevShard = globalThis.main.GetShard()
-    globalThis.main.SetShard(getShardFromAddress(smartContractAddress))
+    globalThis.main.SetShard(getExtendedZoneForAddress(smartContractAddress))
     const provider = this.providerTracker.providerForNetwork(
       addressOnNetwork.network
     )
@@ -67,7 +67,9 @@ export default class AssetDataHelper {
     smartContractAddresses?: HexString[]
   ): Promise<SmartContractAmount[]> {
     const prevShard = globalThis.main.GetShard()
-    globalThis.main.SetShard(getShardFromAddress(addressOnNetwork.address))
+    globalThis.main.SetShard(
+      getExtendedZoneForAddress(addressOnNetwork.address)
+    )
     const provider = this.providerTracker.providerForNetwork(
       addressOnNetwork.network
     )

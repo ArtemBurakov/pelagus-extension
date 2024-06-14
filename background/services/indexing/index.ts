@@ -11,12 +11,7 @@ import {
   SmartContractAmount,
   SmartContractFungibleAsset,
 } from "../../assets"
-import {
-  HOUR,
-  MINUTE,
-  NETWORK_BY_CHAIN_ID,
-  getShardFromAddress,
-} from "../../constants"
+import { HOUR, MINUTE, NETWORK_BY_CHAIN_ID } from "../../constants"
 import {
   fetchAndValidateTokenList,
   mergeAssets,
@@ -33,6 +28,7 @@ import {
   normalizeEVMAddress,
   sameEVMAddress,
 } from "../../lib/utils"
+import { getExtendedZoneForAddress } from "../chain/utils"
 
 // Transactions seen within this many blocks of the chain tip will schedule a
 // token refresh sooner than the standard rate.
@@ -462,15 +458,15 @@ export default class IndexingService extends BaseService<Events> {
 
     const filteredSmartContractAssets = (smartContractAssets ?? []).filter(
       ({ contractAddress }) =>
-        getShardFromAddress(contractAddress) ==
-        getShardFromAddress(addressNetwork.address)
+        getExtendedZoneForAddress(contractAddress, false) ===
+        getExtendedZoneForAddress(addressNetwork.address, false)
     )
 
     const balances = await this.chainService.assetData.getTokenBalances(
       addressNetwork,
       filteredSmartContractAssets?.map(({ contractAddress }) =>
-        getShardFromAddress(contractAddress) ==
-        getShardFromAddress(addressNetwork.address)
+        getExtendedZoneForAddress(contractAddress, false) ===
+        getExtendedZoneForAddress(addressNetwork.address, false)
           ? contractAddress
           : ""
       )
@@ -722,7 +718,7 @@ export default class IndexingService extends BaseService<Events> {
 
         const prevShard = globalThis.main.SelectedShard
         if (network.isQuai) {
-          const shard = getShardFromAddress(addressOnNetwork.address)
+          const shard = getExtendedZoneForAddress(addressOnNetwork.address)
           globalThis.main.SetShard(shard)
         }
 
