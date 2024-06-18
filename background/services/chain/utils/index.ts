@@ -1,13 +1,17 @@
-import { getZoneForAddress, toBigInt, Zone } from "quais"
+import {
+  AbstractTransaction,
+  getZoneForAddress,
+  toBigInt,
+  TransactionLike,
+  Zone,
+} from "quais"
 import {
   Block as EthersBlock,
   TransactionReceipt as EthersTransactionReceipt,
   TransactionRequest as EthersTransactionRequest,
 } from "@quais/abstract-provider"
-import {
-  Transaction as EthersTransaction,
-  UnsignedTransaction,
-} from "@quais/transactions"
+import { QuaiTransaction } from "quais"
+import { UnsignedTransaction } from "@quais/transactions"
 import {
   AnyEVMTransaction,
   EVMNetwork,
@@ -232,17 +236,17 @@ export function unsignedTransactionFromEVMTransaction(
 
 export function ethersTransactionFromSignedTransaction(
   tx: SignedTransaction
-): EthersTransaction {
-  const baseTx: EthersTransaction = {
+): QuaiTransaction {
+  const baseTx = {
     nonce: Number(tx.nonce),
-    to: tx.to,
+    to: tx.to ?? null,
     data: tx.input || "",
-    gasPrice: tx.gasPrice ? toBigInt(tx.gasPrice) : undefined,
+    gasPrice: tx.gasPrice ? toBigInt(tx.gasPrice) : null,
     type: tx.type,
-    chainId: parseInt(tx.network.chainID, 10),
+    chainId: toBigInt(tx.network.chainID),
     value: toBigInt(tx.value),
     gasLimit: toBigInt(tx.gasLimit),
-  }
+  } as QuaiTransaction
 
   if (isEIP1559SignedTransaction(tx))
     return {
@@ -301,7 +305,7 @@ export function enrichTransactionWithReceipt(
  * Parse a transaction as returned by a polling provider.
  */
 export function transactionFromEthersTransaction(
-  tx: EthersTransaction & {
+  tx: QuaiTransaction & {
     from: string
     blockHash?: string
     blockNumber?: number
@@ -321,13 +325,13 @@ export function transactionFromEthersTransaction(
     from: tx.from,
     to: tx.to ?? undefined,
     nonce: parseInt(tx.nonce.toString(), 10),
-    gasLimit: tx.gasLimit.toBigInt(),
-    gasPrice: tx.gasPrice ? tx.gasPrice.toBigInt() : null,
-    maxFeePerGas: tx.maxFeePerGas ? tx.maxFeePerGas.toBigInt() : null,
+    gasLimit: toBigInt(tx.gasLimit),
+    gasPrice: tx.gasPrice ? toBigInt(tx.gasPrice) : null,
+    maxFeePerGas: tx.maxFeePerGas ? toBigInt(tx.maxFeePerGas) : null,
     maxPriorityFeePerGas: tx.maxPriorityFeePerGas
-      ? tx.maxPriorityFeePerGas.toBigInt()
+      ? toBigInt(tx.maxPriorityFeePerGas)
       : null,
-    value: tx.value.toBigInt(),
+    value: toBigInt(tx.value),
     input: tx.data,
     type: tx.type,
     blockHash: tx.blockHash || null,

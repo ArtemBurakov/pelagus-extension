@@ -11367,10 +11367,10 @@ quais@0.1.11:
     "@quais/web" "0.1.0"
     "@quais/wordlists" "0.1.0"
 
-quais@^1.0.0-alpha:
-  version "1.0.0-alpha"
-  resolved "https://registry.yarnpkg.com/quais/-/quais-1.0.0-alpha.tgz#a87f9ea83af1b67dbf69bb0c4f918b6536b2a710"
-  integrity sha512-1WkbX5s4Gte/0beWQUOrkuJQlMIm8YB5FHcRb0jXUG9J8NodfsfAhfMGjHg3wwBFe1Uf49quq5S5YKv9QMl8NA==
+quais@^1.0.0-alpha.1:
+  version "1.0.0-alpha.1"
+  resolved "https://registry.yarnpkg.com/quais/-/quais-1.0.0-alpha.1.tgz#a20e3d007c02fdc9eb86d6ab0f2d54d8bd327760"
+  integrity sha512-Gp2ffJTtCp0VReb9+KsCnuNeMbcVlPmdSAyab2VfgqreAOgeF5RKWGBlxTFHTqi01v7dS3wPriehIIxQqQcEKQ==
   dependencies:
     "@brandonblack/musig" "^0.0.1-alpha.1"
     "@noble/curves" "1.2.0"
@@ -11378,6 +11378,7 @@ quais@^1.0.0-alpha:
     aes-js "4.0.0-beta.5"
     dotenv "^16.4.1"
     google-protobuf "^3.21.2"
+    tslib "^2.6.2"
     ws "8.5.0"
 
 querystring@0.2.0:
@@ -13141,6 +13142,11 @@ tslib@^2.1.0:
   version "2.4.0"
   resolved "https://registry.yarnpkg.com/tslib/-/tslib-2.4.0.tgz#7cecaa7f073ce680a05847aa77be941098f36dc3"
   integrity sha512-d6xOpEDfsi2CZVlPQzGeux8XMwLT9hssAsaPYExaQMuYskwb+x1x7J371tWlbBdWHroy99KnVB6qIkUbs5X3UQ==
+
+tslib@^2.6.2:
+  version "2.6.3"
+  resolved "https://registry.yarnpkg.com/tslib/-/tslib-2.6.3.tgz#0438f810ad7a9edcde7a241c3d80db693c8cbfe0"
+  integrity sha512-xNvxJEOUiWPGhUuUdQgAJPKOOJfGnIyKySOc09XkKsgdUV/3E2zvwZYdejjmRgPCgcym1juLH3226yA7sEFJKQ==
 
 tslib@~2.3.0:
   version "2.3.1"
