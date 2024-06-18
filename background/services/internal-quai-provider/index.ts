@@ -1,5 +1,5 @@
 import { TransactionRequest as QuaiTransactionRequest } from "@quais/abstract-provider"
-import { serialize as serializeQuaiTransaction } from "@quais/transactions"
+import { QuaiTransaction } from "quais"
 import {
   EIP1193_ERROR_CODES,
   EIP1193Error,
@@ -244,15 +244,20 @@ export default class InternalQuaiProviderService extends BaseService<Events> {
         return this.signTransaction(
           params[0] as JsonRpcTransactionRequest,
           origin
-        ).then((signedTransaction) =>
-          serializeQuaiTransaction(
-            ethersTransactionFromSignedTransaction(signedTransaction),
-            {
-              r: signedTransaction.r,
-              s: signedTransaction.s,
-              v: signedTransaction.v,
-            }
-          )
+        ).then(
+          (signedTransaction) =>
+            // TODO-MIGRATION: check how to sign a transaction in new SDK (which data and type return)
+            //  Previously was using unsigned tx + signature in "serialize" func
+            //  serialize(
+            //  ethersTransactionFromSignedTransaction(signedTransaction),
+            //  {
+            //  r: signedTransaction.r,
+            //  s: signedTransaction.s,
+            //  v: signedTransaction.v,
+            //  }
+            //  )
+            QuaiTransaction.from(signedTransaction).serialized
+          // ----------------------------------------------
         )
       case "quai_sign":
         return this.signData(

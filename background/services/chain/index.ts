@@ -1279,7 +1279,7 @@ export default class ChainService extends BaseService<Events> {
     transaction: SignedTransaction
   ): Promise<void> {
     try {
-      const serialized = new QuaiTransaction(transaction.from).serialized
+      const { serialized } = QuaiTransaction.from(transaction)
 
       await Promise.all([
         this.providerForNetworkOrThrow(transaction.network)

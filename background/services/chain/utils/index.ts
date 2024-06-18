@@ -1,16 +1,9 @@
-import {
-  AbstractTransaction,
-  getZoneForAddress,
-  toBigInt,
-  TransactionLike,
-  Zone,
-} from "quais"
+import { getZoneForAddress, toBigInt, Zone, QuaiTransaction } from "quais"
 import {
   Block as EthersBlock,
   TransactionReceipt as EthersTransactionReceipt,
   TransactionRequest as EthersTransactionRequest,
 } from "@quais/abstract-provider"
-import { QuaiTransaction } from "quais"
 import { UnsignedTransaction } from "@quais/transactions"
 import {
   AnyEVMTransaction,
@@ -305,7 +298,7 @@ export function enrichTransactionWithReceipt(
  * Parse a transaction as returned by a polling provider.
  */
 export function transactionFromEthersTransaction(
-  tx: TransactionResponse & {
+  tx: QuaiTransaction & {
     from: string
     blockHash?: string
     blockNumber?: number
