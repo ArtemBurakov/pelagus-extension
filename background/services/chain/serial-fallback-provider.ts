@@ -4,7 +4,18 @@ import {
   Listener,
   JsonRpcProvider,
   WebSocketProvider,
+  SocketSubscriber,
+  TransactionResponse,
 } from "quais"
+
+// TODO-MIGRATION //////////////////
+// import {
+//   JsonRpcProvider,
+//   Listener,
+//   WebSocketProvider,
+// } from "@ethersproject/providers"
+/////////////////
+
 import {
   NETWORK_BY_CHAIN_ID,
   SECOND,
@@ -141,7 +152,7 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
   } = {}
 
   public SetCurrentProvider: (
-    provider: JsonRpcProvider | WebSocketProvider,
+    provider: JsonRpcProvider, // TODO-MIGRATION     provider: JsonRpcProvider | WebSocketProvider,
     index: number
   ) => void
 
@@ -210,9 +221,9 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
     const [firstProviderCreator, ...remainingProviderCreators] =
       providerCreators.map((pc) => pc.creator)
 
-    const firstProvider = firstProviderCreator()
+    const firstProvider = firstProviderCreator() as JsonRpcProvider // TODO-MIGRATION
 
-    super(firstProvider.connection, firstProvider.network)
+    super(firstProvider._getConnection(), firstProvider._network)
 
     this.currentProvider = firstProvider
 
@@ -227,7 +238,7 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
     this.cachedChainId = hexlify(chainID)
     this.providerCreators = providerCreators
     this.SetCurrentProvider = (
-      provider: JsonRpcProvider | WebSocketProvider,
+      provider: JsonRpcProvider, // TODO-MIGRATION provider: JsonRpcProvider | WebSocketProvider,
       index: number
     ) => {
       this.currentProvider = provider
@@ -441,9 +452,12 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
   ): Promise<unknown> {
     // Check if backoff timer is ready
     if (
-      this.urlsReadyForReconnect.has(this.currentProvider.connection.url) &&
-      this.urlsReadyForReconnect.get(this.currentProvider.connection.url) ==
-        false
+      this.urlsReadyForReconnect.has(
+        this.currentProvider._getConnection().url
+      ) &&
+      this.urlsReadyForReconnect.get(
+        this.currentProvider._getConnection().url
+      ) == false
     )
       return
 
@@ -498,7 +512,10 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
 
     if (this.currentProvider instanceof WebSocketProvider) {
       // eslint-disable-next-line no-underscore-dangle
-      await this.currentProvider._subscribe(tag, param, processFunc)
+      const socketSubscriber = new SocketSubscriber(this.currentProvider, param)
+      this.currentProvider._register(tag, socketSubscriber)
+
+      // await this.currentProvider._subscribe(tag, param, processFunc)
       this.subscriptions.push(subscription)
     } else {
       logger.warn(
@@ -531,8 +548,17 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
     this.on("pending", async (transactionHash: unknown) => {
       try {
         if (typeof transactionHash === "string") {
+          const tx = await this.getTransaction(transactionHash) // TODO-MIGRATION
+          if (!tx) throw new Error("getTransaction return null")
+
           const transaction = transactionFromEthersTransaction(
-            await this.getTransaction(transactionHash),
+            tx as TransactionResponse & {
+              // TODO-MIGRATION
+              from: string
+              blockHash?: string
+              blockNumber?: number
+              type?: number | null
+            },
             network
           )
 
@@ -569,7 +595,7 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
    * the event subscription so that an underlying provider failure will not
    * prevent it from firing.
    */
-  override once(eventName: ProviderEvent, listener: Listener): this {
+  override once(eventName: ProviderEvent, listener: Listener): Promise<this> {
     const adjustedListener = this.listenerWithCleanup(eventName, listener)
 
     this.eventSubscriptions.push({
@@ -580,7 +606,7 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
 
     this.currentProvider.once(eventName, listener)
 
-    return this
+    return new Promise(() => this) // TODO-MIGRATION
   }
 
   /**
@@ -588,7 +614,10 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
    *
    * Ensures these will not be restored during a reconnect.
    */
-  override off(eventName: ProviderEvent, listenerToRemove?: Listener): this {
+  override off(
+    eventName: ProviderEvent,
+    listenerToRemove?: Listener
+  ): Promise<this> {
     this.eventSubscriptions = this.eventSubscriptions.filter(
       ({ eventName: savedEventName, listener: savedListener }) => {
         if (savedEventName === eventName) {
@@ -614,7 +643,7 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
 
     this.currentProvider.off(eventName, listenerToRemove)
 
-    return this
+    return new Promise(() => this) // TODO-MIGRATION
   }
 
   /**
@@ -680,9 +709,12 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
    */
   private async reconnectProvider() {
     if (
-      this.urlsReadyForReconnect.has(this.currentProvider.connection.url) &&
-      this.urlsReadyForReconnect.get(this.currentProvider.connection.url) ==
-        false
+      this.urlsReadyForReconnect.has(
+        this.currentProvider._getConnection().url
+      ) &&
+      this.urlsReadyForReconnect.get(
+        this.currentProvider._getConnection().url
+      ) == false
     )
       return
 
@@ -697,30 +729,32 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
     )
     let err = false
     try {
-      this.currentProvider =
-        this.providerCreators[this.currentProviderIndex].creator()
-      await this.currentProvider._networkPromise
+      this.currentProvider = this.providerCreators[
+        this.currentProviderIndex
+      ].creator() as JsonRpcProvider // TODO-MIGRATION
+      await this.currentProvider._detectNetwork()
       await this.resubscribe(this.currentProvider)
     } catch (error) {
       if (error instanceof Error) {
         err = true // only reset backoff timer if there is no error
         if (error.message.includes("could not detect network")) {
           const prevBackoffTime =
-            this.backoffUrlsToTime.get(this.currentProvider.connection.url) ??
-            BASE_BACKOFF_MS
+            this.backoffUrlsToTime.get(
+              this.currentProvider._getConnection().url
+            ) ?? BASE_BACKOFF_MS
           const newBackoffTime = Math.min(prevBackoffTime * 2, MAX_BACKOFF_MS)
           this.backoffUrlsToTime.set(
-            this.currentProvider.connection.url,
+            this.currentProvider._getConnection().url,
             newBackoffTime
           )
           this.urlsReadyForReconnect.set(
-            this.currentProvider.connection.url,
+            this.currentProvider._getConnection().url,
             false
           )
           setTimeout(
             () =>
               this.urlsReadyForReconnect.set(
-                this.currentProvider.connection.url,
+                this.currentProvider._getConnection().url,
                 true
               ),
             newBackoffTime
@@ -729,43 +763,45 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
             "Could not detect network; trying again in",
             newBackoffTime,
             "ms. URL:",
-            this.currentProvider.connection.url
+            this.currentProvider._getConnection().url
           )
           // Provider will cache the error, so delete it
           globalThis.main.UrlToProvider.delete(
-            this.currentProvider.connection.url
+            this.currentProvider._getConnection().url
           )
         }
       }
     } finally {
       if (
         !err &&
-        this.backoffUrlsToTime.has(this.currentProvider.connection.url) &&
-        this.backoffUrlsToTime.get(this.currentProvider.connection.url) !==
-          BASE_BACKOFF_MS
+        this.backoffUrlsToTime.has(this.currentProvider._getConnection().url) &&
+        this.backoffUrlsToTime.get(
+          this.currentProvider._getConnection().url
+        ) !== BASE_BACKOFF_MS
       ) {
         this.backoffUrlsToTime.set(
-          this.currentProvider.connection.url,
+          this.currentProvider._getConnection().url,
           BASE_BACKOFF_MS
         )
       } else if (!err) {
         // Set a backoff anyway
         const prevBackoffTime =
-          this.backoffUrlsToTime.get(this.currentProvider.connection.url) ??
-          BASE_BACKOFF_MS
+          this.backoffUrlsToTime.get(
+            this.currentProvider._getConnection().url
+          ) ?? BASE_BACKOFF_MS
         const newBackoffTime = Math.min(prevBackoffTime * 2, MAX_BACKOFF_MS)
         this.backoffUrlsToTime.set(
-          this.currentProvider.connection.url,
+          this.currentProvider._getConnection().url,
           newBackoffTime
         )
         this.urlsReadyForReconnect.set(
-          this.currentProvider.connection.url,
+          this.currentProvider._getConnection().url,
           false
         )
         setTimeout(
           () =>
             this.urlsReadyForReconnect.set(
-              this.currentProvider.connection.url,
+              this.currentProvider._getConnection().url,
               true
             ),
           newBackoffTime
@@ -774,7 +810,7 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
           "No error but setting backoff:",
           newBackoffTime,
           "ms. URL:",
-          this.currentProvider.connection.url
+          this.currentProvider._getConnection().url
         )
       }
     }
@@ -796,7 +832,7 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
     )
       return false
 
-    if (!provider.network) return false
+    if (!provider._network) return false
 
     if (provider instanceof WebSocketProvider) {
       const websocketProvider = provider as WebSocketProvider
@@ -806,14 +842,16 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
       // TODO If anything fails along the way, it should yield the same kind of
       // TODO backoff as a regular `send`.
       await this.subscriptions.reduce(
-        (previousPromise, { tag, param, processFunc }) =>
+        (previousPromise, { tag, param }) =>
           previousPromise.then(() =>
-            waitAnd(backedOffMs(), () =>
-              // Direct subscriptions are internal, but we want to be able to
-              // restore them.
-              // eslint-disable-next-line no-underscore-dangle
-              websocketProvider._subscribe(tag, param, processFunc)
-            )
+            waitAnd(backedOffMs(), async () => {
+              // Direct subscriptions are internal, but we want to be able to restore them.
+              const socketSubscriber = new SocketSubscriber(
+                websocketProvider,
+                param
+              )
+              websocketProvider._register(tag, socketSubscriber)
+            })
           ),
         Promise.resolve()
       )
@@ -834,9 +872,12 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
   private async attemptToReconnectToPrimaryProvider(): Promise<unknown> {
     // Check if backoff timer is ready
     if (
-      this.urlsReadyForReconnect.has(this.currentProvider.connection.url) &&
-      this.urlsReadyForReconnect.get(this.currentProvider.connection.url) ==
-        false
+      this.urlsReadyForReconnect.has(
+        this.currentProvider._getConnection().url
+      ) &&
+      this.urlsReadyForReconnect.get(
+        this.currentProvider._getConnection().url
+      ) == false
     )
       return
 
@@ -847,28 +888,29 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
     let err = false
     let primaryProvider: JsonRpcProvider
     try {
-      primaryProvider = this.providerCreators[0].creator()
-      await this.currentProvider._networkPromise
+      primaryProvider = this.providerCreators[0].creator() as JsonRpcProvider // TODO-MIGRATION
+      await this.currentProvider._detectNetwork()
     } catch (error) {
       if (error instanceof Error) {
         err = true // only reset backoff timer if there is no error
         if (error.message.includes("could not detect network")) {
           const prevBackoffTime =
-            this.backoffUrlsToTime.get(this.currentProvider.connection.url) ??
-            BASE_BACKOFF_MS
+            this.backoffUrlsToTime.get(
+              this.currentProvider._getConnection().url
+            ) ?? BASE_BACKOFF_MS
           const newBackoffTime = Math.min(prevBackoffTime * 2, MAX_BACKOFF_MS)
           this.backoffUrlsToTime.set(
-            this.currentProvider.connection.url,
+            this.currentProvider._getConnection().url,
             newBackoffTime
           )
           this.urlsReadyForReconnect.set(
-            this.currentProvider.connection.url,
+            this.currentProvider._getConnection().url,
             false
           )
           setTimeout(
             () =>
               this.urlsReadyForReconnect.set(
-                this.currentProvider.connection.url,
+                this.currentProvider._getConnection().url,
                 true
               ),
             newBackoffTime
@@ -877,23 +919,24 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
             "Could not detect network; trying again in",
             newBackoffTime,
             "ms. URL:",
-            this.currentProvider.connection.url
+            this.currentProvider._getConnection().url
           )
           // Provider will cache the error, so delete it
           globalThis.main.UrlToProvider.delete(
-            this.currentProvider.connection.url
+            this.currentProvider._getConnection().url
           )
         }
       }
     } finally {
       if (
         !err &&
-        this.backoffUrlsToTime.has(this.currentProvider.connection.url) &&
-        this.backoffUrlsToTime.get(this.currentProvider.connection.url) !==
-          BASE_BACKOFF_MS
+        this.backoffUrlsToTime.has(this.currentProvider._getConnection().url) &&
+        this.backoffUrlsToTime.get(
+          this.currentProvider._getConnection().url
+        ) !== BASE_BACKOFF_MS
       ) {
         this.backoffUrlsToTime.set(
-          this.currentProvider.connection.url,
+          this.currentProvider._getConnection().url,
           BASE_BACKOFF_MS
         )
       }

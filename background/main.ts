@@ -6,11 +6,7 @@ import { devToolsEnhancer } from "@redux-devtools/remote"
 import { PermissionRequest } from "@pelagus-provider/provider-bridge-shared"
 import { debounce } from "lodash"
 import { utils } from "ethers"
-import { JsonRpcProvider, WebSocketProvider } from "@ethersproject/providers"
-import {
-  JsonRpcProvider as QuaisJsonRpcProvider,
-  WebSocketProvider as QuaisWebSocketProvider,
-} from "@quais/providers"
+import { JsonRpcProvider, WebSocketProvider } from "quais"
 import {
   decodeJSON,
   encodeJSON,
@@ -250,13 +246,7 @@ export default class Main extends BaseService<never> {
 
   public SelectedShard: string
 
-  public UrlToProvider: Map<
-    string,
-    | JsonRpcProvider
-    | WebSocketProvider
-    | QuaisJsonRpcProvider
-    | QuaisWebSocketProvider
-  >
+  public UrlToProvider: Map<string, JsonRpcProvider | WebSocketProvider>
 
   public ready: Promise<boolean>
 

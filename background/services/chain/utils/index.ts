@@ -305,7 +305,7 @@ export function enrichTransactionWithReceipt(
  * Parse a transaction as returned by a polling provider.
  */
 export function transactionFromEthersTransaction(
-  tx: QuaiTransaction & {
+  tx: TransactionResponse & {
     from: string
     blockHash?: string
     blockNumber?: number
