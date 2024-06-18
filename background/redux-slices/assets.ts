@@ -321,7 +321,7 @@ export const transferAsset = createBackgroundAsyncThunk(
         )
 
         const provider = getProvider()
-        const signer = provider.getSigner(fromAddress)
+        const signer = await provider.getSigner(fromAddress)
 
         const tokenContract = new Contract(
           assetAmount.asset.contractAddress,
