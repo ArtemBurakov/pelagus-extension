@@ -548,19 +548,18 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
     this.on("pending", async (transactionHash: unknown) => {
       try {
         if (typeof transactionHash === "string") {
-          const tx = await this.getTransaction(transactionHash) // TODO-MIGRATION
+          const tx = (await this.getTransaction(
+            transactionHash
+          )) as TransactionResponse & {
+            from: string
+            blockHash?: string | undefined
+            blockNumber?: number | undefined
+            type?: number | null | undefined
+          } // TODO-MIGRATION
+
           if (!tx) throw new Error("getTransaction return null")
 
-          const transaction = transactionFromEthersTransaction(
-            tx as TransactionResponse & {
-              // TODO-MIGRATION
-              from: string
-              blockHash?: string
-              blockNumber?: number
-              type?: number | null
-            },
-            network
-          )
+          const transaction = transactionFromEthersTransaction(tx, network)
 
           handler(transaction)
         }
@@ -595,7 +594,10 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
    * the event subscription so that an underlying provider failure will not
    * prevent it from firing.
    */
-  override once(eventName: ProviderEvent, listener: Listener): Promise<this> {
+  override async once(
+    eventName: ProviderEvent,
+    listener: Listener
+  ): Promise<this> {
     const adjustedListener = this.listenerWithCleanup(eventName, listener)
 
     this.eventSubscriptions.push({
@@ -604,9 +606,8 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
       once: true,
     })
 
-    this.currentProvider.once(eventName, listener)
-
-    return new Promise(() => this) // TODO-MIGRATION
+    await this.currentProvider.once(eventName, listener)
+    return this
   }
 
   /**
@@ -614,7 +615,7 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
    *
    * Ensures these will not be restored during a reconnect.
    */
-  override off(
+  override async off(
     eventName: ProviderEvent,
     listenerToRemove?: Listener
   ): Promise<this> {
@@ -641,9 +642,8 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
       }
     )
 
-    this.currentProvider.off(eventName, listenerToRemove)
-
-    return new Promise(() => this) // TODO-MIGRATION
+    await this.currentProvider.off(eventName, listenerToRemove)
+    return this
   }
 
   /**
