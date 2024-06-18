@@ -1,3 +1,4 @@
+/* eslint-disable no-underscore-dangle */
 import {
   hexlify,
   ProviderEvent,
@@ -798,6 +799,7 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
           this.currentProvider._getConnection().url,
           false
         )
+
         setTimeout(
           () =>
             this.urlsReadyForReconnect.set(
