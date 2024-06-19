@@ -1,22 +1,11 @@
-/* eslint-disable no-underscore-dangle */
 import {
   hexlify,
   ProviderEvent,
   Listener,
   JsonRpcProvider,
   WebSocketProvider,
-  SocketSubscriber,
   TransactionResponse,
 } from "quais"
-
-// TODO-MIGRATION //////////////////
-// import {
-//   JsonRpcProvider,
-//   Listener,
-//   WebSocketProvider,
-// } from "@ethersproject/providers"
-/////////////////
-
 import {
   NETWORK_BY_CHAIN_ID,
   SECOND,
@@ -82,7 +71,7 @@ function isClosedOrClosingWebSocketProvider(
     // Digging into the innards of Ethers here because there's no
     // other way to get access to the WebSocket connection situation.
     // eslint-disable-next-line no-underscore-dangle
-    const webSocket = provider._websocket as WebSocket
+    const webSocket = provider.websocket[0] as WebSocket
 
     return (
       webSocket.readyState === WebSocket.CLOSING ||
@@ -102,7 +91,7 @@ function isConnectingWebSocketProvider(provider: JsonRpcProvider): boolean {
     // Digging into the innards of Ethers here because there's no
     // other way to get access to the WebSocket connection situation.
     // eslint-disable-next-line no-underscore-dangle
-    const webSocket = provider._websocket as WebSocket
+    const webSocket = provider.websocket[0] as WebSocket
     return webSocket.readyState === WebSocket.CONNECTING
   }
 
@@ -163,7 +152,7 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
    * (rather - we will switch the provider the extension is using) - we can avoid
    * eth_chainId RPC calls.
    */
-  private cachedChainId: string
+  private readonly cachedChainId: string
 
   // The index of the provider creator that created the current provider. Used
   // for reconnects when relevant.
@@ -172,7 +161,7 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
   // TEMPORARY cache for latest account balances to reduce number of rpc calls
   // This is intended as a temporary fix to the burst of account enrichment that
   // happens when the extension is first loaded up as a result of activity emission
-  // inside of chainService.connectChainService
+  // inside chainService.connectChainService
   private latestBalanceCache: {
     [address: string]: {
       balance: string
@@ -183,7 +172,7 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
   // TEMPORARY cache for if an address has code to reduce number of rpc calls
   // This is intended as a temporary fix to the burst of account enrichment that
   // happens when the extension is first loaded up as a result of activity emission
-  // inside of chainService.connectChainService
+  // inside chainService.connectChainService
   // There is no TTL here as the cache will get reset every time the extension is
   // reloaded and the property of having code updates quite rarely.
   private latestHasCodeCache: {
@@ -191,14 +180,6 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
       hasCode: boolean
     }
   } = {}
-
-  // Information on WebSocket-style subscriptions. Tracked here so as to
-  // restore them in case of WebSocket disconnects.
-  private subscriptions: {
-    tag: string
-    param: unknown[]
-    processFunc: (result: unknown) => void
-  }[] = []
 
   // Information on event subscriptions, which can be restored on non-WebSocket
   // subscriptions and WebSocket subscriptions both.
@@ -500,40 +481,13 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
   }
 
   /**
-   * Exposes direct WebSocket subscription by JSON-RPC method. Takes immediate
-   * effect if the current underlying provider is a WebSocketProvider. If it is
-   * not, queues the subscription up for when a WebSocketProvider can connect.
-   */
-  async subscribe(
-    tag: string,
-    param: Array<unknown>,
-    processFunc: (result: unknown) => void
-  ): Promise<void> {
-    const subscription = { tag, param, processFunc }
-
-    if (this.currentProvider instanceof WebSocketProvider) {
-      // eslint-disable-next-line no-underscore-dangle
-      const socketSubscriber = new SocketSubscriber(this.currentProvider, param)
-      this.currentProvider._register(tag, socketSubscriber)
-
-      // await this.currentProvider._subscribe(tag, param, processFunc)
-      this.subscriptions.push(subscription)
-    } else {
-      logger.warn(
-        "Current provider is not a WebSocket provider; subscription " +
-          "will not work until a WebSocket provider connects."
-      )
-    }
-  }
-
-  /**
    * Subscribe to pending transactions that have been resolved to a full
    * transaction object; uses optimized paths when the provider supports it,
    * otherwise subscribes to pending transaction hashes and manually resolves
    * them with a transaction lookup.
    */
   async subscribeFullPendingTransactions(
-    { address, network }: AddressOnNetwork,
+    { network }: AddressOnNetwork,
     handler: (pendingTransaction: AnyEVMTransaction) => void
   ): Promise<void> {
     if (this.chainID !== network.chainID) {
@@ -733,7 +687,7 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
       this.currentProvider = this.providerCreators[
         this.currentProviderIndex
       ].creator() as JsonRpcProvider // TODO-MIGRATION
-      await this.currentProvider._detectNetwork()
+      await this.currentProvider.getNetwork()
       await this.resubscribe(this.currentProvider)
     } catch (error) {
       if (error instanceof Error) {
@@ -836,29 +790,6 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
 
     if (!provider._network) return false
 
-    if (provider instanceof WebSocketProvider) {
-      const websocketProvider = provider as WebSocketProvider
-
-      // Chain promises to serially resubscribe.
-      //
-      // TODO If anything fails along the way, it should yield the same kind of
-      // TODO backoff as a regular `send`.
-      await this.subscriptions.reduce(
-        (previousPromise, { tag, param }) =>
-          previousPromise.then(() =>
-            waitAnd(backedOffMs(), async () => {
-              // Direct subscriptions are internal, but we want to be able to restore them.
-              const socketSubscriber = new SocketSubscriber(
-                websocketProvider,
-                param
-              )
-              websocketProvider._register(tag, socketSubscriber)
-            })
-          ),
-        Promise.resolve()
-      )
-    }
-
     this.eventSubscriptions.forEach(({ eventName, listener, once }) => {
       if (once) {
         provider.once(eventName, listener)
@@ -891,7 +822,7 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
     let primaryProvider: JsonRpcProvider
     try {
       primaryProvider = this.providerCreators[0].creator() as JsonRpcProvider // TODO-MIGRATION
-      await this.currentProvider._detectNetwork()
+      await this.currentProvider.getNetwork()
     } catch (error) {
       if (error instanceof Error) {
         err = true // only reset backoff timer if there is no error
