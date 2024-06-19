@@ -6,6 +6,7 @@ import {
   concat,
   accessListify,
   Contract,
+  Zone,
 } from "quais"
 import { createSelector, createSlice } from "@reduxjs/toolkit"
 // TODO-MIGRATION -----------------------------
@@ -521,8 +522,9 @@ transactionConstructionSliceEmitter.on(
       tx.network
     )
     try {
-      await provider.sendTransaction(serializeSigned(tx))
-      globalThis.main.chainService.saveTransaction(tx, "local")
+      await provider.broadcastTransaction(Zone.Cyprus1, serializeSigned(tx)) // TODO-MIGRATION
+
+      await globalThis.main.chainService.saveTransaction(tx, "local")
     } catch (error: any) {
       if (error.toString().includes("insufficient funds")) {
         globalThis.main.store.dispatch(

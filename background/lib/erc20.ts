@@ -1,27 +1,27 @@
 import {
   toBigInt,
-  quais,
   Interface,
   TransactionDescription,
   FunctionFragment,
   Fragment,
   EventFragment,
+  Contract,
   ContractRunner,
 } from "quais"
-import { SmartContractAmount, SmartContractFungibleAsset } from "../assets"
-import { EVMLog, SmartContract } from "../networks"
-import { HexString } from "../types"
-import { AddressOnNetwork } from "../accounts"
+import logger from "./logger"
 import {
   AggregateContractResponse,
-  CHAIN_SPECIFIC_MULTICALL_CONTRACT_ADDRESSES,
-  MULTICALL_ABI,
   MULTICALL_CONTRACT_ADDRESS,
-} from "./multicall"
-import logger from "./logger"
-import SerialFallbackProvider from "../services/chain/serial-fallback-provider"
+  MULTICALL_INTERFACE,
+  CHAIN_SPECIFIC_MULTICALL_CONTRACT_ADDRESSES,
+} from "../contracts/multicall"
+import { HexString } from "../types"
 import { ShardToMulticall } from "../constants"
+import { EVMLog, SmartContract } from "../networks"
+import { AddressOnNetwork } from "../accounts"
 import { getExtendedZoneForAddress } from "../services/chain/utils"
+import { SmartContractAmount, SmartContractFungibleAsset } from "../assets"
+import SerialFallbackProvider from "../services/chain/serial-fallback-provider"
 
 export const ERC20_FUNCTIONS = {
   allowance: FunctionFragment.from(
@@ -71,7 +71,7 @@ export async function getBalance(
   tokenAddress: string,
   account: string
 ): Promise<bigint> {
-  const token = new quais.Contract(tokenAddress, ERC20_ABI, provider)
+  const token = new Contract(tokenAddress, ERC20_ABI, provider)
   return BigInt((await token.balanceOf(account)).toString())
 }
 
@@ -83,9 +83,9 @@ export async function getMetadata(
   provider: ContractRunner,
   tokenSmartContract: SmartContract
 ): Promise<SmartContractFungibleAsset> {
-  const token = new quais.Contract(
+  const token = new Contract(
     tokenSmartContract.contractAddress,
-    ERC20_ABI,
+    ERC20_INTERFACE,
     provider
   )
 
@@ -95,7 +95,7 @@ export async function getMetadata(
         ERC20_FUNCTIONS.symbol,
         ERC20_FUNCTIONS.name,
         ERC20_FUNCTIONS.decimals,
-      ].map(({ name: functionName }) => token.callStatic[functionName]())
+      ].map(({ name: functionName }) => token.functionName.staticCall())
     )
 
     return {
@@ -194,12 +194,12 @@ export const getTokenBalances = async (
     )
   }
 
-  const contract = new quais.Contract(multicallAddress, MULTICALL_ABI, provider)
+  const contract = new Contract(multicallAddress, MULTICALL_INTERFACE, provider)
   const balanceOfCallData = ERC20_INTERFACE.encodeFunctionData("balanceOf", [
     address,
   ])
 
-  const response = (await contract.callStatic.tryBlockAndAggregate(
+  const response = (await contract.tryBlockAndAggregate.staticCall(
     false, // false === don't require all calls to succeed
     tokenAddresses.map((tokenAddress) =>
       tokenAddress &&
@@ -211,11 +211,11 @@ export const getTokenBalances = async (
   )) as AggregateContractResponse
 
   return response.returnData.flatMap((data, i) => {
-    if (data.success !== true) return []
+    if (!data.success) return []
     if (data.returnData === "0x00" || data.returnData === "0x") return []
 
     return {
-      amount: toBigInt(data.returnData).toString(),
+      amount: toBigInt(data.returnData),
       smartContract: {
         contractAddress: tokenAddresses[i],
         homeNetwork: network,

@@ -78,5 +78,5 @@ export const selectSourcesByAddress = createSelector(
 
 export const selectIsWalletExists = createSelector(
   (state: RootState) => state.keyrings.keyrings,
-  (keyrings) => (keyrings && keyrings.length ? true : false)
+  (keyrings) => !!(keyrings && keyrings.length)
 )

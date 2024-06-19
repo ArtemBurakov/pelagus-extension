@@ -1,6 +1,10 @@
-import { ethers } from "ethers"
-import { toBigInt } from "quais"
-import { EventFragment, Fragment, FunctionFragment } from "ethers/lib/utils"
+import {
+  toBigInt,
+  Fragment,
+  Interface,
+  EventFragment,
+  FunctionFragment,
+} from "quais"
 import { EVMLog } from "../networks"
 import { HexString } from "../types"
 import { ERC20_FUNCTIONS } from "./erc20"
@@ -22,9 +26,7 @@ export const WRAPPED_ASSET_ABI = Object.values<Fragment>(
   WRAPPED_ASSET_FUNCTIONS
 ).concat(Object.values(WRAPPED_ASSET_EVENTS))
 
-export const WRAPPED_ASSET_INTERFACE = new ethers.utils.Interface(
-  WRAPPED_ASSET_ABI
-)
+export const WRAPPED_ASSET_INTERFACE = new Interface(WRAPPED_ASSET_ABI)
 
 export type WrappedAssetDepositLog = {
   contractAddress: string
