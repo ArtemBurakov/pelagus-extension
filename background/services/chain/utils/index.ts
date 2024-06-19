@@ -1,7 +1,6 @@
-import { getZoneForAddress, toBigInt, Zone } from "quais"
+import { getZoneForAddress, toBigInt, Zone, TransactionReceipt } from "quais"
 import {
   Block as EthersBlock,
-  TransactionReceipt as EthersTransactionReceipt,
   TransactionRequest as EthersTransactionRequest,
 } from "@quais/abstract-provider"
 
@@ -273,9 +272,9 @@ export function ethersTransactionFromSignedTransaction(
  */
 export function enrichTransactionWithReceipt(
   transaction: AnyEVMTransaction,
-  receipt: EthersTransactionReceipt
+  receipt: TransactionReceipt
 ): ConfirmedEVMTransaction {
-  const gasUsed = receipt.gasUsed.toBigInt()
+  const gasUsed = receipt.gasUsed
 
   return {
     ...transaction,
@@ -290,12 +289,16 @@ export function enrichTransactionWithReceipt(
      * This is not a perfect solution because transaction.gasPrice does not necessarily take
      * into account L1 rollup fees.
      */
-    gasPrice: receipt.effectiveGasPrice?.toBigInt() ?? transaction.gasPrice,
+    // TODO-MIGRATION new type does not have effectiveGasPrice
+    //gasPrice: receipt.effectiveGasPrice?.toBigInt() ?? transaction.gasPrice,
+    gasPrice: receipt.gasPrice,
+    // @ts-ignore TODO-MIGRATION ignoring for now
     logs: receipt.logs.map(({ address, data, topics }) => ({
       contractAddress: address,
       data,
       topics,
     })),
+    // @ts-ignore TODO-MIGRATION ignoring for now
     etxs: receipt.etxs,
     status:
       receipt.status ??

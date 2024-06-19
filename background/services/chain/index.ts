@@ -1,5 +1,12 @@
-import { TransactionReceipt, TransactionResponse } from "@quais/providers"
-import { QuaiTransaction, toBigInt } from "quais"
+import {
+  getZoneForAddress,
+  QuaiTransaction,
+  Shard,
+  toBigInt,
+  TransactionReceipt,
+  TransactionResponse,
+} from "quais"
+
 import logger from "../../lib/logger"
 import getBlockPrices from "../../lib/gas"
 import { HexString, NormalizedEVMAddress, UNIXTime } from "../../types"
@@ -878,7 +885,11 @@ export default class ChainService extends BaseService<Events> {
           })
         }
         console.error(
-          `Global shard: ${globalThis.main.SelectedShard} Address shard: ${addrShard} Provider: ${provider.connection.url}`
+          `Global shard: ${
+            globalThis.main.SelectedShard
+          } Address shard: ${addrShard} Provider: ${
+            provider._getConnection().url
+          }`
         )
       }
     } finally {
@@ -984,9 +995,12 @@ export default class ChainService extends BaseService<Events> {
     if (cachedBlock) return cachedBlock
 
     const resultBlock = await this.providerForNetworkOrThrow(network).getBlock(
+      // TODO-MIGRATION for now supporting only cyprus shards, need to be fixed
+      Shard.Cyprus,
       blockHash
     )
 
+    // @ts-ignore TODO-MIGRATION ignoring it for now
     const block = blockFromEthersBlock(network, resultBlock)
     await this.db.addBlock(block)
     this.emitter.emit("block", block)
@@ -1026,8 +1040,13 @@ export default class ChainService extends BaseService<Events> {
       shardName
     )
 
-    const resultBlock = await provider.getBlock(blockHash)
+    const resultBlock = await provider.getBlock(
+      // TODO-MIGRATION for now supporting only cyprus shards, need to be fixed
+      Shard.Cyprus,
+      blockHash
+    )
 
+    // @ts-ignore TODO-MIGRATION ignoring it for now
     const block = blockFromEthersBlock(network, resultBlock)
     await this.db.addBlock(block)
     this.emitter.emit("block", block)
@@ -1053,6 +1072,7 @@ export default class ChainService extends BaseService<Events> {
 
     if (gethResult) {
       const newTransaction = transactionFromEthersTransaction(
+        // @ts-ignore TODO-MIGRATION ignoring it for now
         gethResult,
         network
       )
@@ -1107,6 +1127,7 @@ export default class ChainService extends BaseService<Events> {
       const gethResult = await originProvider.getTransaction(txHash)
 
       const newTransaction = transactionFromEthersTransaction(
+        // @ts-ignore TODO-MIGRATION ignoring it for now
         gethResult,
         network
       )
@@ -1132,6 +1153,7 @@ export default class ChainService extends BaseService<Events> {
       const gethResult = await destinationProvider.getTransaction(etxHash)
       let newTransaction
       if (gethResult) {
+        // @ts-ignore TODO-MIGRATION ignoring it for now
         newTransaction = transactionFromEthersTransaction(gethResult, network)
       }
 
@@ -1155,6 +1177,7 @@ export default class ChainService extends BaseService<Events> {
     const gethResult = await this.providerForNetworkOrThrow(
       network
     ).getTransaction(txHash)
+    // @ts-ignore TODO-MIGRATION ignoring it for now
     const newTransaction = transactionFromEthersTransaction(gethResult, network)
 
     if (!newTransaction.blockHash && !newTransaction.blockHeight) {
@@ -1263,10 +1286,12 @@ export default class ChainService extends BaseService<Events> {
    * the base estimate returned by the provider.
    */
   private async estimateGasPrice(network: EVMNetwork): Promise<bigint> {
-    const estimate = await this.providerForNetworkOrThrow(network).getGasPrice()
+    // TODO-MIGRATION for now just mocking estimation
+    // const estimate = await this.providerForNetworkOrThrow(network).getGasPrice()
+    const estimate = 1_000_000n
 
     // Add 10% more gas as a safety net
-    return (estimate.toBigInt() * 11n) / 10n
+    return (estimate * 11n) / 10n
   }
 
   /**
@@ -1281,9 +1306,21 @@ export default class ChainService extends BaseService<Events> {
     try {
       const { serialized } = QuaiTransaction.from(transaction)
 
+      // TODO-MIGRATION temp solution to get zone from transaction "to" field
+      if (!transaction.to) {
+        throw new Error("Transaction 'to' field is not specified.")
+      }
+
+      const zoneToBroadcast = getZoneForAddress(transaction.to)
+      if (!zoneToBroadcast) {
+        throw new Error(
+          "Invalid address shard: Unable to determine the zone for the given 'to' address."
+        )
+      }
+
       await Promise.all([
         this.providerForNetworkOrThrow(transaction.network)
-          .sendTransaction(serialized)
+          .broadcastTransaction(zoneToBroadcast, serialized)
           .then((transactionResponse) => {
             this.emitter.emit("transactionSend", transactionResponse.hash)
           })
@@ -1394,6 +1431,8 @@ export default class ChainService extends BaseService<Events> {
 
     const blockPrices = await getBlockPrices(
       subscription.network,
+      // @ts-ignore TODO-MIGRATION need to rewrite function getBlockPrices in order to fix this type error
+      // ignoring it for now
       subscription.provider
     )
     this.emitter.emit("blockPrices", {
@@ -1409,7 +1448,8 @@ export default class ChainService extends BaseService<Events> {
     network: EVMNetwork,
     provider: SerialFallbackProvider
   ): Promise<void> {
-    const ethersBlock = await provider.getBlock("latest")
+    // TODO-MIGRATION for now supporting only cyprus shards, need to be fixed
+    const ethersBlock = await provider.getBlock(Shard.Cyprus, "latest")
     // add new head to database
     const block = blockFromProviderBlock(network, ethersBlock)
     await this.db.addBlock(block)
@@ -1690,6 +1730,7 @@ export default class ChainService extends BaseService<Events> {
       const result = await this.getOrCancelTransaction(network, hash)
       if (!result) return
 
+      // @ts-ignore TODO-MIGRATION ignoring it for now
       const transaction = transactionFromEthersTransaction(result, network)
 
       // TODO make this provider type specific
@@ -1849,8 +1890,12 @@ export default class ChainService extends BaseService<Events> {
     const provider = this.providerForNetwork(network)
     if (provider) {
       try {
-        const blockNumber = provider.getBlockNumber()
-        const result = await provider.getBlock(blockNumber)
+        const blockNumber = await provider.getBlockNumber()
+
+        // TODO-MIGRATION for now supporting only cyprus shards, need to be fixed
+        const result = await provider.getBlock(Shard.Cyprus, blockNumber)
+
+        // @ts-ignore TODO-MIGRATION ignoring it for now
         const block = blockFromEthersBlock(network, result)
         await this.db.addBlock(block)
       } catch (e) {
@@ -1942,7 +1987,7 @@ export default class ChainService extends BaseService<Events> {
   }
 
   /**
-   * Track an pending transaction's confirmation status, saving any updates to
+   * Track a pending transaction's confirmation status, saving any updates to
    * the database and informing subscribers via the emitter.
    *
    * @param network the EVM network we're interested in
