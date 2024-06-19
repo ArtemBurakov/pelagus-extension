@@ -250,7 +250,7 @@ export default class Main extends BaseService<never> {
 
   public ready: Promise<boolean>
 
-  balanceChecker: NodeJS.Timer
+  balanceChecker: NodeJS.Timeout
 
   static create: ServiceCreatorFunction<never, Main, []> = async () => {
     const preferenceService = PreferenceService.create()
