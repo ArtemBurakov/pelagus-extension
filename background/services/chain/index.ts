@@ -1283,8 +1283,7 @@ export default class ChainService extends BaseService<Events> {
 
       await Promise.all([
         this.providerForNetworkOrThrow(transaction.network)
-          .send()
-          ?.sendTransaction(serialized)
+          .sendTransaction(serialized)
           .then((transactionResponse) => {
             this.emitter.emit("transactionSend", transactionResponse.hash)
           })

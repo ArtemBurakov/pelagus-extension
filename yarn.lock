@@ -11429,10 +11429,46 @@ quais@0.1.11:
     "@quais/web" "0.1.0"
     "@quais/wordlists" "0.1.0"
 
-quais@^1.0.0-alpha.1:
-  version "1.0.0-alpha.1"
-  resolved "https://registry.yarnpkg.com/quais/-/quais-1.0.0-alpha.1.tgz#a20e3d007c02fdc9eb86d6ab0f2d54d8bd327760"
-  integrity sha512-Gp2ffJTtCp0VReb9+KsCnuNeMbcVlPmdSAyab2VfgqreAOgeF5RKWGBlxTFHTqi01v7dS3wPriehIIxQqQcEKQ==
+quais@0.1.14:
+  version "0.1.14"
+  resolved "https://registry.yarnpkg.com/quais/-/quais-0.1.14.tgz#03cec9399f21c60d1c10bfb94b7f4f3b2529250c"
+  integrity sha512-e4YsWMlWJiVf3wTBcXXdnYBbbmFLrobpoECo4vVxsnbmBApA+79BfpX3D8CwAPEOe8n2hWx3wtgzPGyPDQSW2w==
+  dependencies:
+    "@quais/abi" "0.1.0"
+    "@quais/abstract-provider" "0.1.4"
+    "@quais/abstract-signer" "0.1.0"
+    "@quais/address" "0.1.2"
+    "@quais/base64" "0.1.0"
+    "@quais/basex" "0.1.0"
+    "@quais/bignumber" "0.1.0"
+    "@quais/bytes" "0.1.0"
+    "@quais/constants" "0.1.2"
+    "@quais/contracts" "0.1.2"
+    "@quais/hash" "0.1.0"
+    "@quais/hdnode" "0.1.1"
+    "@quais/json-wallets" "0.1.0"
+    "@quais/keccak256" "0.1.0"
+    "@quais/logger" "0.1.0"
+    "@quais/networks" "0.1.0"
+    "@quais/pbkdf2" "0.1.0"
+    "@quais/properties" "0.1.0"
+    "@quais/providers" "0.1.5"
+    "@quais/random" "0.1.0"
+    "@quais/rlp" "0.1.0"
+    "@quais/sha2" "0.1.0"
+    "@quais/signing-key" "0.1.0"
+    "@quais/solidity" "0.1.0"
+    "@quais/strings" "0.1.0"
+    "@quais/transactions" "0.1.2"
+    "@quais/units" "0.1.0"
+    "@quais/wallet" "0.1.0"
+    "@quais/web" "0.1.0"
+    "@quais/wordlists" "0.1.0"
+
+quais@^1.0.0-alpha.2:
+  version "1.0.0-alpha.2"
+  resolved "https://registry.yarnpkg.com/quais/-/quais-1.0.0-alpha.2.tgz#cf684a01b8c967350f8da0ace287489847ce76f3"
+  integrity sha512-HTPOvABlYTjt+Wkivsy9tgdg+UgZgFf4jZ2/n81RYBUYZCrpZP0XmpebaYrib3VacfvjB/CTXG5yo6VfdlK32w==
   dependencies:
     "@brandonblack/musig" "^0.0.1-alpha.1"
     "@noble/curves" "1.2.0"
