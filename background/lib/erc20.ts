@@ -1,11 +1,13 @@
-import { BaseProvider } from "@quais/providers"
-import { toBigInt, quais, Interface } from "quais"
 import {
-  EventFragment,
-  Fragment,
-  FunctionFragment,
+  toBigInt,
+  quais,
+  Interface,
   TransactionDescription,
-} from "ethers/lib/utils"
+  FunctionFragment,
+  Fragment,
+  EventFragment,
+  ContractRunner,
+} from "quais"
 import { SmartContractAmount, SmartContractFungibleAsset } from "../assets"
 import { EVMLog, SmartContract } from "../networks"
 import { HexString } from "../types"
@@ -65,7 +67,7 @@ export const ERC20_INTERFACE = new Interface(ERC20_ABI)
  * Get an account's balance from an ERC20-compliant contract.
  */
 export async function getBalance(
-  provider: BaseProvider,
+  provider: ContractRunner,
   tokenAddress: string,
   account: string
 ): Promise<bigint> {
@@ -78,7 +80,7 @@ export async function getBalance(
  * directly. Certain providers may support more efficient lookup strategies.
  */
 export async function getMetadata(
-  provider: BaseProvider,
+  provider: ContractRunner,
   tokenSmartContract: SmartContract
 ): Promise<SmartContractFungibleAsset> {
   const token = new quais.Contract(
@@ -112,15 +114,13 @@ export async function getMetadata(
  * Parses a contract input/data field as if it were an ERC20 transaction.
  * Returns the parsed data if parsing succeeds, otherwise returns `undefined`.
  */
-export function parseERC20Tx(
-  input: string
-): TransactionDescription | undefined {
+export function parseERC20Tx(input: string): TransactionDescription | null {
   try {
     return ERC20_INTERFACE.parseTransaction({
       data: input,
     })
   } catch (err) {
-    return undefined
+    return null
   }
 }
 

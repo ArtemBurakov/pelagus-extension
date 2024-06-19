@@ -1,11 +1,11 @@
+/* eslint-disable no-restricted-syntax */
+/* eslint-disable import/no-cycle */
+// eslint-disable-next-line max-classes-per-file
 import { indexOf } from "lodash"
+import { JsonRpcProvider } from "quais"
 import logger from "../lib/logger"
-import { QUAI, QUAI_LOCAL } from "./"
+import { QUAI, QUAI_LOCAL } from "."
 import { EVMNetwork } from "../networks"
-import {
-  JsonRpcProvider as QuaisJsonRpcProvider,
-  WebSocketProvider as QuaisWebSocketProvider,
-} from "@quais/providers"
 import SerialFallbackProvider from "../services/chain/serial-fallback-provider"
 import { getExtendedZoneForAddress } from "../services/chain/utils"
 
@@ -288,17 +288,25 @@ export const TEST_NETWORK_BY_CHAIN_ID = new Set(
 
 export class Network {
   name: string
+
   chains: ChainData[]
+
   isCustom: boolean
+
   chainCode: number
+
   chainID: number
 }
 
 export class ChainData {
   name: string
+
   shard: string
+
   blockExplorerUrl: string
+
   rpc: string
+
   multicall: string
 }
 
@@ -379,22 +387,35 @@ export const CHAIN_ID_TO_RPC_URLS: {
   ],
 }
 
+export function ShardFromRpcUrl(url: string): string {
+  for (const network of DEFAULT_QUAI_NETWORKS) {
+    for (const chain of network.chains) {
+      if (chain.rpc === url) return chain.shard
+
+      if (
+        new URL(chain.rpc).port === new URL(url).port &&
+        new URL(chain.rpc).port !== ""
+      )
+        return chain.shard
+    }
+  }
+  logger.error(`Unknown shard for rpc url: ${url}`)
+  return ""
+}
+
 export function setProviderForShard(
   providers: SerialFallbackProvider
 ): SerialFallbackProvider {
   const shard = globalThis.main.SelectedShard
-  if (shard === undefined || shard == "") {
+  if (shard === undefined || shard === "") {
     globalThis.main.SetCorrectShard()
     return providers
   }
 
   for (const provider of providers.providerCreators) {
-    if (provider.shard !== undefined && provider.shard == shard) {
+    if (provider.shard !== undefined && provider.shard === shard) {
       const quaisProvider = provider.creator()
-      if (
-        quaisProvider instanceof QuaisJsonRpcProvider ||
-        quaisProvider instanceof QuaisWebSocketProvider
-      ) {
+      if (quaisProvider instanceof JsonRpcProvider) {
         providers.SetCurrentProvider(
           quaisProvider,
           indexOf(providers.providerCreators, provider)
@@ -407,10 +428,7 @@ export function setProviderForShard(
       ShardFromRpcUrl(provider.rpcUrl) === shard
     ) {
       const quaisProvider = provider.creator()
-      if (
-        quaisProvider instanceof QuaisJsonRpcProvider ||
-        quaisProvider instanceof QuaisWebSocketProvider
-      ) {
+      if (quaisProvider instanceof JsonRpcProvider) {
         providers.SetCurrentProvider(
           quaisProvider,
           indexOf(providers.providerCreators, provider)
@@ -427,20 +445,16 @@ export function setProviderForShard(
 export function getProviderForGivenShard(
   providers: SerialFallbackProvider,
   shard: string
-): QuaisJsonRpcProvider | QuaisWebSocketProvider {
-  if (shard === undefined || shard == "") {
+): JsonRpcProvider {
+  if (shard === undefined || shard === "") {
     globalThis.main.SetCorrectShard()
     return providers
   }
 
   for (const provider of providers.providerCreators) {
-    if (provider.shard !== undefined && provider.shard == shard) {
+    if (provider.shard !== undefined && provider.shard === shard) {
       const quaisProvider = provider.creator()
-      if (
-        quaisProvider instanceof QuaisJsonRpcProvider ||
-        quaisProvider instanceof QuaisWebSocketProvider
-      )
-        return quaisProvider
+      if (quaisProvider instanceof JsonRpcProvider) return quaisProvider
 
       logger.error("Provider is not a Quais provider")
     } else if (
@@ -448,33 +462,13 @@ export function getProviderForGivenShard(
       ShardFromRpcUrl(provider.rpcUrl) === shard
     ) {
       const quaisProvider = provider.creator()
-      if (
-        quaisProvider instanceof QuaisJsonRpcProvider ||
-        quaisProvider instanceof QuaisWebSocketProvider
-      )
-        return quaisProvider
+      if (quaisProvider instanceof JsonRpcProvider) return quaisProvider
 
       logger.error("Provider is not a Quais provider")
     }
   }
   logger.error(`No provider found for shard: ${shard}`)
   return providers
-}
-
-export function ShardFromRpcUrl(url: string): string {
-  for (const network of DEFAULT_QUAI_NETWORKS) {
-    for (const chain of network.chains) {
-      if (chain.rpc === url) return chain.shard
-
-      if (
-        new URL(chain.rpc).port === new URL(url).port &&
-        new URL(chain.rpc).port !== ""
-      )
-        return chain.shard
-    }
-  }
-  logger.error(`Unknown shard for rpc url: ${url}`)
-  return ""
 }
 
 export function ShardToMulticall(shard: string, network: EVMNetwork): string {

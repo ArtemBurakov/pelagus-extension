@@ -1,10 +1,16 @@
-import { getZoneForAddress, toBigInt, Zone, QuaiTransaction } from "quais"
+import { getZoneForAddress, toBigInt, Zone } from "quais"
 import {
   Block as EthersBlock,
   TransactionReceipt as EthersTransactionReceipt,
   TransactionRequest as EthersTransactionRequest,
 } from "@quais/abstract-provider"
-import { UnsignedTransaction } from "@quais/transactions"
+
+// TODO-MIGRATION: Update TransactionTypes
+import {
+  BigNumber,
+  Transaction as EthersTransaction,
+  UnsignedTransaction,
+} from "quais-old"
 import {
   AnyEVMTransaction,
   EVMNetwork,
@@ -30,8 +36,8 @@ export function blockFromEthersBlock(
 ): AnyEVMBlock {
   return {
     hash: gethResult.hash,
-    blockHeight: gethResult.number,
-    parentHash: gethResult.parentHash,
+    blockHeight: gethResult.number as number,
+    parentHash: gethResult.parentHash as string,
     // FIXME Hold for ethers/v5.4.8 _difficulty BigNumber field; the current
     // FIXME difficutly field is a `number` and has overflowed since Ethereum
     // FIXME difficulty has exceeded MAX_SAFE_INTEGER. The current ethers
@@ -40,7 +46,7 @@ export function blockFromEthersBlock(
     // FIXME _difficulty field.
     difficulty: 0n,
     timestamp: gethResult.timestamp,
-    baseFeePerGas: gethResult.baseFeePerGas?.toBigInt(),
+    baseFeePerGas: gethResult.baseFeePerGas?.toBigInt() as bigint,
     network,
   }
 }
@@ -61,7 +67,7 @@ export function blockFromProviderBlock(
     baseFeePerGas?: string
   }
 
-  let blockNumber: string = Array.isArray(gethResult.number)
+  const blockNumber: string = Array.isArray(gethResult.number)
     ? gethResult.number[gethResult.number.length - 1]
     : gethResult.number
 
@@ -229,23 +235,30 @@ export function unsignedTransactionFromEVMTransaction(
 
 export function ethersTransactionFromSignedTransaction(
   tx: SignedTransaction
-): QuaiTransaction {
-  const baseTx = {
+): EthersTransaction {
+  const baseTx: EthersTransaction = {
     nonce: Number(tx.nonce),
-    to: tx.to ?? null,
+    // TODO-MIGRATION: Update with to: tx.to ?? null
+    to: tx.to,
     data: tx.input || "",
-    gasPrice: tx.gasPrice ? toBigInt(tx.gasPrice) : null,
+    // TODO-MIGRATION: Update with gasPrice: tx.gasPrice ? toBigInt(tx.gasPrice) : null,
+    gasPrice: tx.gasPrice ? BigNumber.from(tx.gasPrice) : undefined,
     type: tx.type,
-    chainId: toBigInt(tx.network.chainID),
-    value: toBigInt(tx.value),
-    gasLimit: toBigInt(tx.gasLimit),
-  } as QuaiTransaction
+    // TODO-MIGRATION: Update with chainId: toBigInt(tx.network.chainID)
+    chainId: parseInt(tx.network.chainID, 10),
+    // TODO-MIGRATION: Update with value: toBigInt(tx.value),
+    value: BigNumber.from(tx.value),
+    // TODO-MIGRATION: Update with gasLimit: toBigInt(tx.gasLimit),
+    gasLimit: BigNumber.from(tx.gasLimit),
+  }
 
   if (isEIP1559SignedTransaction(tx))
     return {
       ...baseTx,
-      maxFeePerGas: toBigInt(tx.maxFeePerGas!),
-      maxPriorityFeePerGas: toBigInt(tx.maxPriorityFeePerGas!),
+      // TODO-MIGRATION: Update with maxFeePerGas: toBigInt(tx.maxFeePerGas!)
+      maxFeePerGas: BigNumber.from(tx.maxFeePerGas),
+      // TODO-MIGRATION: Update with maxPriorityFeePerGas: toBigInt(tx.maxPriorityFeePerGas!)
+      maxPriorityFeePerGas: BigNumber.from(tx.maxPriorityFeePerGas),
       r: tx.r,
       from: tx.from,
       s: tx.s,
@@ -298,7 +311,7 @@ export function enrichTransactionWithReceipt(
  * Parse a transaction as returned by a polling provider.
  */
 export function transactionFromEthersTransaction(
-  tx: QuaiTransaction & {
+  tx: EthersTransaction & {
     from: string
     blockHash?: string
     blockNumber?: number
@@ -318,13 +331,20 @@ export function transactionFromEthersTransaction(
     from: tx.from,
     to: tx.to ?? undefined,
     nonce: parseInt(tx.nonce.toString(), 10),
-    gasLimit: toBigInt(tx.gasLimit),
-    gasPrice: tx.gasPrice ? toBigInt(tx.gasPrice) : null,
-    maxFeePerGas: tx.maxFeePerGas ? toBigInt(tx.maxFeePerGas) : null,
+    // TODO-MIGRATION: Update with gasLimit: toBigInt(tx.gasLimit)
+    gasLimit: tx.gasLimit.toBigInt(),
+    // TODO-MIGRATION: Update with gasPrice: tx.gasPrice ? toBigInt(tx.gasPrice) : null
+    gasPrice: tx.gasPrice ? tx.gasPrice.toBigInt() : null,
+    // TODO-MIGRATION: Update with maxFeePerGas: tx.maxFeePerGas ? toBigInt(tx.maxFeePerGas) : null
+    maxFeePerGas: tx.maxFeePerGas ? tx.maxFeePerGas.toBigInt() : null,
+    // TODO-MIGRATION: Update with maxPriorityFeePerGas: tx.maxPriorityFeePerGas
+    //       ? toBigInt(tx.maxPriorityFeePerGas)
+    //       : null
     maxPriorityFeePerGas: tx.maxPriorityFeePerGas
-      ? toBigInt(tx.maxPriorityFeePerGas)
+      ? tx.maxPriorityFeePerGas.toBigInt()
       : null,
-    value: toBigInt(tx.value),
+    // TODO-MIGRATION: Update with value: toBigInt(tx.value)
+    value: tx.value.toBigInt(),
     input: tx.data,
     type: tx.type,
     blockHash: tx.blockHash || null,

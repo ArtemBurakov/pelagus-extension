@@ -7,11 +7,11 @@ import {
   accessListify,
   Contract,
 } from "quais"
-import { QRC20_INTERFACE } from "../contracts/qrc-20"
-
+import { createSelector, createSlice } from "@reduxjs/toolkit"
 // TODO-MIGRATION -----------------------------
-import { RLP } from "ethers/lib/utils"
+import { RLP } from "quais-old/lib/utils"
 // -----------------------------
+import { QRC20_INTERFACE } from "../contracts/qrc-20"
 
 import {
   AnyAsset,
@@ -25,7 +25,6 @@ import {
 } from "../assets"
 import { AddressOnNetwork } from "../accounts"
 import { createBackgroundAsyncThunk } from "./utils"
-import { createSelector, createSlice } from "@reduxjs/toolkit"
 import { isBuiltInNetworkBaseAsset, isSameAsset } from "./utils/asset-utils"
 import { getProvider } from "./utils/contract-utils"
 import {

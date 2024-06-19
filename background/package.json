@@ -48,11 +48,15 @@
     "ethers": "^5.5.1",
     "lodash": "^4.17.21",
     "quais": "^1.0.0-alpha.1",
+    "quais-old": "npm:quais@0.1.14",
     "sinon": "^14.0.0",
     "siwe": "^1.1.0",
     "util": "^0.12.4",
     "uuid": "^9.0.0",
     "webextension-polyfill": "^0.8.0"
+  },
+  "resolutions": {
+    "quais-old/quais": "0.1.14"
   },
   "devDependencies": {
     "@reduxjs/toolkit": "^1.6.1",

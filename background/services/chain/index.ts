@@ -1254,7 +1254,7 @@ export default class ChainService extends BaseService<Events> {
     )
 
     // Add 10% more gas as a safety net
-    const uppedEstimate = estimate.add(estimate.div(10))
+    const uppedEstimate = estimate + estimate / 10n
     return BigInt(uppedEstimate.toString())
   }
 
@@ -1283,7 +1283,8 @@ export default class ChainService extends BaseService<Events> {
 
       await Promise.all([
         this.providerForNetworkOrThrow(transaction.network)
-          .sendTransaction(serialized)
+          .send()
+          ?.sendTransaction(serialized)
           .then((transactionResponse) => {
             this.emitter.emit("transactionSend", transactionResponse.hash)
           })

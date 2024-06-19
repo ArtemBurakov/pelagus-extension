@@ -16,7 +16,7 @@ import logger from "../../lib/logger"
 import { AnyEVMTransaction } from "../../networks"
 import { AddressOnNetwork } from "../../accounts"
 import { transactionFromEthersTransaction } from "./utils"
-
+import { Transaction as EthersTransaction } from "quais-old"
 // Back off by this amount as a base, exponentiated by attempts and jittered.
 const BASE_BACKOFF_MS = 600
 // Max back off time in milliseconds
@@ -505,12 +505,13 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
         if (typeof transactionHash === "string") {
           const tx = (await this.getTransaction(
             transactionHash
-          )) as TransactionResponse & {
-            from: string
-            blockHash?: string | undefined
-            blockNumber?: number | undefined
-            type?: number | null | undefined
-          } // TODO-MIGRATION
+          )) as TransactionResponse &
+            EthersTransaction & {
+              from: string
+              blockHash?: string | undefined
+              blockNumber?: number | undefined
+              type?: number | null | undefined
+            } // TODO-MIGRATION
 
           if (!tx) throw new Error("getTransaction return null")
 
