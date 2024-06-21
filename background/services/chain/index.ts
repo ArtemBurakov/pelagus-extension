@@ -1,3 +1,5 @@
+/* eslint-disable no-underscore-dangle */
+
 import {
   getZoneForAddress,
   QuaiTransaction,
@@ -31,13 +33,11 @@ import {
 import {
   CHAINS_WITH_MEMPOOL,
   EIP_1559_COMPLIANT_CHAIN_IDS,
-  getProviderForGivenShard,
   HOUR,
   MINUTE,
   NETWORK_BY_CHAIN_ID,
   QUAI_NETWORK,
   SECOND,
-  setProviderForShard,
 } from "../../constants"
 import PreferenceService from "../preferences"
 import { ServiceCreatorFunction, ServiceLifecycleEvents } from "../types"
@@ -60,13 +60,12 @@ import type {
   EnrichedLegacyTransactionRequest,
   EnrichedLegacyTransactionSignatureRequest,
 } from "../enrichment"
-import SerialFallbackProvider, {
-  makeSerialFallbackProvider,
-} from "./serial-fallback-provider"
 import AssetDataHelper from "./asset-data-helper"
 import KeyringService from "../keyring"
 import type { ValidatedAddEthereumChainParameter } from "../provider-bridge/utils"
 import { getRelevantTransactionAddresses } from "../enrichment/utils"
+import PelagusJsonRpcProvider from "../providers"
+import { QuaiNetworkGA } from "../../constants/networks/networks"
 
 // The number of blocks to query at a time for historic asset transfers.
 // Unfortunately there's no "right" answer here that works well across different
@@ -174,18 +173,16 @@ export type PriorityQueuedTxToRetrieve = {
  *   case a service needs to interact with a network directly.
  */
 export default class ChainService extends BaseService<Events> {
-  providers: { evm: { [networkName: string]: SerialFallbackProvider } } = {
-    evm: {},
-  }
+  provider: PelagusJsonRpcProvider
 
   subscribedAccounts: {
     account: string
-    provider: SerialFallbackProvider
+    provider: PelagusJsonRpcProvider
   }[]
 
   subscribedNetworks: {
     network: EVMNetwork
-    provider: SerialFallbackProvider
+    provider: PelagusJsonRpcProvider
   }[]
 
   private lastUserActivityOnNetwork: {
@@ -355,7 +352,6 @@ export default class ChainService extends BaseService<Events> {
   }
 
   async initializeNetworks(): Promise<void> {
-    const rpcUrls = await this.db.getAllRpcUrls()
     await this.updateSupportedNetworks()
 
     this.lastUserActivityOnNetwork =
@@ -363,35 +359,13 @@ export default class ChainService extends BaseService<Events> {
         this.supportedNetworks.map((network) => [network.chainID, 0])
       ) || {}
 
-    this.providers = {
-      evm: Object.fromEntries(
-        this.supportedNetworks.map((network) => [
-          network.chainID,
-          makeSerialFallbackProvider(
-            network.chainID,
-            rpcUrls.find((v) => v.chainID === network.chainID)?.rpcUrls || []
-          ),
-        ])
-      ),
-    }
+    this.provider = new PelagusJsonRpcProvider(QuaiNetworkGA.rpcUrls)
   }
 
-  /**
-   * Finds a provider for the given network, or returns undefined if no such
-   * provider exists.
-   */
-  providerForNetwork(network: EVMNetwork): SerialFallbackProvider | undefined {
-    if (this.providers.evm[network.chainID] === undefined) {
-      this.initializeNetworks().then(() => {
-        if (this.providers.evm[network.chainID] === undefined) {
-          console.error(`Provider is undefined for network ${network.name}`)
-        }
-        setProviderForShard(this.providers.evm[network.chainID])
-      })
-    } else {
-      setProviderForShard(this.providers.evm[network.chainID])
-    }
-    return this.providers.evm[network.chainID]
+  providerForNetwork(): PelagusJsonRpcProvider | undefined {
+    if (!this.provider) return undefined
+
+    return this.provider
   }
 
   /**
@@ -417,7 +391,7 @@ export default class ChainService extends BaseService<Events> {
   }
 
   private async subscribeToNetworkEvents(network: EVMNetwork): Promise<void> {
-    const provider = this.providerForNetwork(network)
+    const { provider } = this
     if (provider) {
       await Promise.allSettled([
         this.fetchLatestBlockForNetwork(network),
@@ -480,18 +454,15 @@ export default class ChainService extends BaseService<Events> {
    * Finds a provider for the given network, or returns undefined if no such
    * provider exists.
    */
-  providerForNetworkOrThrow(network: EVMNetwork): SerialFallbackProvider {
-    const provider = this.providerForNetwork(network)
+  providerForNetworkOrThrow(): PelagusJsonRpcProvider {
+    const provider = this.providerForNetwork()
     if (!provider) {
       logger.error(
         "Request received for operation on an inactive network",
-        network,
         "expected",
         this.trackedNetworks
       )
-      throw new Error(
-        `Unexpected network ${network.name}, id: ${network.chainID}`
-      )
+      throw new Error(`Unexpected network`)
     }
     return provider
   }
@@ -664,14 +635,14 @@ export default class ChainService extends BaseService<Events> {
         maxPriorityFeePerGas = defaults.maxPriorityFeePerGas,
       } = partialRequest as EnrichedEIP1559TransactionSignatureRequest
 
-      return await this.populatePartialEIP1559TransactionRequest(network, {
+      return this.populatePartialEIP1559TransactionRequest(network, {
         ...(partialRequest as EnrichedEIP1559TransactionSignatureRequest),
         maxFeePerGas,
         maxPriorityFeePerGas,
       })
     }
     // Legacy Transaction
-    return await this.populatePartialLegacyEVMTransactionRequest(network, {
+    return this.populatePartialLegacyEVMTransactionRequest(network, {
       ...(partialRequest as EnrichedLegacyTransactionRequest),
     })
   }
@@ -695,9 +666,9 @@ export default class ChainService extends BaseService<Events> {
       return transactionRequest as EIP1559TransactionRequest & { nonce: number }
     }
 
-    const { network, chainID } = transactionRequest
+    const { chainID } = transactionRequest
     const normalizedAddress = normalizeEVMAddress(transactionRequest.from)
-    const provider = this.providerForNetworkOrThrow(network)
+    const { provider } = this
 
     // https://docs.ethers.io/v5/single-page/#/v5/api/providers/provider/-%23-Provider-getTransactionCount
     const chainTransactionCount = await provider.getTransactionCount(
@@ -868,12 +839,9 @@ export default class ChainService extends BaseService<Events> {
     }
     let err = false
     let balance = toBigInt(0)
-    const provider = getProviderForGivenShard(
-      this.providers.evm[network.chainID],
-      addrShard
-    )
+
     try {
-      balance = await provider.getBalance(normalizedAddress)
+      balance = await this.provider.getBalance(normalizedAddress)
     } catch (error) {
       if (error instanceof Error) {
         console.error("Error getting balance for address", address, error)
@@ -888,7 +856,7 @@ export default class ChainService extends BaseService<Events> {
           `Global shard: ${
             globalThis.main.SelectedShard
           } Address shard: ${addrShard} Provider: ${
-            provider._getConnection().url
+            this.provider._getConnection().url
           }`
         )
       }
@@ -975,7 +943,7 @@ export default class ChainService extends BaseService<Events> {
     const cachedBlock = await this.db.getLatestBlock(network)
     if (cachedBlock) return cachedBlock.blockHeight
 
-    return this.providerForNetworkOrThrow(network).getBlockNumber()
+    return this.provider.getBlockNumber()
   }
 
   /**
@@ -994,13 +962,15 @@ export default class ChainService extends BaseService<Events> {
     const cachedBlock = await this.db.getBlock(network, blockHash)
     if (cachedBlock) return cachedBlock
 
-    const resultBlock = await this.providerForNetworkOrThrow(network).getBlock(
-      // TODO-MIGRATION for now supporting only cyprus shards, need to be fixed
-      Shard.Cyprus,
-      blockHash
+    // TODO-MIGRATION: Need serialize/get Shard in some way
+    console.log(
+      "SHARD >>>>>>>>>>>>>>>>>>>>>>>>>>>>",
+      globalThis.main.SelectedShard
     )
 
-    // @ts-ignore TODO-MIGRATION ignoring it for now
+    const resultBlock = await this.provider.getBlock(Shard.Cyprus, blockHash)
+    if (!resultBlock) throw new Error(`Failed to get block`)
+
     const block = blockFromEthersBlock(network, resultBlock)
     await this.db.addBlock(block)
     this.emitter.emit("block", block)
@@ -1025,28 +995,13 @@ export default class ChainService extends BaseService<Events> {
     const cachedBlock = await this.db.getBlock(network, blockHash)
     if (cachedBlock) return cachedBlock
 
-    // Convert shard string. Map 0 to cyprus, 1 to paxos, 2 to hydra
-    // zone-0-0 should become cyprus-1
-    // zone-1-2 should become paxos-3
-    // zone-2-1 should become hydra-2
-    const regionNames = ["cyprus", "paxos", "hydra"]
-    const shardSplit = shard.split("-")
-    const shardName = `${regionNames[+shardSplit[1]]}-${(
-      +shardSplit[2] + 1
-    ).toString()}`
+    const { provider } = this
 
-    const provider = getProviderForGivenShard(
-      this.providers.evm[network.chainID],
-      shardName
-    )
+    // TODO-MIGRATION: Need serialize/get Shard in some way
 
-    const resultBlock = await provider.getBlock(
-      // TODO-MIGRATION for now supporting only cyprus shards, need to be fixed
-      Shard.Cyprus,
-      blockHash
-    )
+    const resultBlock = await provider.getBlock(Shard.Cyprus, blockHash)
+    if (!resultBlock) throw new Error(`Failed to get block`)
 
-    // @ts-ignore TODO-MIGRATION ignoring it for now
     const block = blockFromEthersBlock(network, resultBlock)
     await this.db.addBlock(block)
     this.emitter.emit("block", block)
@@ -1067,12 +1022,20 @@ export default class ChainService extends BaseService<Events> {
     network: EVMNetwork,
     txHash: HexString
   ): Promise<AnyEVMTransaction | null> {
-    const provider = this.providerForNetworkOrThrow(network)
-    const gethResult = await provider.getTransaction(txHash)
+    const { provider } = this
+    const gethResult = (await provider.getTransaction(
+      txHash
+    )) as TransactionResponse & {
+      from: string
+      blockHash?: string
+      blockNumber?: number
+      type?: number | null
+    }
+
+    if (!gethResult) throw new Error(`Failed to get transaction`)
 
     if (gethResult) {
       const newTransaction = transactionFromEthersTransaction(
-        // @ts-ignore TODO-MIGRATION ignoring it for now
         gethResult,
         network
       )
@@ -1096,38 +1059,41 @@ export default class ChainService extends BaseService<Events> {
    *
    * @param network the EVM network we're interested in
    * @param txHash the hash of the ITX (that emits 1 ETX) transaction we're interested in
-   * @param destinationShard
    */
   async getETX(
     network: EVMNetwork,
-    txHash: HexString,
-    destinationShard: string
+    txHash: HexString
   ): Promise<AnyEVMTransaction> {
     const cachedTx = await this.db.getTransaction(network, txHash)
 
     // Transaction is already included in origin chain block, and etx is settled in destination
     if (
       cachedTx &&
-      cachedTx.blockHash != undefined &&
+      cachedTx.blockHash &&
       "status" in cachedTx &&
       cachedTx.status == 2
     )
       return cachedTx
 
     // Provider for destination shard
-    const destinationProvider = getProviderForGivenShard(
-      this.providers.evm[network.chainID],
-      destinationShard
-    )
-    const originProvider = this.providerForNetworkOrThrow(network)
+    const destinationProvider = this.provider
+    const originProvider = this.provider
 
     // Transaction hasn't confirmed in origin chain yet
-    if (!cachedTx || cachedTx.blockHash == undefined) {
+    if (!cachedTx || !cachedTx.blockHash) {
       console.log("Transaction hasn't confirmed in origin chain yet")
-      const gethResult = await originProvider.getTransaction(txHash)
+      const gethResult = (await originProvider.getTransaction(
+        txHash
+      )) as TransactionResponse & {
+        from: string
+        blockHash?: string
+        blockNumber?: number
+        type?: number | null
+      }
+
+      if (!gethResult) throw new Error(`Failed to get transaction`)
 
       const newTransaction = transactionFromEthersTransaction(
-        // @ts-ignore TODO-MIGRATION ignoring it for now
         gethResult,
         network
       )
@@ -1145,15 +1111,24 @@ export default class ChainService extends BaseService<Events> {
 
     // If tx is cached and already included in a block, its ETX is possibly confirmed
     if (cachedTx) {
-      if (cachedTx.to == undefined) return cachedTx
+      if (!cachedTx.to) return cachedTx
 
       const etxHash = "etxs" in cachedTx ? cachedTx.etxs[0].hash : undefined
       if (!etxHash) return cachedTx
 
-      const gethResult = await destinationProvider.getTransaction(etxHash)
+      const gethResult = (await destinationProvider.getTransaction(
+        etxHash
+      )) as TransactionResponse & {
+        from: string
+        blockHash?: string
+        blockNumber?: number
+        type?: number | null
+      }
+
+      if (!gethResult) throw new Error(`Failed to get transaction`)
+
       let newTransaction
       if (gethResult) {
-        // @ts-ignore TODO-MIGRATION ignoring it for now
         newTransaction = transactionFromEthersTransaction(gethResult, network)
       }
 
@@ -1174,17 +1149,23 @@ export default class ChainService extends BaseService<Events> {
     }
 
     // Transaction is not cached
-    const gethResult = await this.providerForNetworkOrThrow(
-      network
-    ).getTransaction(txHash)
-    // @ts-ignore TODO-MIGRATION ignoring it for now
+    const gethResult = (await this.provider.getTransaction(
+      txHash
+    )) as TransactionResponse & {
+      from: string
+      blockHash?: string
+      blockNumber?: number
+      type?: number | null
+    }
+
+    if (!gethResult) throw new Error(`Failed to get transaction`)
+
     const newTransaction = transactionFromEthersTransaction(gethResult, network)
 
     if (!newTransaction.blockHash && !newTransaction.blockHeight) {
       this.subscribeToTransactionConfirmation(network, newTransaction)
     }
 
-    // TODO proper provider string
     this.saveTransaction(newTransaction, "local")
     return newTransaction
   }
@@ -1269,10 +1250,9 @@ export default class ChainService extends BaseService<Events> {
    * the base estimate returned by the provider.
    */
   async estimateGasLimit(
-    network: EVMNetwork,
     transactionRequest: TransactionRequest
   ): Promise<bigint> {
-    const estimate = await this.providerForNetworkOrThrow(network).estimateGas(
+    const estimate = await this.provider.estimateGas(
       ethersTransactionFromTransactionRequest(transactionRequest)
     )
 
@@ -1285,10 +1265,9 @@ export default class ChainService extends BaseService<Events> {
    * Estimate the gas needed to make a transaction. Adds 10% as a safety net to
    * the base estimate returned by the provider.
    */
-  private async estimateGasPrice(network: EVMNetwork): Promise<bigint> {
-    // TODO-MIGRATION for now just mocking estimation
-    // const estimate = await this.providerForNetworkOrThrow(network).getGasPrice()
-    const estimate = 1_000_000n
+  private async estimateGasPrice(): Promise<bigint> {
+    // TODO-MIGRATION need transaction object for estimating gas
+    const estimate = await this.provider.estimateGas(new QuaiTransaction())
 
     // Add 10% more gas as a safety net
     return (estimate * 11n) / 10n
@@ -1319,7 +1298,7 @@ export default class ChainService extends BaseService<Events> {
       }
 
       await Promise.all([
-        this.providerForNetworkOrThrow(transaction.network)
+        this.provider
           .broadcastTransaction(zoneToBroadcast, serialized)
           .then((transactionResponse) => {
             this.emitter.emit("transactionSend", transactionResponse.hash)
@@ -1431,8 +1410,6 @@ export default class ChainService extends BaseService<Events> {
 
     const blockPrices = await getBlockPrices(
       subscription.network,
-      // @ts-ignore TODO-MIGRATION need to rewrite function getBlockPrices in order to fix this type error
-      // ignoring it for now
       subscription.provider
     )
     this.emitter.emit("blockPrices", {
@@ -1446,7 +1423,7 @@ export default class ChainService extends BaseService<Events> {
    */
   private async pollLatestBlock(
     network: EVMNetwork,
-    provider: SerialFallbackProvider
+    provider: PelagusJsonRpcProvider
   ): Promise<void> {
     // TODO-MIGRATION for now supporting only cyprus shards, need to be fixed
     const ethersBlock = await provider.getBlock(Shard.Cyprus, "latest")
@@ -1464,7 +1441,7 @@ export default class ChainService extends BaseService<Events> {
     params: unknown[],
     network: EVMNetwork
   ): Promise<unknown> {
-    return this.providerForNetworkOrThrow(network).send(method, params)
+    return this.provider.send(method, params)
   }
 
   /**
@@ -1482,7 +1459,7 @@ export default class ChainService extends BaseService<Events> {
     network: EVMNetwork,
     hash: string
   ): Promise<TransactionResponse | null | undefined> {
-    const provider = this.providerForNetworkOrThrow(network)
+    const { provider } = this
     const result = await provider.getTransaction(hash)
 
     if (!result) {
@@ -1492,7 +1469,7 @@ export default class ChainService extends BaseService<Events> {
 
       this.removeTransactionHashFromQueue(network, hash)
       // Let's clean up the subscriptions
-      this.providerForNetwork(network)?.off(hash)
+      provider?.off(hash)
 
       const savedTx = await this.db.getTransaction(network, hash)
       if (savedTx && !("status" in savedTx)) {
@@ -1581,13 +1558,11 @@ export default class ChainService extends BaseService<Events> {
    * @param addressOnNetwork the address and network whose asset transfers we need
    * @param startBlock
    * @param endBlock
-   * @param incomingOnly
    */
   private async loadAssetTransfers(
     addressOnNetwork: AddressOnNetwork,
     startBlock: bigint,
-    endBlock: bigint,
-    incomingOnly = false
+    endBlock: bigint
   ): Promise<void> {
     if (
       this.supportedNetworks.every(
@@ -1727,10 +1702,18 @@ export default class ChainService extends BaseService<Events> {
     firstSeen,
   }: QueuedTxToRetrieve): Promise<void> {
     try {
-      const result = await this.getOrCancelTransaction(network, hash)
-      if (!result) return
+      const result = (await this.getOrCancelTransaction(
+        network,
+        hash
+      )) as TransactionResponse & {
+        from: string
+        blockHash?: string
+        blockNumber?: number
+        type?: number | null
+      }
 
-      // @ts-ignore TODO-MIGRATION ignoring it for now
+      if (!result) throw new Error(`Failed to get or cancel transaction`)
+
       const transaction = transactionFromEthersTransaction(result, network)
 
       // TODO make this provider type specific
@@ -1887,7 +1870,7 @@ export default class ChainService extends BaseService<Events> {
    * @param network The EVM network to watch.
    */
   private async fetchLatestBlockForNetwork(network: EVMNetwork): Promise<void> {
-    const provider = this.providerForNetwork(network)
+    const { provider } = this
     if (provider) {
       try {
         const blockNumber = await provider.getBlockNumber()
@@ -1895,17 +1878,14 @@ export default class ChainService extends BaseService<Events> {
         // TODO-MIGRATION for now supporting only cyprus shards, need to be fixed
         const result = await provider.getBlock(Shard.Cyprus, blockNumber)
 
-        // @ts-ignore TODO-MIGRATION ignoring it for now
+        if (!result) throw new Error("Failed to get block")
+
         const block = blockFromEthersBlock(network, result)
         await this.db.addBlock(block)
       } catch (e) {
         logger.error("Error getting block number", e)
       }
     }
-  }
-
-  public ProviderForNetwork(network: EVMNetwork): SerialFallbackProvider {
-    return this.providerForNetworkOrThrow(network)
   }
 
   /**
@@ -1915,9 +1895,9 @@ export default class ChainService extends BaseService<Events> {
    * @param network The EVM network to watch.
    */
   private async subscribeToNewHeads(network: EVMNetwork): Promise<void> {
-    const provider = this.providerForNetworkOrThrow(network)
+    const { provider, subscribedNetworks } = this
     // eslint-disable-next-line no-underscore-dangle
-    this.subscribedNetworks.push({
+    subscribedNetworks.push({
       network,
       provider,
     })
@@ -1935,11 +1915,13 @@ export default class ChainService extends BaseService<Events> {
     address,
     network,
   }: AddressOnNetwork): Promise<void> {
-    const provider = this.providerForNetworkOrThrow(network)
-    await provider.subscribeFullPendingTransactions(
-      { address, network },
-      this.handlePendingTransaction.bind(this)
-    )
+    const { provider } = this
+
+    // TODO-MIGRATION: Need add into PelagusJsonRpcProvider
+    // await provider.subscribeFullPendingTransactions(
+    //   { address, network },
+    //   this.handlePendingTransaction.bind(this)
+    // )
 
     this.subscribedAccounts.push({
       account: address,
@@ -1997,7 +1979,7 @@ export default class ChainService extends BaseService<Events> {
     network: EVMNetwork,
     transaction: AnyEVMTransaction
   ): Promise<void> {
-    const provider = this.providerForNetworkOrThrow(network)
+    const { provider } = this
     provider.once(transaction.hash, (confirmedReceipt: TransactionReceipt) => {
       this.saveTransaction(
         enrichTransactionWithReceipt(transaction, confirmedReceipt),
@@ -2017,7 +1999,7 @@ export default class ChainService extends BaseService<Events> {
     itx: AnyEVMTransaction,
     etx: AnyEVMTransaction
   ): Promise<void> {
-    const provider = this.providerForNetworkOrThrow(network)
+    const { provider } = this
     provider.once(etx.hash, (confirmedReceipt: TransactionReceipt) => {
       this.saveTransaction(
         enrichTransactionWithReceipt(etx, confirmedReceipt),
@@ -2039,14 +2021,12 @@ export default class ChainService extends BaseService<Events> {
   /**
    * Retrieve a confirmed transaction's transaction receipt, saving the results.
    *
-   * @param network the EVM network we're interested in
    * @param transaction the confirmed transaction we're interested in
    */
   private async retrieveTransactionReceipt(
-    network: EVMNetwork,
     transaction: AnyEVMTransaction
   ): Promise<void> {
-    const provider = this.providerForNetworkOrThrow(network)
+    const { provider } = this
     const receipt = await provider.getTransactionReceipt(transaction.hash)
     if (receipt) {
       await this.saveTransaction(
@@ -2054,41 +2034,6 @@ export default class ChainService extends BaseService<Events> {
         "local"
       )
     }
-  }
-
-  // Used to add non-default chains via wallet_addEthereumChain
-  async addCustomChain(
-    chainInfo: ValidatedAddEthereumChainParameter
-  ): Promise<EVMNetwork> {
-    const network = await this.db.addEVMNetwork({
-      chainName: chainInfo.chainName,
-      chainID: chainInfo.chainId,
-      decimals: chainInfo.nativeCurrency.decimals,
-      symbol: chainInfo.nativeCurrency.symbol,
-      assetName: chainInfo.nativeCurrency.name,
-      rpcUrls: chainInfo.rpcUrls,
-      blockExplorerURL: chainInfo.blockExplorerUrl,
-    })
-    await this.updateSupportedNetworks()
-
-    this.providers.evm[chainInfo.chainId] = makeSerialFallbackProvider(
-      chainInfo.chainId,
-      chainInfo.rpcUrls
-    )
-
-    await this.startTrackingNetworkOrThrow(chainInfo.chainId)
-
-    this.emitter.emit("customChainAdded", chainInfo)
-    return network
-  }
-
-  async removeCustomChain(chainID: string): Promise<void> {
-    this.trackedNetworks = this.trackedNetworks.filter(
-      (network) => network.chainID !== chainID
-    )
-
-    await this.db.removeEVMNetwork(chainID)
-    await this.updateSupportedNetworks()
   }
 
   async updateSupportedNetworks(): Promise<void> {
