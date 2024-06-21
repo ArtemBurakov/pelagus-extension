@@ -6,7 +6,7 @@ import { devToolsEnhancer } from "@redux-devtools/remote"
 import { PermissionRequest } from "@pelagus-provider/provider-bridge-shared"
 import { debounce } from "lodash"
 import { utils } from "ethers"
-import { JsonRpcProvider, WebSocketProvider } from "quais"
+import { JsonRpcProvider, Shard, WebSocketProvider } from "quais"
 import {
   decodeJSON,
   encodeJSON,
@@ -15,6 +15,7 @@ import {
   wait,
 } from "./lib/utils"
 import {
+  AnalyticsService,
   BaseService,
   ChainService,
   EnrichmentService,
@@ -24,10 +25,9 @@ import {
   NameService,
   PreferenceService,
   ProviderBridgeService,
-  TelemetryService,
   ServiceCreatorFunction,
   SigningService,
-  AnalyticsService,
+  TelemetryService,
 } from "./services"
 import { HexString, KeyringTypes, NormalizedEVMAddress } from "./types"
 import { ChainIdWithError, SignedTransaction } from "./networks"
@@ -49,53 +49,53 @@ import {
   emitter as keyringSliceEmitter,
   keyringLocked,
   keyringUnlocked,
-  updateKeyrings,
   setKeyringToVerify,
+  updateKeyrings,
 } from "./redux-slices/keyrings"
 import { blockSeen, setEVMNetworks } from "./redux-slices/networks"
 import {
-  initializationLoadingTimeHitLimit,
   emitter as uiSliceEmitter,
-  setDefaultWallet,
-  setSelectedAccount,
-  setSnackbarMessage,
+  initializationLoadingTimeHitLimit,
   setAccountsSignerSettings,
-  toggleCollectAnalytics,
-  setShowAnalyticsNotification,
-  setSelectedNetwork,
+  setDefaultWallet,
   setNewNetworkConnectError,
+  setSelectedAccount,
+  setSelectedNetwork,
+  setShowAnalyticsNotification,
   setShowDefaultWalletBanner,
+  setSnackbarMessage,
+  toggleCollectAnalytics,
 } from "./redux-slices/ui"
 import {
-  estimatedFeesPerGas,
-  emitter as transactionConstructionSliceEmitter,
-  transactionRequest,
-  updateTransactionData,
-  clearTransactionState,
-  TransactionConstructionStatus,
-  rejectTransactionSignature,
-  transactionSigned,
   clearCustomGas,
+  clearTransactionState,
+  emitter as transactionConstructionSliceEmitter,
+  estimatedFeesPerGas,
+  rejectTransactionSignature,
+  TransactionConstructionStatus,
+  transactionRequest,
+  transactionSigned,
+  updateTransactionData,
 } from "./redux-slices/transaction-construction"
 import { selectDefaultNetworkFeeSettings } from "./redux-slices/selectors/transactionConstructionSelectors"
 import { allAliases } from "./redux-slices/utils"
 import {
-  requestPermission,
   emitter as providerBridgeSliceEmitter,
   initializePermissions,
+  requestPermission,
   revokePermissionsForAddress,
 } from "./redux-slices/dapp"
 import logger from "./lib/logger"
 import {
-  rejectDataSignature,
   clearSigningState,
-  signedTypedData,
+  rejectDataSignature,
+  signDataRequest,
   signedData as signedDataAction,
+  signedTypedData,
   signingSliceEmitter,
   typedDataRequest,
-  signDataRequest,
 } from "./redux-slices/signing"
-import { SignTypedDataRequest, MessageSigningRequest } from "./utils/signing"
+import { MessageSigningRequest, SignTypedDataRequest } from "./utils/signing"
 import {
   AccountSigner,
   SignatureResponse,
@@ -1785,8 +1785,8 @@ export default class Main extends BaseService<never> {
   private connectPopupMonitor() {
     runtime.onConnect.addListener((port) => {
       if (port.name !== popupMonitorPortName) return
-      console.log("Pelagus Connected")
 
+      console.log("Pelagus Connected")
       walletOpen = true
       this.manuallyCheckBalances()
 

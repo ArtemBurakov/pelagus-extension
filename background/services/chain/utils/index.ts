@@ -1,4 +1,11 @@
-import { getZoneForAddress, toBigInt, Zone, TransactionReceipt } from "quais"
+import {
+  getZoneForAddress,
+  toBigInt,
+  Zone,
+  TransactionReceipt,
+  Block,
+  TransactionResponse,
+} from "quais"
 import {
   Block as EthersBlock,
   TransactionRequest as EthersTransactionRequest,
@@ -31,7 +38,7 @@ import type { PartialTransactionRequestWithFrom } from "../../enrichment"
  */
 export function blockFromEthersBlock(
   network: EVMNetwork,
-  gethResult: EthersBlock
+  gethResult: Block
 ): AnyEVMBlock {
   return {
     hash: gethResult.hash,
@@ -314,7 +321,7 @@ export function enrichTransactionWithReceipt(
  * Parse a transaction as returned by a polling provider.
  */
 export function transactionFromEthersTransaction(
-  tx: EthersTransaction & {
+  tx: TransactionResponse & {
     from: string
     blockHash?: string
     blockNumber?: number

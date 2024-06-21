@@ -1,11 +1,11 @@
-import { Provider } from "@ethersproject/abstract-provider"
 import logger from "./logger"
 import { BlockPrices, EVMNetwork } from "../networks"
 import { EIP_1559_COMPLIANT_CHAIN_IDS } from "../constants"
+import PelagusJsonRpcProvider from "../services/providers"
 
 export default async function getBlockPrices(
   network: EVMNetwork,
-  provider: Provider
+  provider: PelagusJsonRpcProvider
 ): Promise<BlockPrices> {
   const [currentBlock, feeData] = await Promise.all([
     provider.getBlock("latest"),

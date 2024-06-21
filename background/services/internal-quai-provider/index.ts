@@ -285,16 +285,6 @@ export default class InternalQuaiProviderService extends BaseService<Events> {
           this.emitter.emit("selectedNetwork", supportedNetwork)
           return null
         }
-        try {
-          const customNetwork = await this.chainService.addCustomChain(
-            chainInfo
-          )
-          this.emitter.emit("selectedNetwork", customNetwork)
-          return null
-        } catch (e) {
-          logger.error(e)
-          throw new EIP1193Error(EIP1193_ERROR_CODES.userRejectedRequest)
-        }
       }
       case "wallet_switchEthereumChain": {
         const newChainId = (params[0] as SwitchEthereumChainParameter).chainId
