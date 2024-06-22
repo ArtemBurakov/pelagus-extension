@@ -2,12 +2,19 @@
 
 import {
   getZoneForAddress,
+  JsonRpcProvider,
   QuaiTransaction,
   Shard,
   toBigInt,
   TransactionReceipt,
   TransactionResponse,
 } from "quais"
+import { QuaiNetworkGA } from "../../constants/networks/networks"
+import ProviderFactory from "../provider-factory"
+import { QuaiNetworkInterfaceGA } from "../../constants/networks/networkTypes"
+
+//////////////
+//////////////
 
 import logger from "../../lib/logger"
 import getBlockPrices from "../../lib/gas"
@@ -64,8 +71,6 @@ import AssetDataHelper from "./asset-data-helper"
 import KeyringService from "../keyring"
 import type { ValidatedAddEthereumChainParameter } from "../provider-bridge/utils"
 import { getRelevantTransactionAddresses } from "../enrichment/utils"
-import PelagusJsonRpcProvider from "../providers"
-import { QuaiNetworkGA } from "../../constants/networks/networks"
 
 // The number of blocks to query at a time for historic asset transfers.
 // Unfortunately there's no "right" answer here that works well across different
@@ -169,20 +174,25 @@ export type PriorityQueuedTxToRetrieve = {
  *   * Any asset transfers found for newly tracked accounts
  *   * A relevant account balance changes
  *   * New blocks
- * * ... and finally, polling and websocket providers for supported networks, in
+ * * ... and finally, polling and websocket provider-factory for supported networks, in
  *   case a service needs to interact with a network directly.
  */
 export default class ChainService extends BaseService<Events> {
-  provider: PelagusJsonRpcProvider
+  // created for seamless communication with factory
+  private providerFactory: ProviderFactory
+  // we will have here not only JsonRpcProvider but also a WebSocketProvider
+  private currentProvider: JsonRpcProvider | null = null
+
+  ////////////////////////////////////////////////////////////////////////////////////////////
 
   subscribedAccounts: {
     account: string
-    provider: PelagusJsonRpcProvider
+    provider: JsonRpcProvider
   }[]
 
   subscribedNetworks: {
     network: EVMNetwork
-    provider: PelagusJsonRpcProvider
+    provider: JsonRpcProvider
   }[]
 
   private lastUserActivityOnNetwork: {
@@ -351,6 +361,8 @@ export default class ChainService extends BaseService<Events> {
     )
   }
 
+  // if there is no logic related to chain service logic
+  // we don't need this function anymore, so we can use just providerFactory.initializeNetworks(networks)
   async initializeNetworks(): Promise<void> {
     await this.updateSupportedNetworks()
 
@@ -359,14 +371,47 @@ export default class ChainService extends BaseService<Events> {
         this.supportedNetworks.map((network) => [network.chainID, 0])
       ) || {}
 
-    this.provider = new PelagusJsonRpcProvider(QuaiNetworkGA.rpcUrls)
+    //////////////////////////////////////////////
+
+    // get from const file
+    const networks: QuaiNetworkInterfaceGA[] = [QuaiNetworkGA]
+
+    const providerFactory = new ProviderFactory()
+    providerFactory.initializeNetworks(networks)
+    this.providerFactory = providerFactory
+
+    // set current provider as first provider,
+    // but it is better to get from cache the last selected network
+    // and then get provider for this network
+    this.currentProvider = this.providerFactory.getProvider("9000")
   }
 
-  providerForNetwork(): PelagusJsonRpcProvider | undefined {
-    if (!this.provider) return undefined
+  ///////////////////////////OUR CONCEPT ON HOW WE WILL WORK WITH FACTORY/////////////////////////////
+  // REMOVE THIS
+  providerForNetwork(): JsonRpcProvider | undefined {
+    if (!this.currentProvider) return undefined
 
-    return this.provider
+    return this.currentProvider
   }
+
+  public getCurrentProvider(): JsonRpcProvider | undefined {
+    if (!this.currentProvider) return undefined
+    return this.currentProvider
+  }
+
+  // alternative for providerForNetworkOrThrow, need to think
+  public getProviderForNetwork(chainID: string): JsonRpcProvider | undefined {
+    const provider = this.providerFactory.getProvider(chainID)
+    if (!provider) return undefined
+    return provider
+  }
+
+  // need to think what is the best way of passing Network as a param
+  // do we need to pass Network, or just chainID??
+  public switchNetwork(Network): void {
+    this.currentProvider = this.providerFactory.getProvider(network.chainID) // network.chainID also need to be rethought
+  }
+  ////////////////////////////////////////////////////////////////////////////////////////////
 
   /**
    * Pulls the list of tracked networks from memory or indexedDB.
@@ -391,8 +436,8 @@ export default class ChainService extends BaseService<Events> {
   }
 
   private async subscribeToNetworkEvents(network: EVMNetwork): Promise<void> {
-    const { provider } = this
-    if (provider) {
+    const { currentProvider } = this
+    if (currentProvider) {
       await Promise.allSettled([
         this.fetchLatestBlockForNetwork(network),
         this.subscribeToNewHeads(network),
@@ -454,7 +499,7 @@ export default class ChainService extends BaseService<Events> {
    * Finds a provider for the given network, or returns undefined if no such
    * provider exists.
    */
-  providerForNetworkOrThrow(): PelagusJsonRpcProvider {
+  providerForNetworkOrThrow(): JsonRpcProvider {
     const provider = this.providerForNetwork()
     if (!provider) {
       logger.error(
@@ -668,10 +713,10 @@ export default class ChainService extends BaseService<Events> {
 
     const { chainID } = transactionRequest
     const normalizedAddress = normalizeEVMAddress(transactionRequest.from)
-    const { provider } = this
+    const { currentProvider } = this
 
     // https://docs.ethers.io/v5/single-page/#/v5/api/providers/provider/-%23-Provider-getTransactionCount
-    const chainTransactionCount = await provider.getTransactionCount(
+    const chainTransactionCount = await currentProvider.getTransactionCount(
       transactionRequest.from,
       "latest"
     )
@@ -841,7 +886,7 @@ export default class ChainService extends BaseService<Events> {
     let balance = toBigInt(0)
 
     try {
-      balance = await this.provider.getBalance(normalizedAddress)
+      balance = await this.currentProvider.getBalance(normalizedAddress)
     } catch (error) {
       if (error instanceof Error) {
         console.error("Error getting balance for address", address, error)
@@ -856,7 +901,7 @@ export default class ChainService extends BaseService<Events> {
           `Global shard: ${
             globalThis.main.SelectedShard
           } Address shard: ${addrShard} Provider: ${
-            this.provider._getConnection().url
+            this.currentProvider._getConnection().url
           }`
         )
       }
@@ -943,7 +988,7 @@ export default class ChainService extends BaseService<Events> {
     const cachedBlock = await this.db.getLatestBlock(network)
     if (cachedBlock) return cachedBlock.blockHeight
 
-    return this.provider.getBlockNumber()
+    return this.currentProvider.getBlockNumber()
   }
 
   /**
@@ -968,7 +1013,10 @@ export default class ChainService extends BaseService<Events> {
       globalThis.main.SelectedShard
     )
 
-    const resultBlock = await this.provider.getBlock(Shard.Cyprus, blockHash)
+    const resultBlock = await this.currentProvider.getBlock(
+      Shard.Cyprus,
+      blockHash
+    )
     if (!resultBlock) throw new Error(`Failed to get block`)
 
     const block = blockFromEthersBlock(network, resultBlock)
@@ -995,11 +1043,11 @@ export default class ChainService extends BaseService<Events> {
     const cachedBlock = await this.db.getBlock(network, blockHash)
     if (cachedBlock) return cachedBlock
 
-    const { provider } = this
+    const { currentProvider } = this
 
     // TODO-MIGRATION: Need serialize/get Shard in some way
 
-    const resultBlock = await provider.getBlock(Shard.Cyprus, blockHash)
+    const resultBlock = await currentProvider.getBlock(Shard.Cyprus, blockHash)
     if (!resultBlock) throw new Error(`Failed to get block`)
 
     const block = blockFromEthersBlock(network, resultBlock)
@@ -1022,8 +1070,8 @@ export default class ChainService extends BaseService<Events> {
     network: EVMNetwork,
     txHash: HexString
   ): Promise<AnyEVMTransaction | null> {
-    const { provider } = this
-    const gethResult = (await provider.getTransaction(
+    const { currentProvider } = this
+    const gethResult = (await currentProvider.getTransaction(
       txHash
     )) as TransactionResponse & {
       from: string
@@ -1076,8 +1124,8 @@ export default class ChainService extends BaseService<Events> {
       return cachedTx
 
     // Provider for destination shard
-    const destinationProvider = this.provider
-    const originProvider = this.provider
+    const destinationProvider = this.currentProvider
+    const originProvider = this.currentProvider
 
     // Transaction hasn't confirmed in origin chain yet
     if (!cachedTx || !cachedTx.blockHash) {
@@ -1149,7 +1197,7 @@ export default class ChainService extends BaseService<Events> {
     }
 
     // Transaction is not cached
-    const gethResult = (await this.provider.getTransaction(
+    const gethResult = (await this.currentProvider.getTransaction(
       txHash
     )) as TransactionResponse & {
       from: string
@@ -1252,7 +1300,7 @@ export default class ChainService extends BaseService<Events> {
   async estimateGasLimit(
     transactionRequest: TransactionRequest
   ): Promise<bigint> {
-    const estimate = await this.provider.estimateGas(
+    const estimate = await this.currentProvider.estimateGas(
       ethersTransactionFromTransactionRequest(transactionRequest)
     )
 
@@ -1267,7 +1315,9 @@ export default class ChainService extends BaseService<Events> {
    */
   private async estimateGasPrice(): Promise<bigint> {
     // TODO-MIGRATION need transaction object for estimating gas
-    const estimate = await this.provider.estimateGas(new QuaiTransaction())
+    const estimate = await this.currentProvider.estimateGas(
+      new QuaiTransaction()
+    )
 
     // Add 10% more gas as a safety net
     return (estimate * 11n) / 10n
@@ -1298,7 +1348,7 @@ export default class ChainService extends BaseService<Events> {
       }
 
       await Promise.all([
-        this.provider
+        this.currentProvider
           .broadcastTransaction(zoneToBroadcast, serialized)
           .then((transactionResponse) => {
             this.emitter.emit("transactionSend", transactionResponse.hash)
