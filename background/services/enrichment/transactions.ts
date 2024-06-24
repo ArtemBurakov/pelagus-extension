@@ -299,12 +299,12 @@ export default async function resolveTransactionAnnotation(
       useDestinationShard && transaction.to
         ? await chainService.getBlockDataExternal(
             network,
-            getExtendedZoneForAddress(transaction.to),
+            getExtendedZoneForAddress(transaction.to, false),
             blockHash
           )
         : await chainService.getBlockDataExternal(
             network,
-            getExtendedZoneForAddress(transaction.from),
+            getExtendedZoneForAddress(transaction.from, false),
             blockHash
           )
     txAnnotation = {

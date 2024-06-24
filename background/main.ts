@@ -134,6 +134,7 @@ import {
 import { isBuiltInNetworkBaseAsset } from "./redux-slices/utils/asset-utils"
 import localStorageShim from "./utils/local-storage-shim"
 import { getExtendedZoneForAddress } from "./services/chain/utils"
+import { NetworkInterfaceGA } from "./constants/networks/networkTypes"
 import { SignerImportMetadata } from "./services/keyring/types"
 
 // This sanitizer runs on store and action data before serializing for remote
@@ -1639,16 +1640,19 @@ export default class Main extends BaseService<never> {
       this.store.dispatch(setShowAnalyticsNotification(true))
     })
 
-    this.chainService.emitter.on("networkSubscribed", (network) => {
-      this.analyticsService.sendOneTimeAnalyticsEvent(
-        OneTimeAnalyticsEvent.CHAIN_ADDED,
-        {
-          chainId: network.chainID,
-          name: network.name,
-          description: `This event is fired when a chain is subscribed to from the wallet for the first time.`,
-        }
-      )
-    })
+    this.chainService.emitter.on(
+      "networkSubscribed",
+      (network: NetworkInterfaceGA) => {
+        this.analyticsService.sendOneTimeAnalyticsEvent(
+          OneTimeAnalyticsEvent.CHAIN_ADDED,
+          {
+            chainId: network.chainID,
+            name: network.baseAsset.name,
+            description: `This event is fired when a chain is subscribed to from the wallet for the first time.`,
+          }
+        )
+      }
+    )
 
     // ⚠️ Note: We NEVER send addresses to analytics!
     this.chainService.emitter.on("newAccountToTrack", () => {

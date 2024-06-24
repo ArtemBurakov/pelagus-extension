@@ -1,4 +1,4 @@
-import SerialFallbackProvider from "./serial-fallback-provider"
+import { JsonRpcProvider } from "quais"
 import {
   AssetTransfer,
   SmartContractAmount,
@@ -7,17 +7,13 @@ import {
 import { AddressOnNetwork } from "../../accounts"
 import { HexString } from "../../types"
 import logger from "../../lib/logger"
-import { EVMNetwork, SmartContract } from "../../networks"
+import { SmartContract } from "../../networks"
 import {
   getBalance,
   getMetadata as getERC20Metadata,
   getTokenBalances,
 } from "../../lib/erc20"
 import { getExtendedZoneForAddress } from "./utils"
-
-interface ProviderManager {
-  providerForNetwork(network: EVMNetwork): SerialFallbackProvider | undefined
-}
 
 /**
  * AssetDataHelper is a wrapper for asset-related functionality like token
@@ -28,7 +24,7 @@ interface ProviderManager {
  * optimizations.
  */
 export default class AssetDataHelper {
-  constructor(private providerTracker: ProviderManager) {}
+  constructor(private providerTracker: JsonRpcProvider | null) {}
 
   async getTokenBalance(
     addressOnNetwork: AddressOnNetwork,
@@ -36,9 +32,7 @@ export default class AssetDataHelper {
   ): Promise<SmartContractAmount> {
     const prevShard = globalThis.main.GetShard()
     globalThis.main.SetShard(getExtendedZoneForAddress(smartContractAddress))
-    const provider = this.providerTracker.providerForNetwork(
-      addressOnNetwork.network
-    )
+    const provider = this.providerTracker
 
     if (!provider) {
       throw logger.buildError(
@@ -70,9 +64,9 @@ export default class AssetDataHelper {
     globalThis.main.SetShard(
       getExtendedZoneForAddress(addressOnNetwork.address)
     )
-    const provider = this.providerTracker.providerForNetwork(
-      addressOnNetwork.network
-    )
+    const provider = this.providerTracker
+
+    if (!provider) throw new Error("Failed get provider for network")
     globalThis.main.SetShard(prevShard)
     if (typeof provider === "undefined") return []
 
@@ -99,14 +93,13 @@ export default class AssetDataHelper {
   async getTokenMetadata(
     tokenSmartContract: SmartContract
   ): Promise<SmartContractFungibleAsset | undefined> {
-    const provider = this.providerTracker.providerForNetwork(
-      tokenSmartContract.homeNetwork
-    )
-    if (typeof provider === "undefined") return undefined
+    const provider = this.providerTracker
+    if (!provider) throw new Error("Failed get provider for network")
 
     return getERC20Metadata(provider, tokenSmartContract)
   }
 
+  // eslint-disable-next-line class-methods-use-this
   async getAssetTransfers(): Promise<AssetTransfer[]> {
     return []
   }

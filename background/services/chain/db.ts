@@ -4,7 +4,6 @@ import { AccountBalance, AddressOnNetwork } from "../../accounts"
 import {
   AnyEVMBlock,
   AnyEVMTransaction,
-  EVMNetwork,
   Network,
   NetworkBaseAsset,
 } from "../../networks"
@@ -13,9 +12,10 @@ import {
   BASE_ASSETS,
   CHAIN_ID_TO_RPC_URLS,
   DEFAULT_NETWORKS,
-  isBuiltInNetwork,
   NETWORK_BY_CHAIN_ID,
 } from "../../constants"
+import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
+import { NetworksArray } from "../../constants/networks/networks"
 
 export type Transaction = AnyEVMTransaction & {
   dataSource: "local"
@@ -73,7 +73,7 @@ export class ChainDatabase extends Dexie {
    */
   private balances!: Dexie.Table<AccountBalance, number>
 
-  private networks!: Dexie.Table<EVMNetwork, string>
+  private networks!: Dexie.Table<NetworkInterfaceGA, string>
 
   private baseAssets!: Dexie.Table<NetworkBaseAsset, string>
 
@@ -146,11 +146,9 @@ export class ChainDatabase extends Dexie {
       tx.table("accountsToTrack")
         .toCollection()
         .modify((account: AddressOnNetwork) => {
-          if (isBuiltInNetwork(account.network)) {
-            Object.assign(account, {
-              network: NETWORK_BY_CHAIN_ID[account.network.chainID],
-            })
-          }
+          Object.assign(account, {
+            network: NETWORK_BY_CHAIN_ID[account.network.chainID],
+          })
         })
     })
   }
@@ -161,14 +159,16 @@ export class ChainDatabase extends Dexie {
     await this.initializeEVMNetworks()
   }
 
-  async getLatestBlock(network: Network): Promise<AnyEVMBlock | null> {
+  async getLatestBlock(
+    network: NetworkInterfaceGA
+  ): Promise<AnyEVMBlock | null> {
     return (
       (
         await this.blocks
           .where("[network.name+timestamp]")
           // Only query blocks from the last 86 seconds
-          .aboveOrEqual([network.name, Date.now() - 60 * 60 * 24])
-          .and((block) => block.network.name === network.name)
+          .aboveOrEqual([network.baseAsset.name, Date.now() - 60 * 60 * 24])
+          .and((block) => block.network.name === network.baseAsset.name)
           .reverse()
           .sortBy("timestamp")
       )[0] || null
@@ -176,46 +176,41 @@ export class ChainDatabase extends Dexie {
   }
 
   async getTransaction(
-    network: Network,
+    network: NetworkInterfaceGA,
     txHash: string
   ): Promise<AnyEVMTransaction | null> {
     return (
       (
         await this.chainTransactions
           .where("[hash+network.name]")
-          .equals([txHash, network.name])
+          .equals([txHash, network.baseAsset.name])
           .toArray()
       )[0] || null
     )
   }
 
   async addEVMNetwork({
-    chainName,
     chainID,
     decimals,
     symbol,
     assetName,
     rpcUrls,
-    blockExplorerURL,
   }: {
-    chainName: string
     chainID: string
     decimals: number
     symbol: string
     assetName: string
     rpcUrls: string[]
     blockExplorerURL: string
-  }): Promise<EVMNetwork> {
-    const network: EVMNetwork = {
-      name: chainName,
+  }): Promise<NetworkInterfaceGA> {
+    const network: NetworkInterfaceGA = {
+      rpcUrls,
       chainID,
       family: "EVM",
-      blockExplorerURL,
       baseAsset: {
         decimals,
         symbol,
         name: assetName,
-        chainID,
       },
     }
     await this.networks.put(network)
@@ -242,21 +237,23 @@ export class ChainDatabase extends Dexie {
 
         // @TODO - Deleting accounts inside the Promise.all does not seem
         // to work, figure out why this is happening and parallelize if possible.
-        const accountsToTrack = await this.accountsToTrack
-          .toCollection()
-          .filter((account) => account.network.chainID === chainID)
+        const [accountsToTrack] = await Promise.all([
+          this.accountsToTrack
+            .toCollection()
+            .filter((account) => account.network.chainID === chainID),
+        ])
         return accountsToTrack.delete()
       }
     )
   }
 
-  async getAllEVMNetworks(): Promise<EVMNetwork[]> {
+  async getAllEVMNetworks(): Promise<NetworkInterfaceGA[]> {
     return this.networks.where("family").equals("EVM").toArray()
   }
 
   async getEVMNetworkByChainID(
     chainID: string
-  ): Promise<EVMNetwork | undefined> {
+  ): Promise<NetworkInterfaceGA | undefined> {
     return (await this.networks.where("family").equals("EVM").toArray()).find(
       (network) => network.chainID === chainID
     )
@@ -305,7 +302,7 @@ export class ChainDatabase extends Dexie {
   async initializeEVMNetworks(): Promise<void> {
     const existingNetworks = await this.getAllEVMNetworks()
     await Promise.all(
-      DEFAULT_NETWORKS.map(async (defaultNetwork) => {
+      NetworksArray.map(async (defaultNetwork) => {
         if (
           !existingNetworks.some(
             (network) => network.chainID === defaultNetwork.chainID
@@ -351,12 +348,16 @@ export class ChainDatabase extends Dexie {
   }
 
   async getTransactionsForNetworkQuery(
-    network: Network
+    network: NetworkInterfaceGA
   ): Promise<Collection<Transaction, [string, string]>> {
-    return this.chainTransactions.where("network.name").equals(network.name)
+    return this.chainTransactions
+      .where("network.name")
+      .equals(network.baseAsset.name)
   }
 
-  async getTransactionsForNetwork(network: Network): Promise<Transaction[]> {
+  async getTransactionsForNetwork(
+    network: NetworkInterfaceGA
+  ): Promise<Transaction[]> {
     return (await this.getTransactionsForNetworkQuery(network)).toArray()
   }
 
@@ -364,7 +365,7 @@ export class ChainDatabase extends Dexie {
    * Looks up and returns all pending transactions for the given network.
    */
   async getNetworkPendingTransactions(
-    network: Network
+    network: NetworkInterfaceGA
   ): Promise<(AnyEVMTransaction & { firstSeen: UNIXTime })[]> {
     const transactions = await this.getTransactionsForNetworkQuery(network)
     return transactions
@@ -377,14 +378,14 @@ export class ChainDatabase extends Dexie {
   }
 
   async getBlock(
-    network: Network,
+    network: NetworkInterfaceGA,
     blockHash: string
   ): Promise<AnyEVMBlock | null> {
     return (
       (
         await this.blocks
           .where("[hash+network.name]")
-          .equals([blockHash, network.name])
+          .equals([blockHash, network.baseAsset.name])
           .toArray()
       )[0] || null
     )
@@ -416,7 +417,7 @@ export class ChainDatabase extends Dexie {
         (balance) =>
           balance.address === address &&
           balance.assetAmount.asset.symbol === asset.symbol &&
-          balance.network.name === network.name
+          balance.network.baseAsset.name === network.name
       )
       .reverse()
       .sortBy("retrievedAt")
@@ -443,12 +444,17 @@ export class ChainDatabase extends Dexie {
         tx.to?.toLowerCase().trim() === address.toLowerCase().trim()
     )
     // Delete each transaction by their `hash` and `network.name`
-    for (const tx of txsToRemove) {
+    for (let i = 0; i < txsToRemove.length; i + 1) {
+      const tx = txsToRemove[i]
       const { hash, network } = tx
-      await this.chainTransactions
-        .where(["hash", "network.name"])
-        .equals([hash, network.name])
-        .delete()
+
+      const deleteChainTransactionsHandle = async () => {
+        await this.chainTransactions
+          .where(["hash", "network.name"])
+          .equals([hash, network.baseAsset.name])
+          .delete()
+      }
+      deleteChainTransactionsHandle()
     }
   }
 
@@ -458,7 +464,7 @@ export class ChainDatabase extends Dexie {
     // TODO this is inefficient, make proper use of indexing
     const lookups = await this.accountAssetTransferLookups
       .where("[addressNetwork.address+addressNetwork.network.name]")
-      .equals([addressNetwork.address, addressNetwork.network.name])
+      .equals([addressNetwork.address, addressNetwork.network.baseAsset.name])
       .toArray()
     return lookups.reduce(
       (oldestBlock: bigint | null, lookup) =>
@@ -475,7 +481,7 @@ export class ChainDatabase extends Dexie {
     // TODO this is inefficient, make proper use of indexing
     const lookups = await this.accountAssetTransferLookups
       .where("[addressNetwork.address+addressNetwork.network.name]")
-      .equals([addressNetwork.address, addressNetwork.network.name])
+      .equals([addressNetwork.address, addressNetwork.network.baseAsset.name])
 
       .toArray()
     return lookups.reduce(
@@ -519,11 +525,11 @@ export class ChainDatabase extends Dexie {
   }
 
   async getTrackedAddressesOnNetwork(
-    network: EVMNetwork
+    network: NetworkInterfaceGA
   ): Promise<AddressOnNetwork[]> {
     return this.accountsToTrack
       .where("network.name")
-      .equals(network.name)
+      .equals(network.baseAsset.name)
       .toArray()
   }
 
@@ -535,7 +541,7 @@ export class ChainDatabase extends Dexie {
       (
         await this.accountsToTrack
           .where("[address+network.name+network.chainID]")
-          .equals([address, network.name, network.chainID])
+          .equals([address, network.baseAsset.name, network.chainID])
           .toArray()
       )[0] ?? null
     )

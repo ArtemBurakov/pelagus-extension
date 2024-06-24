@@ -11,6 +11,7 @@ import type {
   PartialTransactionRequestWithFrom,
 } from "./services/enrichment"
 import { ChainData } from "./constants"
+import { NetworkInterfaceGA } from "./constants/networks/networkTypes"
 
 /**
  * Each supported network family is generally incompatible with others from a
@@ -78,7 +79,7 @@ export type ChainIdWithError = {
 /**
  * Union type that allows narrowing to particular network subtypes.
  */
-export type AnyNetwork = EVMNetwork
+export type AnyNetwork = NetworkInterfaceGA
 
 /**
  * An EVM-style block identifier, including difficulty, block height, and
@@ -123,7 +124,7 @@ export type EVMTransaction = {
   blockHash: string | null
   blockHeight: number | null
   asset: NetworkBaseAsset
-  network: EVMNetwork
+  network: NetworkInterfaceGA
   type: KnownTxTypes | null
   externalGasLimit?: bigint
   externalGasPrice?: bigint
