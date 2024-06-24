@@ -1,6 +1,6 @@
 import { JsonRpcProvider } from "quais"
 
-import { QuaiNetworkInterfaceGA } from "../../constants/networks/networkTypes"
+import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
 
 // class responsible for managing providers only!
 // it will initialize networks
@@ -16,7 +16,7 @@ export default class ProviderFactory {
   // 3. once again, need to think how to
   private providers: { [chainID: string]: JsonRpcProvider } = {}
 
-  public initializeNetworks(networks: QuaiNetworkInterfaceGA[]): void {
+  public initializeNetworks(networks: NetworkInterfaceGA[]): void {
     networks.forEach((network) => {
       const { chainID, rpcUrls } = network
 
@@ -34,8 +34,8 @@ export default class ProviderFactory {
 
   // 1. in this function is better to also check if provider exists, if not, try to create it
   // 2. it is better to receive network as a param here, need to think.......
-  public getProvider(chainID: string): JsonRpcProvider {
-    return this.providers[chainID]
+  public getProvider(network: NetworkInterfaceGA): JsonRpcProvider {
+    return this.providers[network.chainID]
   }
 
   // need to create a function which will check health of provider,

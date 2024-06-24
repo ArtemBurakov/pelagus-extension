@@ -7,6 +7,7 @@ import {
   EventFragment,
   Contract,
   ContractRunner,
+  JsonRpcProvider,
 } from "quais"
 import logger from "./logger"
 import {
@@ -21,7 +22,6 @@ import { EVMLog, SmartContract } from "../networks"
 import { AddressOnNetwork } from "../accounts"
 import { getExtendedZoneForAddress } from "../services/chain/utils"
 import { SmartContractAmount, SmartContractFungibleAsset } from "../assets"
-import SerialFallbackProvider from "../services/chain/serial-fallback-provider"
 
 export const ERC20_FUNCTIONS = {
   allowance: FunctionFragment.from(
@@ -182,7 +182,7 @@ export function parseLogsForERC20Transfers(logs: EVMLog[]): ERC20TransferLog[] {
 export const getTokenBalances = async (
   { address, network }: AddressOnNetwork,
   tokenAddresses: HexString[],
-  provider: SerialFallbackProvider
+  provider: JsonRpcProvider
 ): Promise<SmartContractAmount[]> => {
   let multicallAddress =
     CHAIN_SPECIFIC_MULTICALL_CONTRACT_ADDRESSES[network.chainID] ||

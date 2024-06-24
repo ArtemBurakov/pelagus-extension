@@ -1,4 +1,6 @@
 /* eslint-disable no-underscore-dangle */
+/* eslint-disable no-console */
+/* eslint-disable import/no-cycle */
 
 import {
   getZoneForAddress,
@@ -9,12 +11,9 @@ import {
   TransactionReceipt,
   TransactionResponse,
 } from "quais"
-import { QuaiNetworkGA } from "../../constants/networks/networks"
+import { NetworksArray, QuaiNetworkGA } from "../../constants/networks/networks"
 import ProviderFactory from "../provider-factory"
-import { QuaiNetworkInterfaceGA } from "../../constants/networks/networkTypes"
-
-//////////////
-//////////////
+import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
 
 import logger from "../../lib/logger"
 import getBlockPrices from "../../lib/gas"
@@ -25,7 +24,6 @@ import {
   AnyEVMTransaction,
   BlockPrices,
   EIP1559TransactionRequest,
-  EVMNetwork,
   sameChainID,
   SignedTransaction,
   toHexChainID,
@@ -42,8 +40,6 @@ import {
   EIP_1559_COMPLIANT_CHAIN_IDS,
   HOUR,
   MINUTE,
-  NETWORK_BY_CHAIN_ID,
-  QUAI_NETWORK,
   SECOND,
 } from "../../constants"
 import PreferenceService from "../preferences"
@@ -119,7 +115,7 @@ interface Events extends ServiceLifecycleEvents {
     addressOnNetwork: AddressOnNetwork
     source: "import" | "internal" | null
   }
-  supportedNetworks: EVMNetwork[]
+  supportedNetworks: NetworkInterfaceGA[]
   accountsWithBalances: {
     /**
      * Retrieved balance for the network's base asset
@@ -131,7 +127,7 @@ interface Events extends ServiceLifecycleEvents {
     addressOnNetwork: AddressOnNetwork
   }
   transactionSend: HexString
-  networkSubscribed: EVMNetwork
+  networkSubscribed: NetworkInterfaceGA
   transactionSendFailure: undefined
   assetTransfers: {
     addressNetwork: AddressOnNetwork
@@ -139,12 +135,12 @@ interface Events extends ServiceLifecycleEvents {
   }
   block: AnyEVMBlock
   transaction: { forAccounts: string[]; transaction: AnyEVMTransaction }
-  blockPrices: { blockPrices: BlockPrices; network: EVMNetwork }
+  blockPrices: { blockPrices: BlockPrices; network: NetworkInterfaceGA }
   customChainAdded: ValidatedAddEthereumChainParameter
 }
 
 export type QueuedTxToRetrieve = {
-  network: EVMNetwork
+  network: NetworkInterfaceGA
   hash: HexString
   firstSeen: UNIXTime
 }
@@ -180,10 +176,9 @@ export type PriorityQueuedTxToRetrieve = {
 export default class ChainService extends BaseService<Events> {
   // created for seamless communication with factory
   private providerFactory: ProviderFactory
+
   // we will have here not only JsonRpcProvider but also a WebSocketProvider
   private currentProvider: JsonRpcProvider | null = null
-
-  ////////////////////////////////////////////////////////////////////////////////////////////
 
   subscribedAccounts: {
     account: string
@@ -191,7 +186,7 @@ export default class ChainService extends BaseService<Events> {
   }[]
 
   subscribedNetworks: {
-    network: EVMNetwork
+    network: NetworkInterfaceGA
     provider: JsonRpcProvider
   }[]
 
@@ -242,9 +237,9 @@ export default class ChainService extends BaseService<Events> {
     return new this(createDB(), await preferenceService, await keyringService)
   }
 
-  supportedNetworks: EVMNetwork[] = []
+  supportedNetworks: NetworkInterfaceGA[] = []
 
-  private trackedNetworks: EVMNetwork[]
+  private trackedNetworks: NetworkInterfaceGA[]
 
   assetData: AssetDataHelper
 
@@ -311,7 +306,7 @@ export default class ChainService extends BaseService<Events> {
     this.subscribedAccounts = []
     this.subscribedNetworks = []
     this.transactionsToRetrieve = []
-    this.assetData = new AssetDataHelper(this)
+    this.assetData = new AssetDataHelper(this.currentProvider)
   }
 
   override async internalStartService(): Promise<void> {
@@ -371,53 +366,36 @@ export default class ChainService extends BaseService<Events> {
         this.supportedNetworks.map((network) => [network.chainID, 0])
       ) || {}
 
-    //////////////////////////////////////////////
-
-    // get from const file
-    const networks: QuaiNetworkInterfaceGA[] = [QuaiNetworkGA]
+    const networks: NetworkInterfaceGA[] = [QuaiNetworkGA]
 
     const providerFactory = new ProviderFactory()
     providerFactory.initializeNetworks(networks)
     this.providerFactory = providerFactory
 
-    // set current provider as first provider,
+    // TODO-MIGRATION set current provider as first provider,
     // but it is better to get from cache the last selected network
     // and then get provider for this network
-    this.currentProvider = this.providerFactory.getProvider("9000")
-  }
-
-  ///////////////////////////OUR CONCEPT ON HOW WE WILL WORK WITH FACTORY/////////////////////////////
-  // REMOVE THIS
-  providerForNetwork(): JsonRpcProvider | undefined {
-    if (!this.currentProvider) return undefined
-
-    return this.currentProvider
-  }
-
-  public getCurrentProvider(): JsonRpcProvider | undefined {
-    if (!this.currentProvider) return undefined
-    return this.currentProvider
+    this.currentProvider = this.providerFactory.getProvider(QuaiNetworkGA)
   }
 
   // alternative for providerForNetworkOrThrow, need to think
-  public getProviderForNetwork(chainID: string): JsonRpcProvider | undefined {
-    const provider = this.providerFactory.getProvider(chainID)
+  public getProviderForNetwork(
+    network: NetworkInterfaceGA
+  ): JsonRpcProvider | undefined {
+    const provider = this.providerFactory.getProvider(network)
     if (!provider) return undefined
     return provider
   }
 
-  // need to think what is the best way of passing Network as a param
-  // do we need to pass Network, or just chainID??
-  public switchNetwork(Network): void {
-    this.currentProvider = this.providerFactory.getProvider(network.chainID) // network.chainID also need to be rethought
+  public switchNetwork(network: NetworkInterfaceGA): void {
+    this.currentProvider = this.providerFactory.getProvider(network)
   }
-  ////////////////////////////////////////////////////////////////////////////////////////////
 
   /**
    * Pulls the list of tracked networks from memory or indexedDB.
    * Defaults to ethereum in the case that neither exist.
    */
-  async getTrackedNetworks(): Promise<EVMNetwork[]> {
+  async getTrackedNetworks(): Promise<NetworkInterfaceGA[]> {
     if (this.trackedNetworks.length > 0) return this.trackedNetworks
 
     // Since trackedNetworks will be an empty array at extension load (or reload time)
@@ -435,7 +413,9 @@ export default class ChainService extends BaseService<Events> {
     return this.trackedNetworks
   }
 
-  private async subscribeToNetworkEvents(network: EVMNetwork): Promise<void> {
+  private async subscribeToNetworkEvents(
+    network: NetworkInterfaceGA
+  ): Promise<void> {
     const { currentProvider } = this
     if (currentProvider) {
       await Promise.allSettled([
@@ -443,7 +423,9 @@ export default class ChainService extends BaseService<Events> {
         this.subscribeToNewHeads(network),
       ])
     } else {
-      logger.error(`Couldn't find provider for network ${network.name}`)
+      logger.error(
+        `Couldn't find provider for network ${network.baseAsset.name}`
+      )
     }
 
     this.emitter.emit("networkSubscribed", network)
@@ -452,14 +434,16 @@ export default class ChainService extends BaseService<Events> {
   /**
    * Adds a supported network to list of active networks.
    */
-  async startTrackingNetworkOrThrow(chainID: string): Promise<EVMNetwork> {
+  async startTrackingNetworkOrThrow(
+    chainID: string
+  ): Promise<NetworkInterfaceGA> {
     const trackedNetwork = this.trackedNetworks.find((network) =>
       sameChainID(network.chainID, chainID)
     )
 
     if (trackedNetwork) {
       logger.warn(
-        `${trackedNetwork.name} already being tracked - no need to activate it`
+        `${trackedNetwork.baseAsset.name} already being tracked - no need to activate it`
       )
       return trackedNetwork
     }
@@ -500,7 +484,7 @@ export default class ChainService extends BaseService<Events> {
    * provider exists.
    */
   providerForNetworkOrThrow(): JsonRpcProvider {
-    const provider = this.providerForNetwork()
+    const provider = this.currentProvider
     if (!provider) {
       logger.error(
         "Request received for operation on an inactive network",
@@ -522,7 +506,7 @@ export default class ChainService extends BaseService<Events> {
    * cleared.
    */
   private async populatePartialLegacyEVMTransactionRequest(
-    network: EVMNetwork,
+    network: NetworkInterfaceGA,
     partialRequest: EnrichedLegacyTransactionSignatureRequest
   ): Promise<{
     transactionRequest: EnrichedLegacyTransactionRequest
@@ -537,10 +521,10 @@ export default class ChainService extends BaseService<Events> {
       value: value ?? 0n,
       gasLimit: gasLimit ?? 0n,
       input: input ?? null,
-      // we know that a transactionRequest will fail with gasPrice 0
-      // and sometimes 3rd party api's (like 0x) may return transaction requests
-      // with gasPrice === 0, so we override the set gasPrice in those cases
-      gasPrice: gasPrice || (await this.estimateGasPrice(network)),
+      // TODO-MIGRATION: need a transaction request
+      gasPrice:
+        gasPrice ||
+        (await this.estimateGasPrice(partialRequest as TransactionRequest)),
       type: 0 as const,
       network,
       chainID: network.chainID,
@@ -554,10 +538,7 @@ export default class ChainService extends BaseService<Events> {
     let estimatedGasLimit: bigint | undefined
     let gasEstimationError: string | undefined
     try {
-      estimatedGasLimit = await this.estimateGasLimit(
-        network,
-        transactionRequest
-      )
+      estimatedGasLimit = await this.estimateGasLimit(transactionRequest)
     } catch (error) {
       logger.error("Error estimating gas limit: ", error)
       // Try to identify unpredictable gas errors to bubble that information
@@ -596,7 +577,7 @@ export default class ChainService extends BaseService<Events> {
    * cleared.
    */
   private async populatePartialEIP1559TransactionRequest(
-    network: EVMNetwork,
+    network: NetworkInterfaceGA,
     partialRequest: EnrichedEIP1559TransactionSignatureRequest
   ): Promise<{
     transactionRequest: EnrichedEIP1559TransactionRequest
@@ -623,7 +604,7 @@ export default class ChainService extends BaseService<Events> {
       maxFeePerGas: maxFeePerGas ?? 0n,
       maxPriorityFeePerGas: maxPriorityFeePerGas ?? 0n,
       input: input ?? null,
-      type: network.isQuai ? (0 as const) : (2 as const),
+      type: network.baseAsset.symbol === "QUAI" ? (0 as const) : (2 as const),
       network,
       chainID: network.chainID,
       nonce,
@@ -634,10 +615,7 @@ export default class ChainService extends BaseService<Events> {
     let estimatedGasLimit: bigint | undefined
     let gasEstimationError: string | undefined
     try {
-      estimatedGasLimit = await this.estimateGasLimit(
-        network,
-        transactionRequest
-      )
+      estimatedGasLimit = await this.estimateGasLimit(transactionRequest)
     } catch (error) {
       // Try to identify unpredictable gas errors to bubble that information
       // out.
@@ -667,7 +645,7 @@ export default class ChainService extends BaseService<Events> {
   }
 
   async populatePartialTransactionRequest(
-    network: EVMNetwork,
+    network: NetworkInterfaceGA,
     partialRequest: EnrichedEVMTransactionSignatureRequest,
     defaults: { maxFeePerGas: bigint; maxPriorityFeePerGas: bigint }
   ): Promise<{
@@ -689,7 +667,7 @@ export default class ChainService extends BaseService<Events> {
     // Legacy Transaction
     return this.populatePartialLegacyEVMTransactionRequest(network, {
       ...(partialRequest as EnrichedLegacyTransactionRequest),
-    })
+    } as EnrichedLegacyTransactionSignatureRequest)
   }
 
   /**
@@ -716,11 +694,14 @@ export default class ChainService extends BaseService<Events> {
     const { currentProvider } = this
 
     // https://docs.ethers.io/v5/single-page/#/v5/api/providers/provider/-%23-Provider-getTransactionCount
-    const chainTransactionCount = await currentProvider.getTransactionCount(
+    const chainTransactionCount = await currentProvider?.getTransactionCount(
       transactionRequest.from,
       "latest"
     )
     let knownNextNonce
+
+    if (!chainTransactionCount)
+      throw new Error("Failed to get chain transaction count")
 
     // existingNonce handling only needed when there is a chance for it to
     // be different from the on chain nonce. This can happen when a chain has
@@ -840,27 +821,29 @@ export default class ChainService extends BaseService<Events> {
   }
 
   async getTrackedAddressesOnNetwork(
-    network: EVMNetwork
+    network: NetworkInterfaceGA
   ): Promise<AddressOnNetwork[]> {
     return this.db.getTrackedAddressesOnNetwork(network)
   }
 
-  async getNetworksToTrack(): Promise<EVMNetwork[]> {
+  async getNetworksToTrack(): Promise<NetworkInterfaceGA[]> {
     const chainIDs = await this.db.getChainIDsToTrack()
-    if (chainIDs.size === 0) {
+    if (!chainIDs.size) {
       // Default to tracking Ethereum so ENS resolution works during onboarding
-      return [QUAI_NETWORK]
+      return [QuaiNetworkGA]
     }
 
     const networks = await Promise.all(
       [...chainIDs].map(async (chainID) => {
-        const network = NETWORK_BY_CHAIN_ID[chainID]
-        if (!network) return this.db.getEVMNetworkByChainID(chainID)
+        const network = NetworksArray.find((net) => net.chainID === chainID)
+        if (!network) return QuaiNetworkGA
 
         return network
       })
     )
-    return networks.filter((network): network is EVMNetwork => !!network)
+    return networks.filter(
+      (network): network is NetworkInterfaceGA => !!network
+    )
   }
 
   async removeAccountToTrack(address: string): Promise<void> {
@@ -883,10 +866,10 @@ export default class ChainService extends BaseService<Events> {
       globalThis.main.SetShard(addrShard)
     }
     let err = false
-    let balance = toBigInt(0)
+    let balance: bigint | undefined = toBigInt(0)
 
     try {
-      balance = await this.currentProvider.getBalance(normalizedAddress)
+      balance = await this.currentProvider?.getBalance(normalizedAddress)
     } catch (error) {
       if (error instanceof Error) {
         console.error("Error getting balance for address", address, error)
@@ -901,7 +884,7 @@ export default class ChainService extends BaseService<Events> {
           `Global shard: ${
             globalThis.main.SelectedShard
           } Address shard: ${addrShard} Provider: ${
-            this.currentProvider._getConnection().url
+            this.currentProvider?._getConnection().url
           }`
         )
       }
@@ -925,7 +908,7 @@ export default class ChainService extends BaseService<Events> {
       assetAmount: {
         // Data stored in chain db for network base asset might be stale
         asset: await this.db.getBaseAssetForNetwork(network.chainID),
-        amount: balance,
+        amount: balance ?? toBigInt(0),
       },
       dataSource: "local", // TODO do this properly (eg provider isn't Alchemy)
       retrievedAt: Date.now(),
@@ -984,11 +967,13 @@ export default class ChainService extends BaseService<Events> {
     }
   }
 
-  async getBlockHeight(network: EVMNetwork): Promise<number> {
+  async getBlockHeight(network: NetworkInterfaceGA): Promise<number> {
     const cachedBlock = await this.db.getLatestBlock(network)
     if (cachedBlock) return cachedBlock.blockHeight
 
-    return this.currentProvider.getBlockNumber()
+    const blockNumber = await this.currentProvider?.getBlockNumber()
+    if (!blockNumber) throw new Error("Failed get block number")
+    return blockNumber
   }
 
   /**
@@ -999,24 +984,22 @@ export default class ChainService extends BaseService<Events> {
    *
    * @param network the EVM network we're interested in
    * @param blockHash the hash of the block we're interested in
+   * @param address
    */
+
   async getBlockData(
-    network: EVMNetwork,
-    blockHash: string
+    network: NetworkInterfaceGA,
+    blockHash: string,
+    address: string
   ): Promise<AnyEVMBlock> {
     const cachedBlock = await this.db.getBlock(network, blockHash)
     if (cachedBlock) return cachedBlock
 
-    // TODO-MIGRATION: Need serialize/get Shard in some way
-    console.log(
-      "SHARD >>>>>>>>>>>>>>>>>>>>>>>>>>>>",
-      globalThis.main.SelectedShard
-    )
+    const shard = getExtendedZoneForAddress(address, false) as Shard
 
-    const resultBlock = await this.currentProvider.getBlock(
-      Shard.Cyprus,
-      blockHash
-    )
+    if (!shard) throw new Error("Failed to get zone for shard")
+
+    const resultBlock = await this.currentProvider?.getBlock(shard, blockHash)
     if (!resultBlock) throw new Error(`Failed to get block`)
 
     const block = blockFromEthersBlock(network, resultBlock)
@@ -1036,8 +1019,8 @@ export default class ChainService extends BaseService<Events> {
    * @param blockHash the hash of the block we're interested in
    */
   async getBlockDataExternal(
-    network: EVMNetwork,
-    shard: string,
+    network: NetworkInterfaceGA,
+    shard: Shard,
     blockHash: string
   ): Promise<AnyEVMBlock> {
     const cachedBlock = await this.db.getBlock(network, blockHash)
@@ -1045,9 +1028,7 @@ export default class ChainService extends BaseService<Events> {
 
     const { currentProvider } = this
 
-    // TODO-MIGRATION: Need serialize/get Shard in some way
-
-    const resultBlock = await currentProvider.getBlock(Shard.Cyprus, blockHash)
+    const resultBlock = await currentProvider?.getBlock(shard, blockHash)
     if (!resultBlock) throw new Error(`Failed to get block`)
 
     const block = blockFromEthersBlock(network, resultBlock)
@@ -1067,11 +1048,11 @@ export default class ChainService extends BaseService<Events> {
    * @param txHash the hash of the unconfirmed transaction we're interested in
    */
   async getTransaction(
-    network: EVMNetwork,
+    network: NetworkInterfaceGA,
     txHash: HexString
-  ): Promise<AnyEVMTransaction | null> {
+  ): Promise<AnyEVMTransaction | TransactionResponse | null> {
     const { currentProvider } = this
-    const gethResult = (await currentProvider.getTransaction(
+    const gethResult = (await currentProvider?.getTransaction(
       txHash
     )) as TransactionResponse & {
       from: string
@@ -1109,7 +1090,7 @@ export default class ChainService extends BaseService<Events> {
    * @param txHash the hash of the ITX (that emits 1 ETX) transaction we're interested in
    */
   async getETX(
-    network: EVMNetwork,
+    network: NetworkInterfaceGA,
     txHash: HexString
   ): Promise<AnyEVMTransaction> {
     const cachedTx = await this.db.getTransaction(network, txHash)
@@ -1119,18 +1100,19 @@ export default class ChainService extends BaseService<Events> {
       cachedTx &&
       cachedTx.blockHash &&
       "status" in cachedTx &&
-      cachedTx.status == 2
+      cachedTx.status === 2
     )
       return cachedTx
 
     // Provider for destination shard
-    const destinationProvider = this.currentProvider
+    //
+    const destinationProvider = this.providerFactory.getProvider(network)
     const originProvider = this.currentProvider
 
     // Transaction hasn't confirmed in origin chain yet
     if (!cachedTx || !cachedTx.blockHash) {
       console.log("Transaction hasn't confirmed in origin chain yet")
-      const gethResult = (await originProvider.getTransaction(
+      const gethResult = (await originProvider?.getTransaction(
         txHash
       )) as TransactionResponse & {
         from: string
@@ -1151,7 +1133,7 @@ export default class ChainService extends BaseService<Events> {
       }
 
       // Retrieve Transaction Receipt which should save it
-      this.retrieveTransactionReceipt(network, newTransaction)
+      this.retrieveTransactionReceipt(newTransaction)
 
       // If transaction hadn't been cached yet, its ETX definetly hasn't been confirmed yet, so we can return
       return newTransaction
@@ -1164,7 +1146,7 @@ export default class ChainService extends BaseService<Events> {
       const etxHash = "etxs" in cachedTx ? cachedTx.etxs[0].hash : undefined
       if (!etxHash) return cachedTx
 
-      const gethResult = (await destinationProvider.getTransaction(
+      const gethResult = (await destinationProvider?.getTransaction(
         etxHash
       )) as TransactionResponse & {
         from: string
@@ -1188,6 +1170,7 @@ export default class ChainService extends BaseService<Events> {
 
       // ETX has been settled in destination chain
       // Overwrite the cachedTx to have status = 2
+      // eslint-disable-next-line @typescript-eslint/no-unused-expressions
       "status" in cachedTx ? (cachedTx.status = 2) : undefined
       this.saveTransaction(cachedTx, "local")
 
@@ -1197,7 +1180,7 @@ export default class ChainService extends BaseService<Events> {
     }
 
     // Transaction is not cached
-    const gethResult = (await this.currentProvider.getTransaction(
+    const gethResult = (await this.currentProvider?.getTransaction(
       txHash
     )) as TransactionResponse & {
       from: string
@@ -1233,7 +1216,7 @@ export default class ChainService extends BaseService<Events> {
    * @param priority The priority of the transaction in the queue to be retrieved
    */
   queueTransactionHashToRetrieve(
-    network: EVMNetwork,
+    network: NetworkInterfaceGA,
     txHash: HexString,
     firstSeen: UNIXTime,
     priority = 0
@@ -1267,7 +1250,10 @@ export default class ChainService extends BaseService<Events> {
    * @param txHash The hash of a tx to check.
    * @returns true if the tx hash is in the queue, false otherwise.
    */
-  isTransactionHashQueued(txNetwork: EVMNetwork, txHash: HexString): boolean {
+  isTransactionHashQueued(
+    txNetwork: NetworkInterfaceGA,
+    txHash: HexString
+  ): boolean {
     return this.transactionsToRetrieve.some(
       ({ transaction }) =>
         transaction.hash === txHash &&
@@ -1281,7 +1267,10 @@ export default class ChainService extends BaseService<Events> {
    * @param network The network on which the transaction has been broadcast.
    * @param txHash The tx hash identifier of the transaction we want to retrieve.
    */
-  removeTransactionHashFromQueue(network: EVMNetwork, txHash: HexString): void {
+  removeTransactionHashFromQueue(
+    network: NetworkInterfaceGA,
+    txHash: HexString
+  ): void {
     const seen = this.isTransactionHashQueued(network, txHash)
 
     if (seen) {
@@ -1300,9 +1289,11 @@ export default class ChainService extends BaseService<Events> {
   async estimateGasLimit(
     transactionRequest: TransactionRequest
   ): Promise<bigint> {
-    const estimate = await this.currentProvider.estimateGas(
+    const estimate = await this.currentProvider?.estimateGas(
       ethersTransactionFromTransactionRequest(transactionRequest)
     )
+
+    if (!estimate) throw new Error("Failed to estimate gas")
 
     // Add 10% more gas as a safety net
     const uppedEstimate = estimate + estimate / 10n
@@ -1313,12 +1304,10 @@ export default class ChainService extends BaseService<Events> {
    * Estimate the gas needed to make a transaction. Adds 10% as a safety net to
    * the base estimate returned by the provider.
    */
-  private async estimateGasPrice(): Promise<bigint> {
-    // TODO-MIGRATION need transaction object for estimating gas
-    const estimate = await this.currentProvider.estimateGas(
-      new QuaiTransaction()
-    )
+  private async estimateGasPrice(tx: TransactionRequest): Promise<bigint> {
+    const estimate = await this.currentProvider?.estimateGas(tx)
 
+    if (!estimate) throw new Error("Failed to estimate gas")
     // Add 10% more gas as a safety net
     return (estimate * 11n) / 10n
   }
@@ -1335,7 +1324,6 @@ export default class ChainService extends BaseService<Events> {
     try {
       const { serialized } = QuaiTransaction.from(transaction)
 
-      // TODO-MIGRATION temp solution to get zone from transaction "to" field
       if (!transaction.to) {
         throw new Error("Transaction 'to' field is not specified.")
       }
@@ -1349,7 +1337,7 @@ export default class ChainService extends BaseService<Events> {
 
       await Promise.all([
         this.currentProvider
-          .broadcastTransaction(zoneToBroadcast, serialized)
+          ?.broadcastTransaction(zoneToBroadcast, serialized)
           .then((transactionResponse) => {
             this.emitter.emit("transactionSend", transactionResponse.hash)
           })
@@ -1472,8 +1460,8 @@ export default class ChainService extends BaseService<Events> {
    * Fetch, persist, and emit the latest block on a given network.
    */
   private async pollLatestBlock(
-    network: EVMNetwork,
-    provider: PelagusJsonRpcProvider
+    network: NetworkInterfaceGA,
+    provider: JsonRpcProvider
   ): Promise<void> {
     // TODO-MIGRATION for now supporting only cyprus shards, need to be fixed
     const ethersBlock = await provider.getBlock(Shard.Cyprus, "latest")
@@ -1486,12 +1474,8 @@ export default class ChainService extends BaseService<Events> {
     // emit a reorg event
   }
 
-  async send(
-    method: string,
-    params: unknown[],
-    network: EVMNetwork
-  ): Promise<unknown> {
-    return this.provider.send(method, params)
+  async send(method: string, params: unknown[]): Promise<unknown> {
+    return this.currentProvider?.send(method, params)
   }
 
   /**
@@ -1506,11 +1490,11 @@ export default class ChainService extends BaseService<Events> {
    * @param hash
    */
   async getOrCancelTransaction(
-    network: EVMNetwork,
+    network: NetworkInterfaceGA,
     hash: string
   ): Promise<TransactionResponse | null | undefined> {
-    const { provider } = this
-    const result = await provider.getTransaction(hash)
+    const provider = this.currentProvider
+    const result = await provider?.getTransaction(hash)
 
     if (!result) {
       logger.warn(
@@ -1552,12 +1536,9 @@ export default class ChainService extends BaseService<Events> {
    * Load recent asset transfers from an account on a particular network.
    *
    * @param addressNetwork the address and network whose asset transfers we need
-   * @param incomingOnly if true, only fetch asset transfers received by this
-   *        address
    */
   private async loadRecentAssetTransfers(
-    addressNetwork: AddressOnNetwork,
-    incomingOnly = false
+    addressNetwork: AddressOnNetwork
   ): Promise<void> {
     const blockHeight =
       (await this.getBlockHeight(addressNetwork.network)) -
@@ -1568,8 +1549,7 @@ export default class ChainService extends BaseService<Events> {
       return await this.loadAssetTransfers(
         addressNetwork,
         BigInt(fromBlock),
-        BigInt(blockHeight),
-        incomingOnly
+        BigInt(blockHeight)
       )
     } catch (err) {
       logger.error(
@@ -1666,7 +1646,7 @@ export default class ChainService extends BaseService<Events> {
     const accountsToTrack = await this.getAccountsToTrack(onlyActiveAccounts)
     await Promise.allSettled(
       accountsToTrack.map(async (addressNetwork) => {
-        return this.loadRecentAssetTransfers(addressNetwork, true)
+        return this.loadRecentAssetTransfers(addressNetwork)
       })
     )
   }
@@ -1780,8 +1760,12 @@ export default class ChainService extends BaseService<Events> {
           transaction
         )
       } else if (transaction.blockHash) {
-        await this.getBlockData(transaction.network, transaction.blockHash)
-        this.retrieveTransactionReceipt(transaction.network, transaction)
+        await this.getBlockData(
+          transaction.network,
+          transaction.blockHash,
+          transaction.from
+        )
+        this.retrieveTransactionReceipt(transaction)
       }
     } catch (error) {
       logger.error(`Error retrieving transaction ${hash}`, error)
@@ -1909,7 +1893,7 @@ export default class ChainService extends BaseService<Events> {
       accounts.some(
         ({ address: trackedAddress, network: trackedNetwork }) =>
           sameEVMAddress(trackedAddress, address) &&
-          network.name === trackedNetwork.name
+          network.baseAsset.name === trackedNetwork.baseAsset.name
       )
     )
   }
@@ -1919,8 +1903,10 @@ export default class ChainService extends BaseService<Events> {
    *
    * @param network The EVM network to watch.
    */
-  private async fetchLatestBlockForNetwork(network: EVMNetwork): Promise<void> {
-    const { provider } = this
+  private async fetchLatestBlockForNetwork(
+    network: NetworkInterfaceGA
+  ): Promise<void> {
+    const provider = this.currentProvider
     if (provider) {
       try {
         const blockNumber = await provider.getBlockNumber()
@@ -1942,17 +1928,21 @@ export default class ChainService extends BaseService<Events> {
    * Watch a network for new blocks, saving each to the database and emitting an
    * event. Re-orgs are currently ignored.
    *
-   * @param network The EVM network to watch.
+   * @param network The network to watch.
    */
-  private async subscribeToNewHeads(network: EVMNetwork): Promise<void> {
-    const { provider, subscribedNetworks } = this
-    // eslint-disable-next-line no-underscore-dangle
+  private async subscribeToNewHeads(
+    network: NetworkInterfaceGA
+  ): Promise<void> {
+    const { currentProvider, subscribedNetworks } = this
+
+    if (!currentProvider) throw new Error("Failed to subscribe to new heads")
+
     subscribedNetworks.push({
       network,
-      provider,
+      provider: currentProvider,
     })
 
-    this.pollLatestBlock(network, provider)
+    this.pollLatestBlock(network, currentProvider)
     this.pollBlockPrices()
   }
 
@@ -1965,13 +1955,31 @@ export default class ChainService extends BaseService<Events> {
     address,
     network,
   }: AddressOnNetwork): Promise<void> {
-    const { provider } = this
+    const provider = this.currentProvider
 
-    // TODO-MIGRATION: Need add into PelagusJsonRpcProvider
-    // await provider.subscribeFullPendingTransactions(
-    //   { address, network },
-    //   this.handlePendingTransaction.bind(this)
-    // )
+    if (!provider) throw new Error("Failed to get provider")
+
+    provider.on("pending", async (transactionHash: unknown) => {
+      try {
+        if (typeof transactionHash === "string") {
+          const tx = (await this.getTransaction(
+            network,
+            transactionHash
+          )) as TransactionResponse
+
+          if (!tx) throw new Error("getTransaction return null")
+
+          const transaction = transactionFromEthersTransaction(tx, network)
+
+          this.handlePendingTransaction(transaction)
+        }
+      } catch (innerError) {
+        logger.error(
+          `Error handling incoming pending transaction hash: ${transactionHash}`,
+          innerError
+        )
+      }
+    })
 
     this.subscribedAccounts.push({
       account: address,
@@ -2026,11 +2034,11 @@ export default class ChainService extends BaseService<Events> {
    * @param transaction the unconfirmed transaction we're interested in
    */
   private async subscribeToTransactionConfirmation(
-    network: EVMNetwork,
+    network: NetworkInterfaceGA,
     transaction: AnyEVMTransaction
   ): Promise<void> {
-    const { provider } = this
-    provider.once(transaction.hash, (confirmedReceipt: TransactionReceipt) => {
+    const provider = this.currentProvider
+    provider?.once(transaction.hash, (confirmedReceipt: TransactionReceipt) => {
       this.saveTransaction(
         enrichTransactionWithReceipt(transaction, confirmedReceipt),
         "local"
@@ -2045,12 +2053,12 @@ export default class ChainService extends BaseService<Events> {
   }
 
   private async subscribeToETXConfirmation(
-    network: EVMNetwork,
+    network: NetworkInterfaceGA,
     itx: AnyEVMTransaction,
     etx: AnyEVMTransaction
   ): Promise<void> {
-    const { provider } = this
-    provider.once(etx.hash, (confirmedReceipt: TransactionReceipt) => {
+    const provider = this.currentProvider
+    provider?.once(etx.hash, (confirmedReceipt: TransactionReceipt) => {
       this.saveTransaction(
         enrichTransactionWithReceipt(etx, confirmedReceipt),
         "local"
@@ -2076,8 +2084,8 @@ export default class ChainService extends BaseService<Events> {
   private async retrieveTransactionReceipt(
     transaction: AnyEVMTransaction
   ): Promise<void> {
-    const { provider } = this
-    const receipt = await provider.getTransactionReceipt(transaction.hash)
+    const provider = this.currentProvider
+    const receipt = await provider?.getTransactionReceipt(transaction.hash)
     if (receipt) {
       await this.saveTransaction(
         enrichTransactionWithReceipt(transaction, receipt),

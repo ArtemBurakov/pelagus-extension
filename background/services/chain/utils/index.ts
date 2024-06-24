@@ -32,12 +32,13 @@ import {
   KnownTxTypes,
 } from "../../../networks"
 import type { PartialTransactionRequestWithFrom } from "../../enrichment"
+import { NetworkInterfaceGA } from "../../../constants/networks/networkTypes"
 
 /**
  * Parse a block as returned by a polling provider.
  */
 export function blockFromEthersBlock(
-  network: EVMNetwork,
+  network: NetworkInterfaceGA,
   gethResult: Block
 ): AnyEVMBlock {
   return {
@@ -61,7 +62,7 @@ export function blockFromEthersBlock(
  * Parse a block as returned by a provider query.
  */
 export function blockFromProviderBlock(
-  network: EVMNetwork,
+  network: NetworkInterfaceGA,
   incomingGethResult: unknown
 ): AnyEVMBlock {
   const gethResult = incomingGethResult as {
@@ -321,13 +322,15 @@ export function enrichTransactionWithReceipt(
  * Parse a transaction as returned by a polling provider.
  */
 export function transactionFromEthersTransaction(
-  tx: TransactionResponse & {
-    from: string
-    blockHash?: string
-    blockNumber?: number
-    type?: number | null
-  },
-  network: EVMNetwork
+  tx:
+    | TransactionResponse
+    | (AnyEVMTransaction & {
+        from: string
+        blockHash?: string
+        blockNumber?: number
+        type?: number | null
+      }),
+  network: NetworkInterfaceGA
 ): AnyEVMTransaction {
   if (!tx || tx.hash === undefined) {
     throw new Error("Malformed transaction")
