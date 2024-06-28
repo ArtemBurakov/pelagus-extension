@@ -1,3 +1,5 @@
+import { TransactionRequest } from "quais"
+
 import { createSelector, createSlice } from "@reduxjs/toolkit"
 import Emittery from "emittery"
 import { MessageSigningRequest, SignTypedDataRequest } from "../utils/signing"
@@ -10,6 +12,7 @@ import {
   EIP1559TransactionRequest,
   LegacyEVMTransactionRequest,
 } from "../networks"
+import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
 
 /**
  * The different types of SignOperations that can be executed. These types
@@ -20,6 +23,7 @@ export type SignOperationType =
   | SignTypedDataRequest
   | EIP1559TransactionRequest
   | LegacyEVMTransactionRequest
+  | QuaiTransactionRequest
 
 /**
  * A request for a signing operation carrying the AccountSigner whose signature

@@ -42,9 +42,7 @@ export type NormalizedEVMAddress = Opaque<
 export type UNIXTime = number
 
 export enum KeyringTypes {
-  mnemonicBIP39S128 = "mnemonic#bip39:128",
   mnemonicBIP39S256 = "mnemonic#bip39:256",
-  metamaskMnemonic = "mnemonic#metamask",
   singleSECP = "single#secp256k1",
 }
 

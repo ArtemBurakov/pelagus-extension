@@ -7,7 +7,7 @@ import {
   PrivateKey,
   SignerImportMetadata,
   SignerImportSource,
-} from "../services/keyring/index"
+} from "../services/keyring/types"
 import OnboardingRoutes from "@pelagus/pelagus-ui/pages/Onboarding/Tabbed/Routes"
 
 type KeyringToVerify = {

@@ -133,8 +133,8 @@ import {
 } from "./lib/posthog"
 import { isBuiltInNetworkBaseAsset } from "./redux-slices/utils/asset-utils"
 import localStorageShim from "./utils/local-storage-shim"
-import { SignerImportMetadata } from "./services/keyring"
 import { getExtendedZoneForAddress } from "./services/chain/utils"
+import { SignerImportMetadata } from "./services/keyring/types"
 
 // This sanitizer runs on store and action data before serializing for remote
 // redux devtools. The goal is to end up with an object that is directly
@@ -936,21 +936,42 @@ export default class Main extends BaseService<never> {
     )
 
     transactionConstructionSliceEmitter.on(
+      "signTransaction",
+      async ({ request, accountSigner }) => {
+        try {
+          const signedTransaction = await this.signingService.signTransaction(
+            request,
+            accountSigner
+          )
+
+          // this.store.dispatch(transactionSigned(signedTransaction))
+
+          // TODO chainId
+          await this.analyticsService.sendAnalyticsEvent(
+            AnalyticsEvent.TRANSACTION_SIGNED,
+            {
+              chainId: request.chainId,
+            }
+          )
+        } catch (exception) {
+          logger.error("Error signing transaction", exception)
+          this.store.dispatch(
+            clearTransactionState(TransactionConstructionStatus.Idle)
+          )
+        }
+      }
+    )
+
+    transactionConstructionSliceEmitter.on(
       "requestSignature",
       async ({ request, accountSigner }) => {
         try {
           const signedTransactionResult =
             await this.signingService.signTransaction(request, accountSigner)
-          await this.store.dispatch(transactionSigned(signedTransactionResult))
-          setTimeout(
-            () =>
-              transactionConstructionSliceEmitter.emit(
-                "signedTransactionResult",
-                signedTransactionResult
-              ),
-            1000
-          ) // could check broadcastOnSign here and broadcast if false but this is a hacky solution (could result in tx broadcasted twice)
-          this.analyticsService.sendAnalyticsEvent(
+
+          // this.store.dispatch(transactionSigned(signedTransactionResult))
+
+          await this.analyticsService.sendAnalyticsEvent(
             AnalyticsEvent.TRANSACTION_SIGNED,
             {
               chainId: request.chainID,

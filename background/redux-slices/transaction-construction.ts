@@ -17,6 +17,8 @@ import {
 } from "../services/enrichment"
 import { createBackgroundAsyncThunk } from "./utils"
 import { SignOperation } from "./signing"
+import { TransactionRequest as NewTransactionRequest } from "quais"
+import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
 
 export const enum TransactionConstructionStatus {
   Idle = "idle",
@@ -80,6 +82,7 @@ export const initialState: TransactionConstruction = {
 
 export type Events = {
   updateTransaction: EnrichedEVMTransactionSignatureRequest
+  signTransaction: SignOperation<QuaiTransactionRequest>
   requestSignature: SignOperation<TransactionRequest>
   signatureRejected: never
   broadcastSignedTransaction: SignedTransaction
@@ -310,8 +313,6 @@ const transactionSlice = createSlice({
 export const {
   transactionRequest,
   clearTransactionState,
-  transactionLikelyFails,
-  broadcastOnSign,
   signed,
   setFeeType,
   estimatedFeesPerGas,
@@ -322,24 +323,17 @@ export const {
 
 export default transactionSlice.reducer
 
-export const broadcastSignedTransaction = createBackgroundAsyncThunk(
-  "transaction-construction/broadcast",
-  async (transaction: SignedTransaction) => {
-    await emitter.emit("broadcastSignedTransaction", transaction)
-  }
-)
-
 export const transactionSigned = createBackgroundAsyncThunk(
   "transaction-construction/transaction-signed",
   async (transaction: SignedTransaction, { dispatch, getState }) => {
-    await dispatch(signed(transaction))
+    dispatch(signed(transaction))
 
     const { transactionConstruction } = getState() as {
       transactionConstruction: TransactionConstruction
     }
 
     if (transactionConstruction.broadcastOnSign ?? false) {
-      await dispatch(broadcastSignedTransaction(transaction))
+      await emitter.emit("broadcastSignedTransaction", transaction)
     }
   }
 )

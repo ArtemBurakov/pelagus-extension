@@ -1,17 +1,5 @@
-import {
-  toBigInt,
-  toUtf8Bytes,
-  hexlify,
-  stripZerosLeft,
-  concat,
-  accessListify,
-  Contract,
-  Zone,
-} from "quais"
-import { createSelector, createSlice } from "@reduxjs/toolkit"
-// TODO-MIGRATION -----------------------------
-import { RLP } from "quais-old/lib/utils"
-// -----------------------------
+import { Contract, getAddress, TransactionRequest } from "quais"
+import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
 import { QRC20_INTERFACE } from "../contracts/qrc-20"
 
 import {
@@ -28,14 +16,9 @@ import { AddressOnNetwork } from "../accounts"
 import { createBackgroundAsyncThunk } from "./utils"
 import { isBuiltInNetworkBaseAsset, isSameAsset } from "./utils/asset-utils"
 import { getProvider } from "./utils/contract-utils"
-import {
-  EIP1559TransactionRequest,
-  EVMNetwork,
-  SignedTransaction,
-  sameNetwork,
-} from "../networks"
+import { EIP1559TransactionRequest, EVMNetwork, sameNetwork } from "../networks"
 import logger from "../lib/logger"
-import { NUM_REGIONS_IN_PRIME, NUM_ZONES_IN_REGION, QUAI } from "../constants"
+import { QUAI } from "../constants"
 import { convertFixedPoint } from "../lib/fixed-point"
 import { removeAssetReferences, updateAssetReferences } from "./accounts"
 import { NormalizedEVMAddress } from "../types"
@@ -45,6 +28,7 @@ import { AccountSigner } from "../services/signing"
 import { normalizeEVMAddress } from "../lib/utils"
 import { setSnackbarMessage } from "./ui"
 import { getExtendedZoneForAddress } from "../services/chain/utils"
+import { createSelector, createSlice } from "@reduxjs/toolkit"
 
 export type AssetWithRecentPrices<T extends AnyAsset = AnyAsset> = T & {
   recentPrices: {
@@ -248,6 +232,83 @@ export const getAccountNonceAndGasPrice = createBackgroundAsyncThunk(
       maxPriorityFeePerGas: feeData.maxPriorityFeePerGas
         ? feeData.maxPriorityFeePerGas.toString()
         : "0",
+    }
+  }
+)
+
+export const sendAsset = createBackgroundAsyncThunk(
+  "assets/sendAsset",
+  async (transferDetails: {
+    fromAddressNetwork: AddressOnNetwork
+    toAddressNetwork: AddressOnNetwork
+    assetAmount: AnyAssetAmount
+    gasLimit?: bigint
+    nonce?: number
+    maxPriorityFeePerGas?: bigint & BigInt
+    maxFeePerGas?: bigint & BigInt
+    accountSigner: AccountSigner
+  }): Promise<{ success: boolean; errorMessage?: string }> => {
+    let {
+      fromAddressNetwork: { address: fromAddress, network: fromNetwork },
+      toAddressNetwork: { address: toAddress, network: toNetwork },
+      assetAmount,
+      gasLimit,
+      nonce,
+      maxPriorityFeePerGas,
+      maxFeePerGas,
+      accountSigner,
+    } = transferDetails
+
+    try {
+      if (!sameNetwork(fromNetwork, toNetwork)) {
+        return {
+          success: false,
+          errorMessage: "Only same-network transfers are supported for now.",
+        }
+      }
+
+      let transactionData = ""
+      let transactionValue = assetAmount.amount
+
+      if (isSmartContractFungibleAsset(assetAmount.asset)) {
+        const provider = getProvider()
+        const signer = await provider.getSigner(fromAddress)
+
+        const tokenContract = new Contract(
+          assetAmount.asset.contractAddress,
+          QRC20_INTERFACE,
+          signer
+        )
+
+        const transactionDetails =
+          await tokenContract.transfer.populateTransaction(
+            toAddress,
+            assetAmount.amount
+          )
+
+        toAddress = transactionDetails.to ? transactionDetails.to : ""
+        transactionData = transactionDetails.data ? transactionDetails.data : ""
+        transactionValue = BigInt(0)
+      }
+
+      const request: QuaiTransactionRequest = {
+        to: getAddress(toAddress),
+        from: getAddress(fromAddress),
+        nonce: nonce,
+        gasLimit: gasLimit,
+        maxPriorityFeePerGas: maxPriorityFeePerGas,
+        maxFeePerGas: maxFeePerGas,
+        data: transactionData,
+        value: transactionValue,
+      }
+      await signTransaction({ request, accountSigner })
+
+      return { success: true }
+    } catch (error) {
+      return {
+        success: false,
+        errorMessage: `Transfer failed: ${error}`,
+      }
     }
   }
 )
@@ -515,26 +576,18 @@ export const checkTokenContractDetails = createBackgroundAsyncThunk(
   }
 )
 
-transactionConstructionSliceEmitter.on(
-  "signedTransactionResult",
-  async (tx) => {
-    const provider = globalThis.main.chainService.providerForNetworkOrThrow(
-      tx.network
-    )
-    try {
-      await provider.broadcastTransaction(Zone.Cyprus1, serializeSigned(tx)) // TODO-MIGRATION
-
-      await globalThis.main.chainService.saveTransaction(tx, "local")
-    } catch (error: any) {
-      if (error.toString().includes("insufficient funds")) {
-        globalThis.main.store.dispatch(
-          setSnackbarMessage("Insufficient funds for gas * price + value")
-        )
-      }
-      console.log(error)
-    }
-  }
-)
+const signTransaction = async ({
+  request,
+  accountSigner,
+}: {
+  request: QuaiTransactionRequest
+  accountSigner: AccountSigner
+}) => {
+  await transactionConstructionSliceEmitter.emit("signTransaction", {
+    request,
+    accountSigner,
+  })
+}
 
 const signData = async function ({
   transaction,
@@ -547,88 +600,4 @@ const signData = async function ({
     request: transaction,
     accountSigner,
   })
-}
-
-function serializeSigned(transaction: SignedTransaction): string {
-  // If there is an explicit gasPrice, make sure it matches the
-  // EIP-1559 fees; otherwise they may not understand what they
-  // think they are setting in terms of fee.
-  if (transaction.gasPrice != null) {
-    const gasPrice = toBigInt(transaction.gasPrice)
-    const maxFeePerGas = toBigInt(transaction.maxFeePerGas || 0)
-    if (gasPrice !== maxFeePerGas) {
-      logger.error("mismatch EIP-1559 gasPrice != maxFeePerGas", "tx", {
-        gasPrice,
-        maxFeePerGas,
-      })
-      throw new Error("mismatch EIP-1559 gasPrice != maxFeePerGas")
-    }
-  }
-
-  const fields = [
-    formatNumber(transaction.network.chainID || 0, "chainId"),
-    formatNumber(transaction.nonce || 0, "nonce"),
-    formatNumber(transaction.maxPriorityFeePerGas || 0, "maxPriorityFeePerGas"),
-    formatNumber(transaction.maxFeePerGas || 0, "maxFeePerGas"),
-    formatNumber(transaction.gasLimit || 0, "gasLimit"),
-    transaction.to,
-    formatNumber(transaction.value || 0, "value"),
-    transaction.input || "0x",
-    formatAccessList([]),
-  ]
-  if (transaction.type == 2) {
-    fields.push(
-      formatNumber(transaction.externalGasLimit || 0, "externalGasLimit")
-    )
-    fields.push(
-      formatNumber(transaction.externalGasPrice || 0, "externalGasPrice")
-    )
-    fields.push(formatNumber(transaction.externalGasTip || 0, "externalGasTip"))
-    fields.push(/* transaction.externalData || */ "0x")
-    fields.push(formatAccessList(/* transaction.externalAccessList || */ []))
-    fields.push(formatNumber(transaction.v, "recoveryParam"))
-    fields.push(stripZerosLeft(transaction.r))
-    fields.push(stripZerosLeft(transaction.s))
-    return concat(["0x02", RLP.encode(fields)])
-  }
-  fields.push(formatNumber(transaction.v, "recoveryParam"))
-  fields.push(stripZerosLeft(transaction.r))
-  fields.push(stripZerosLeft(transaction.s))
-  return concat(["0x00", RLP.encode(fields)])
-}
-
-function formatNumber(value: any, name: string): Uint8Array {
-  const result = toUtf8Bytes(stripZerosLeft(hexlify(value)))
-  if (result.length > 32) {
-    logger.error(`invalid length for ${name}`, `transaction:${name}`, value)
-  }
-  return result
-}
-
-function formatAccessList(value: any): Array<[string, Array<string>]> {
-  return accessListify(value).map((set) => [set.address, set.storageKeys])
-}
-
-// Emitted ETXs must include some multiple of BaseFee as miner tip, to
-// encourage processing at the destination.
-
-// TODO do we actually need this function?
-export function calcEtxFeeMultiplier(fromShard: string, toShard: string) {
-  let multiplier = NUM_ZONES_IN_REGION
-  if (fromShard == undefined || toShard == undefined || fromShard == toShard) {
-    console.error(
-      `invalid shards in calcEtxFeeMultiplier: ${fromShard} ${toShard}`
-    )
-    return 0 // will cause an error
-  }
-  if (
-    (fromShard.includes("cyprus") && toShard.includes("cyprus")) ||
-    (fromShard.includes("paxos") && toShard.includes("paxos")) ||
-    (fromShard.includes("hydra") && toShard.includes("hydra"))
-  ) {
-    multiplier = NUM_ZONES_IN_REGION
-  } else {
-    multiplier = NUM_ZONES_IN_REGION * NUM_REGIONS_IN_PRIME
-  }
-  return multiplier
 }

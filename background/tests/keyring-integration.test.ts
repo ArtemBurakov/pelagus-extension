@@ -1,16 +1,19 @@
 import { webcrypto } from "crypto"
 import browser from "webextension-polyfill"
-import KeyringService, {
-  Keyring,
-  MAX_KEYRING_IDLE_TIME,
-  MAX_OUTSIDE_IDLE_TIME,
-  SignerImportSource,
-  SignerSourceTypes,
-} from "../services/keyring"
 import { KeyringTypes } from "../types"
 import { EIP1559TransactionRequest } from "../networks"
 import { QUAI_NETWORK, QUAI } from "../constants"
 import logger from "../lib/logger"
+import { KeyringService } from "../services"
+import {
+  Keyring,
+  SignerImportSource,
+  SignerSourceTypes,
+} from "../services/keyring/types"
+import {
+  MAX_KEYRING_IDLE_TIME,
+  MAX_OUTSIDE_IDLE_TIME,
+} from "../services/keyring"
 
 const originalCrypto = global.crypto
 beforeEach(() => {
@@ -130,7 +133,7 @@ describe("KeyringService when uninitialized", () => {
     it("won't sign transactions", async () => {
       await expect(
         service.signTransaction(
-          { address: "0x0", network: QUAI_NETWORK },
+          { address: "0x0", network: "9000" },
           validTransactionRequests.simple
         )
       ).rejects.toThrow("KeyringService must be unlocked.")
@@ -266,10 +269,7 @@ describe("KeyringService when initialized", () => {
     }
 
     await expect(
-      service.signTransaction(
-        { address, network: QUAI_NETWORK },
-        transactionWithFrom
-      )
+      service.signTransaction({ address, network: "9000" }, transactionWithFrom)
     ).resolves.toMatchObject({
       from: expect.stringMatching(new RegExp(address, "i")), // case insensitive match
       r: expect.anything(),
@@ -294,10 +294,7 @@ describe("KeyringService when initialized", () => {
     expect(goodUnlockResult).toEqual(true)
 
     await expect(
-      service.signTransaction(
-        { address, network: QUAI_NETWORK },
-        transactionWithFrom
-      )
+      service.signTransaction({ address, network: "9000" }, transactionWithFrom)
     ).resolves.toBeDefined()
   })
 
@@ -504,7 +501,7 @@ describe("Keyring service when autolocking", () => {
         }
 
         await service.signTransaction(
-          { address, network: QUAI_NETWORK },
+          { address, network: "9000" },
           transactionWithFrom
         )
       },

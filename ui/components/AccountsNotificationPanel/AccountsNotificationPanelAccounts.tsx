@@ -121,6 +121,18 @@ function WalletTypeHeader({
   updateUseCustomOrder: (useOrder: boolean, signerId: string) => void
   setSelectedAccountSigner: (signerId: string) => void
 }) {
+  console.log("=== WalletTypeHeader", {
+    accountType,
+    onClickAddAddress,
+    walletNumber,
+    accountSigner,
+    signerId,
+    setShard,
+    addAddressSelected,
+    updateCustomOrder,
+    updateUseCustomOrder,
+    setSelectedAccountSigner,
+  })
   const { t } = useTranslation()
   const walletTypeDetails: { [key in AccountType]: WalletTypeInfo } = {
     [AccountType.ReadOnly]: {
@@ -171,6 +183,7 @@ function WalletTypeHeader({
   const settingsBySigner = useBackgroundSelector(
     (state) => state.ui.accountSignerSettings
   )
+
   const signerSettings =
     accountSigner.type !== "read-only"
       ? settingsBySigner.find(({ signer }) =>
@@ -496,6 +509,7 @@ export default function AccountsNotificationPanelAccounts({
   const accountTotals = useBackgroundSelector(
     selectCurrentNetworkAccountTotalsByCategory
   )
+  console.log("=== accountTotals", accountTotals)
 
   const [pendingSelectedAddress, setPendingSelectedAddress] = useState("")
   const defaultSigner = useRef(
@@ -574,6 +588,9 @@ export default function AccountsNotificationPanelAccounts({
         if (accountTypeTotals === undefined || accountTypeTotals.length <= 0) {
           return <></>
         }
+
+        console.log("=== accountType", accountType)
+        console.log("=== accountTypeTotals", accountTypeTotals)
 
         const filteredAccountTypeTotals = searchAccountsHandle(
           searchAccountsValue,

@@ -4,7 +4,7 @@ import { isDefined } from "../../lib/utils/type-guards"
 import {
   KeyringAccountSigner,
   PrivateKeyAccountSigner,
-} from "../../services/keyring"
+} from "../../services/keyring/types"
 import { AccountSigner, ReadOnlyAccountSigner } from "../../services/signing"
 import { HexString } from "../../types"
 import {
@@ -12,8 +12,8 @@ import {
   selectPrivateKeyWalletsByAddress,
 } from "./keyringsSelectors"
 import { selectCurrentAccount } from "./uiSelectors"
-import { QUAI_CONTEXTS } from "../../constants"
 import { getExtendedZoneForAddress } from "../../services/chain/utils"
+import { getAddress } from "quais"
 
 // FIXME: importing causes a dependency cycle
 const getAllAddresses = createSelector(
@@ -35,30 +35,30 @@ export const selectAccountSignersByAddress = createSelector(
     const allAccountsSeen = new Set<string>()
 
     const keyringEntries = Object.entries(keyringsByAddress)
-      .map(
-        ([address, keyring]): [HexString, KeyringAccountSigner] | undefined => {
-          if (keyring.id === null) return undefined
+      .map(([add, keyring]): [HexString, KeyringAccountSigner] | undefined => {
+        if (keyring.id === null) return undefined
 
-          allAccountsSeen.add(address)
-          const shard = getExtendedZoneForAddress(address)
-          return [
-            address,
-            {
-              type: "keyring",
-              keyringID: keyring.id,
-              shard,
-            },
-          ]
-        }
-      )
+        const address = getAddress(add) // TODO-MIGRATION temp fix
+
+        allAccountsSeen.add(address)
+        const shard = getExtendedZoneForAddress(address)
+        return [
+          address,
+          {
+            type: "keyring",
+            keyringID: keyring.id,
+            shard,
+          },
+        ]
+      })
       .filter(isDefined)
 
     const privateKeyEntries = Object.entries(privateKeyWalletsByAddress)
       .map(
-        ([address, wallet]):
-          | [HexString, PrivateKeyAccountSigner]
-          | undefined => {
+        ([add, wallet]): [HexString, PrivateKeyAccountSigner] | undefined => {
           if (wallet.id === null) return undefined
+
+          const address = getAddress(add) // TODO-MIGRATION temp fix
 
           allAccountsSeen.add(address)
           const shard = getExtendedZoneForAddress(address)
@@ -77,14 +77,16 @@ export const selectAccountSignersByAddress = createSelector(
 
     const readOnlyEntries: [string, typeof ReadOnlyAccountSigner][] =
       allAddresses
-        .filter((address) => !allAccountsSeen.has(address))
-        .map((address) => [address, ReadOnlyAccountSigner])
+        .filter((address) => !allAccountsSeen.has(getAddress(address))) // TODO-MIGRATION temp fix
+        .map((address) => [getAddress(address), ReadOnlyAccountSigner])
 
     const entriesByPriority: [string, AccountSigner][] = [
       ...readOnlyEntries,
       ...privateKeyEntries,
       ...keyringEntries,
     ]
+
+    console.log("=== entriesByPriority", entriesByPriority)
 
     return Object.fromEntries(entriesByPriority)
   }

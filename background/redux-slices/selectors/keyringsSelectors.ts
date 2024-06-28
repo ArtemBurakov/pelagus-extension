@@ -1,6 +1,10 @@
 import { createSelector, OutputSelector } from "@reduxjs/toolkit"
 import { RootState } from ".."
-import { Keyring, PrivateKey, SignerImportSource } from "../../services/keyring"
+import {
+  Keyring,
+  PrivateKey,
+  SignerImportSource,
+} from "../../services/keyring/types"
 import { HexString } from "../../types"
 
 export const selectKeyringStatus = createSelector(

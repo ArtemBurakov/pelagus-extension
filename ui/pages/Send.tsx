@@ -25,6 +25,7 @@ import {
 import {
   getAccountNonceAndGasPrice,
   selectAssetPricePoint,
+  sendAsset,
   transferAsset,
 } from "@pelagus/pelagus-background/redux-slices/assets"
 import { CompleteAssetAmount } from "@pelagus/pelagus-background/redux-slices/accounts"
@@ -34,10 +35,9 @@ import {
 } from "@pelagus/pelagus-background/redux-slices/utils/asset-utils"
 import { useHistory, useLocation } from "react-router-dom"
 import classNames from "classnames"
-import { ReadOnlyAccountSigner } from "@pelagus/pelagus-background/services/signing"
 import { setSnackbarMessage } from "@pelagus/pelagus-background/redux-slices/ui"
 import { sameEVMAddress } from "@pelagus/pelagus-background/lib/utils"
-import { toBigInt } from "quais"
+import { QuaiTransaction, toBigInt, TransactionRequest } from "quais"
 import SharedAssetInput from "../components/Shared/SharedAssetInput"
 import SharedBackButton from "../components/Shared/SharedBackButton"
 import SharedButton from "../components/Shared/SharedButton"
@@ -52,6 +52,8 @@ import ReadOnlyNotice from "../components/Shared/ReadOnlyNotice"
 import SharedIcon from "../components/Shared/SharedIcon"
 import SharedConfirmationModal from "../components/Shared/SharedConfirmationModal"
 import { getBlockExplorerURL } from "../utils/networks"
+
+import { QuaiHDWallet } from "quais"
 
 export default function Send(): ReactElement {
   const { t } = useTranslation()
@@ -180,31 +182,29 @@ export default function Send(): ReactElement {
       )
       return
     }
-    if (assetAmount === undefined || destinationAddress === undefined) {
-      return
-    }
+
+    if (!assetAmount || !destinationAddress) return
 
     try {
       setIsSendingTransactionRequest(true)
       getAssetsState
-      await dispatch(
-        transferAsset({
-          fromAddressNetwork: currentAccount,
-          toAddressNetwork: {
-            address: destinationAddress,
-            network: currentAccount.network,
-          },
-          assetAmount,
-          accountSigner: currentAccountSigner,
-          gasLimit: BigInt(gasLimit),
-          nonce,
-          maxFeePerGas: maxFeePerGas,
-          maxPriorityFeePerGas: maxPriorityFeePerGas,
-        })
-      ).then((data) =>
-        data?.success
-          ? setIsTransactionError(false)
-          : setIsTransactionError(true)
+
+      const transferDetails = {
+        fromAddressNetwork: currentAccount,
+        toAddressNetwork: {
+          address: destinationAddress,
+          network: currentAccount.network,
+        },
+        assetAmount,
+        accountSigner: currentAccountSigner,
+        gasLimit: BigInt(gasLimit),
+        nonce,
+        maxFeePerGas: maxFeePerGas,
+        maxPriorityFeePerGas: maxPriorityFeePerGas,
+      }
+
+      await dispatch(sendAsset(transferDetails)).then((data) =>
+        setIsTransactionError(data?.success)
       )
     } catch (e) {
       setIsTransactionError(true)
@@ -438,12 +438,12 @@ export default function Send(): ReactElement {
             <SharedButton
               type="primary"
               size="large"
-              isDisabled={
-                currentAccountSigner === ReadOnlyAccountSigner ||
-                (assetType === "token" && Number(amount) === 0) ||
-                destinationAddress === undefined ||
-                hasError
-              }
+              // isDisabled={
+              //   currentAccountSigner === ReadOnlyAccountSigner ||
+              //   (assetType === "token" && Number(amount) === 0) ||
+              //   destinationAddress === undefined ||
+              //   hasError
+              // }
               onClick={sendTransactionRequest}
               isFormSubmit
               isLoading={isSendingTransactionRequest}

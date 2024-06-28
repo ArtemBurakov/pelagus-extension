@@ -16,7 +16,7 @@ import { AsyncThunkFulfillmentType } from "@pelagus/pelagus-background/redux-sli
 import {
   SignerImportSource,
   SignerSourceTypes,
-} from "@pelagus/pelagus-background/services/keyring"
+} from "@pelagus/pelagus-background/services/keyring/types"
 import OnboardingStepsIndicator from "../../../components/Onboarding/OnboardingStepsIndicator"
 import {
   useAreKeyringsUnlocked,

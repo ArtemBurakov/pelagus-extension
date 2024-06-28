@@ -1,7 +1,4 @@
-import KeyringService, {
-  KeyringAccountSigner,
-  PrivateKeyAccountSigner,
-} from "../keyring"
+import KeyringService from "../keyring"
 import {
   SignedTransaction,
   TransactionRequest,
@@ -13,6 +10,9 @@ import { ServiceCreatorFunction, ServiceLifecycleEvents } from "../types"
 import ChainService from "../chain"
 import { AddressOnNetwork } from "../../accounts"
 import { assertUnreachable } from "../../lib/utils/type-guards"
+import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
+import { KeyringAccountSigner, PrivateKeyAccountSigner } from "../keyring/types"
+import { getAddress } from "quais"
 
 type SigningErrorReason = "userRejected" | "genericError"
 type ErrorResponse = {
@@ -106,19 +106,20 @@ export default class SigningService extends BaseService<Events> {
   }
 
   private async signTransactionWithNonce(
-    transactionWithNonce: TransactionRequestWithNonce,
+    transactionWithNonce: QuaiTransactionRequest,
     accountSigner: AccountSigner
   ): Promise<SignedTransaction> {
     switch (accountSigner.type) {
       case "private-key":
       case "keyring":
-        return this.keyringService.signTransaction(
-          {
-            address: transactionWithNonce.from,
-            network: transactionWithNonce.network,
-          },
-          transactionWithNonce
-        )
+      // TODO-MIGRATION
+      // return this.keyringService.signTransaction(
+      //   {
+      //     address: transactionWithNonce.from,
+      //     network: "9000", // TODO-MIGRATION
+      //   },
+      //   transactionWithNonce
+      // )
       case "read-only":
         throw new Error("Read-only signers cannot sign.")
       default:
@@ -159,31 +160,32 @@ export default class SigningService extends BaseService<Events> {
   async prepareForSigningRequest(): Promise<void> {}
 
   async signTransaction(
-    transactionRequest: TransactionRequest,
+    transactionRequest: QuaiTransactionRequest,
     accountSigner: AccountSigner
-  ): Promise<SignedTransaction> {
-    const transactionWithNonce =
-      await this.chainService.populateEVMTransactionNonce(transactionRequest)
+  ): Promise<string> {
+    // const transactionWithNonce =
+    //   await this.chainService.populateEVMTransactionNonce(transactionRequest)
 
     try {
       const signedTx = await this.signTransactionWithNonce(
-        transactionWithNonce,
+        transactionRequest,
         accountSigner
       )
 
-      this.emitter.emit("signingTxResponse", {
-        type: "success-tx",
-        signedTx,
-      })
+      // this.emitter.emit("signingTxResponse", {
+      //   type: "success-tx",
+      //   signedTx,
+      // })
 
-      return signedTx
+      // return signedTx
+      return ""
     } catch (err) {
       this.emitter.emit("signingTxResponse", {
         type: "error",
         reason: getSigningErrorReason(err),
       })
 
-      this.chainService.releaseEVMTransactionNonce(transactionWithNonce)
+      // this.chainService.releaseEVMTransactionNonce(transactionRequest)
 
       throw err
     }
