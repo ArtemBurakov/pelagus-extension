@@ -35,30 +35,30 @@ export const selectAccountSignersByAddress = createSelector(
     const allAccountsSeen = new Set<string>()
 
     const keyringEntries = Object.entries(keyringsByAddress)
-      .map(([add, keyring]): [HexString, KeyringAccountSigner] | undefined => {
-        if (keyring.id === null) return undefined
+      .map(
+        ([address, keyring]): [HexString, KeyringAccountSigner] | undefined => {
+          if (keyring.id === null) return undefined
 
-        const address = getAddress(add) // TODO-MIGRATION temp fix
-
-        allAccountsSeen.add(address)
-        const shard = getExtendedZoneForAddress(address)
-        return [
-          address,
-          {
-            type: "keyring",
-            keyringID: keyring.id,
-            shard,
-          },
-        ]
-      })
+          allAccountsSeen.add(address)
+          const shard = getExtendedZoneForAddress(address)
+          return [
+            address,
+            {
+              type: "keyring",
+              keyringID: keyring.id,
+              shard,
+            },
+          ]
+        }
+      )
       .filter(isDefined)
 
     const privateKeyEntries = Object.entries(privateKeyWalletsByAddress)
       .map(
-        ([add, wallet]): [HexString, PrivateKeyAccountSigner] | undefined => {
+        ([address, wallet]):
+          | [HexString, PrivateKeyAccountSigner]
+          | undefined => {
           if (wallet.id === null) return undefined
-
-          const address = getAddress(add) // TODO-MIGRATION temp fix
 
           allAccountsSeen.add(address)
           const shard = getExtendedZoneForAddress(address)
@@ -85,8 +85,6 @@ export const selectAccountSignersByAddress = createSelector(
       ...privateKeyEntries,
       ...keyringEntries,
     ]
-
-    console.log("=== entriesByPriority", entriesByPriority)
 
     return Object.fromEntries(entriesByPriority)
   }

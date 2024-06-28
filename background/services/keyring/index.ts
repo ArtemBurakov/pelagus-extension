@@ -1,6 +1,5 @@
 import {
   AddressLike,
-  getAddress,
   getBytes,
   Mnemonic,
   QuaiHDWallet,
@@ -387,7 +386,7 @@ export default class KeyringService extends BaseService<Events> {
       return signerWithType.signer.privateKey
     }
 
-    const privateKey = signerWithType.signer.getPrivateKey(getAddress(address))
+    const privateKey = signerWithType.signer.getPrivateKey(address)
     return privateKey ?? "Not found"
   }
 
@@ -436,7 +435,7 @@ export default class KeyringService extends BaseService<Events> {
 
     return this.wallets.map((wallet) => ({
       type: KeyringTypes.singleSECP,
-      addresses: [normalizeEVMAddress(wallet.address)],
+      addresses: [wallet.address],
       id: wallet.signingKey.publicKey,
       path: null,
     }))
