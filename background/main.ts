@@ -1201,7 +1201,7 @@ export default class Main extends BaseService<never> {
       await this.signingService.deriveAddress({
         type: "keyring",
         keyringID: keyringData.signerId,
-        shard: keyringData.shard,
+        zone: keyringData.zone,
       })
     })
 

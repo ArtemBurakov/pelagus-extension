@@ -98,11 +98,11 @@ export default class SigningService extends BaseService<Events> {
     await super.internalStartService() // Not needed, but better to stick to the patterns
   }
 
-  async deriveAddress(signerID: AccountSigner): Promise<HexString> {
-    if (signerID.type === "keyring")
-      return this.keyringService.deriveAddress(signerID)
+  async deriveAddress(signer: AccountSigner): Promise<HexString> {
+    if (signer.type === "keyring")
+      return this.keyringService.deriveAddress(signer)
 
-    throw new Error(`Unknown signerID: ${signerID}`)
+    throw new Error(`Unknown signerID: ${signer}`)
   }
 
   private async signTransactionWithNonce(

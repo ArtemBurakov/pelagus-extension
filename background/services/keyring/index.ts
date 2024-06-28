@@ -24,8 +24,8 @@ import {
   Keyring,
   KeyringAccountSigner,
   PrivateKey,
-  SerializedVaultData,
   SerializedPrivateKey,
+  SerializedVaultData,
   SignerImportMetadata,
   SignerImportSource,
   SignerSourceTypes,
@@ -36,9 +36,9 @@ import { EIP712TypedData, HexString, KeyringTypes, UNIXTime } from "../../types"
 
 import logger from "../../lib/logger"
 import { generateRandomBytes, isPrivateKey } from "./utils"
-import { getExtendedZoneForAddress } from "../chain/utils"
 import { normalizeEVMAddress, sameEVMAddress } from "../../lib/utils"
 import { SerializedHDWallet } from "quais/lib/commonjs/wallet/hdwallet"
+import { getExtendedZoneForAddress } from "../chain/utils"
 
 export const MAX_KEYRING_IDLE_TIME = 60 * MINUTE
 export const MAX_OUTSIDE_IDLE_TIME = 60 * MINUTE
@@ -450,58 +450,22 @@ export default class KeyringService extends BaseService<Events> {
    */
   async deriveAddress({
     keyringID,
-    shard,
+    zone,
   }: KeyringAccountSigner): Promise<HexString> {
     this.requireUnlocked()
 
-    const keyring = this.quaiHDWallets.find((kr) => kr.xPub === keyringID)
-    if (!keyring) throw new Error("Keyring not found.")
-
-    let found = false
-    let newAddress = ""
-
-    // If There are any hidden addresses, check those first before adding new ones.
-    for (const [address, isHidden] of Object.entries(this.#hiddenAccounts)) {
-      if (!isHidden) {
-        continue
-      }
-      const shardFromAddress = getExtendedZoneForAddress(address)
-      if (shardFromAddress !== undefined) {
-        if (
-          shardFromAddress === shard &&
-          keyring.getAddressesForAccount(1)[0].address.includes(address) // TODO-MIGRATION
-        ) {
-          found = true
-          delete this.#hiddenAccounts[address]
-          newAddress = address
-          break
-        }
-      }
+    const quaiHDWallet = this.quaiHDWallets.find((kr) => kr.xPub === keyringID)
+    if (!quaiHDWallet) {
+      throw new Error("QuaiHDWallet not found.")
     }
 
-    while (!found) {
-      newAddress = keyring.getAddressesForAccount(1)[0].address // TODO-MIGRATION
-      const shardFromAddress = getExtendedZoneForAddress(newAddress)
-      if (shardFromAddress !== undefined) {
-        // Check if address is in correct shard
-        if (shardFromAddress === shard) {
-          found = true
-          break
-        }
-      }
-      this.#hiddenAccounts[newAddress] = true // may want to reconsider this
-    }
-    if (newAddress === undefined || newAddress === null || newAddress === "") {
-      throw new Error(`Could not find address in given shard ${shard}`)
-    }
-    this.#hiddenAccounts[newAddress] = false
+    const { address } = quaiHDWallet.getNextAddress(1, zone)
 
     await this.persistKeyrings()
-
-    this.emitter.emit("address", newAddress)
+    await this.emitter.emit("address", address)
     this.emitKeyrings()
 
-    return newAddress
+    return address
   }
 
   async hideAccount(address: HexString): Promise<void> {

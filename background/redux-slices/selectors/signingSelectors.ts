@@ -13,7 +13,7 @@ import {
 } from "./keyringsSelectors"
 import { selectCurrentAccount } from "./uiSelectors"
 import { getExtendedZoneForAddress } from "../../services/chain/utils"
-import { getAddress } from "quais"
+import { getAddress, getZoneForAddress } from "quais"
 
 // FIXME: importing causes a dependency cycle
 const getAllAddresses = createSelector(
@@ -40,13 +40,14 @@ export const selectAccountSignersByAddress = createSelector(
           if (keyring.id === null) return undefined
 
           allAccountsSeen.add(address)
-          const shard = getExtendedZoneForAddress(address)
+          const zone = getZoneForAddress(address)
           return [
             address,
             {
               type: "keyring",
               keyringID: keyring.id,
-              shard,
+              //@ts-ignore TODO-MIGRATION
+              zone,
             },
           ]
         }
@@ -61,14 +62,15 @@ export const selectAccountSignersByAddress = createSelector(
           if (wallet.id === null) return undefined
 
           allAccountsSeen.add(address)
-          const shard = getExtendedZoneForAddress(address)
+          const zone = getZoneForAddress(address)
 
           return [
             address,
             {
               type: "private-key",
               walletID: wallet.id,
-              shard,
+              //@ts-ignore TODO-MIGRATION
+              zone,
             },
           ]
         }

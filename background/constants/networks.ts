@@ -2,26 +2,26 @@
 /* eslint-disable import/no-cycle */
 // eslint-disable-next-line max-classes-per-file
 import { indexOf } from "lodash"
-import { JsonRpcProvider } from "quais"
+import { JsonRpcProvider, Zone } from "quais"
 import logger from "../lib/logger"
 import { QUAI, QUAI_LOCAL } from "."
 import { EVMNetwork } from "../networks"
 import SerialFallbackProvider from "../services/chain/serial-fallback-provider"
 import { getExtendedZoneForAddress } from "../services/chain/utils"
 
-export const VALID_SHARDS: Array<string> = [
-  "cyprus-1",
-  "cyprus-2",
-  "cyprus-3",
-  "paxos-1",
-  "paxos-2",
-  "paxos-3",
-  "hydra-1",
-  "hydra-2",
-  "hydra-3",
+export const VALID_ZONES: Array<Zone> = [
+  Zone.Cyprus1,
+  Zone.Cyprus2,
+  Zone.Cyprus3,
+  Zone.Paxos1,
+  Zone.Paxos2,
+  Zone.Paxos3,
+  Zone.Hydra1,
+  Zone.Hydra2,
+  Zone.Hydra3,
 ]
 
-export const VALID_SHARDS_NAMES: Array<string> = [
+export const VALID_ZONES_NAMES: Array<string> = [
   "Cyprus 1",
   "Cyprus 2",
   "Cyprus 3",

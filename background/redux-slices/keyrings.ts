@@ -9,6 +9,7 @@ import {
   SignerImportSource,
 } from "../services/keyring/types"
 import OnboardingRoutes from "@pelagus/pelagus-ui/pages/Onboarding/Tabbed/Routes"
+import { Zone } from "quais"
 
 type KeyringToVerify = {
   id: string
@@ -39,7 +40,7 @@ export const initialState: KeyringsState = {
 
 interface DeriveAddressData {
   signerId: string
-  shard: string
+  zone: Zone
 }
 
 export type Events = {
@@ -147,10 +148,10 @@ export const generateNewKeyring = createBackgroundAsyncThunk(
 
 export const deriveAddress = createBackgroundAsyncThunk(
   "keyrings/deriveAddress",
-  async ({ signerId: id, shard }: DeriveAddressData) => {
-    if (id == "") return
+  async ({ signerId, zone }: DeriveAddressData) => {
+    if (signerId == "") return
 
-    await emitter.emit("deriveAddress", { signerId: id, shard })
+    await emitter.emit("deriveAddress", { signerId, zone })
   }
 )
 

@@ -15,8 +15,8 @@ import {
 } from "@pelagus/pelagus-background/redux-slices/ui"
 import { deriveAddress } from "@pelagus/pelagus-background/redux-slices/keyrings"
 import {
-  VALID_SHARDS,
-  VALID_SHARDS_NAMES,
+  VALID_ZONES,
+  VALID_ZONES_NAMES,
 } from "@pelagus/pelagus-background/constants"
 import {
   AccountTotal,
@@ -60,6 +60,7 @@ import {
 import SharedORDivider from "../Shared/SharedORDivider"
 import SelectAccountListItem from "../AccountItem/SelectAccountListItem"
 import AccountsSearchBar from "../AccountItem/AccountsSearchBar"
+import { Zone } from "quais"
 
 type WalletTypeInfo = {
   title: string
@@ -103,7 +104,7 @@ function WalletTypeHeader({
   walletNumber,
   accountSigner,
   signerId,
-  setShard,
+  setZone,
   addAddressSelected,
   updateCustomOrder,
   updateUseCustomOrder,
@@ -115,24 +116,12 @@ function WalletTypeHeader({
   signerId?: string | null
   walletNumber?: number
   path?: string | null
-  setShard: (shard: string) => void
+  setZone: (zone: Zone) => void
   addAddressSelected: boolean
   updateCustomOrder: (address: string[], signerId: string) => void
   updateUseCustomOrder: (useOrder: boolean, signerId: string) => void
   setSelectedAccountSigner: (signerId: string) => void
 }) {
-  console.log("=== WalletTypeHeader", {
-    accountType,
-    onClickAddAddress,
-    walletNumber,
-    accountSigner,
-    signerId,
-    setShard,
-    addAddressSelected,
-    updateCustomOrder,
-    updateUseCustomOrder,
-    setSelectedAccountSigner,
-  })
   const { t } = useTranslation()
   const walletTypeDetails: { [key in AccountType]: WalletTypeInfo } = {
     [AccountType.ReadOnly]: {
@@ -158,20 +147,20 @@ function WalletTypeHeader({
   }
   const { title } = walletTypeDetails[accountType]
   const dispatch = useBackgroundDispatch()
-  const shardOptions = VALID_SHARDS.map((shard, index) => ({
-    value: shard,
-    label: VALID_SHARDS_NAMES[index],
+  const zoneOptions = VALID_ZONES.map((zone, index) => ({
+    value: zone,
+    label: VALID_ZONES_NAMES[index],
   }))
 
-  const handleShardSelection = (selectedShard: string) => {
-    setShard(selectedShard)
+  const handleZoneSelection = (selectedZone: Zone) => {
+    setZone(selectedZone as Zone)
     dispatch(setShowingAddAccountModal(false))
-    // Call other required functions like onClickAddAddress
   }
+
   useEffect(() => {
     if (addAddressSelected) {
       if (areKeyringsUnlocked) {
-        setShowShardMenu(true)
+        setShowZoneMenu(true)
       } else {
         history.push("/keyring/unlock")
         dispatch(setShowingAddAccountModal(true))
@@ -204,7 +193,7 @@ function WalletTypeHeader({
   const history = useHistory()
   const areKeyringsUnlocked = useAreKeyringsUnlocked(false)
   const [showEditMenu, setShowEditMenu] = useState(false)
-  const [showShardMenu, setShowShardMenu] = useState(false)
+  const [showZoneMenu, setShowZoneMenu] = useState(false)
   const isWalletExists = useBackgroundSelector(selectIsWalletExists)
 
   return (
@@ -234,10 +223,10 @@ function WalletTypeHeader({
       <SharedSlideUpMenu
         size="custom"
         customSize="400px"
-        isOpen={showShardMenu}
+        isOpen={showZoneMenu}
         close={(e) => {
           e.stopPropagation()
-          setShowShardMenu(false)
+          setShowZoneMenu(false)
           dispatch(setShowingAddAccountModal(false))
         }}
         customStyles={{
@@ -251,8 +240,8 @@ function WalletTypeHeader({
           {isWalletExists ? (
             <>
               <SharedSelect
-                options={shardOptions}
-                onChange={handleShardSelection}
+                options={zoneOptions}
+                onChange={(value: string) => handleZoneSelection(value as Zone)}
                 defaultIndex={0}
                 label="Choose Shard"
                 width="100%"
@@ -269,7 +258,7 @@ function WalletTypeHeader({
                 }}
                 onClick={() => {
                   onClickAddAddress && onClickAddAddress()
-                  setShowShardMenu(false)
+                  setShowZoneMenu(false)
                   dispatch(setShowingAddAccountModal(false))
                 }}
               >
@@ -282,7 +271,7 @@ function WalletTypeHeader({
               size="small"
               style={{ ...sharedButtonStyle, marginTop: "20px" }}
               onClick={() => {
-                setShowShardMenu(false)
+                setShowZoneMenu(false)
                 dispatch(setShowingAddAccountModal(false))
                 window.open(`${ONBOARDING_ROOT}`)
                 window.close()
@@ -298,7 +287,7 @@ function WalletTypeHeader({
             size="small"
             style={sharedButtonStyle}
             onClick={() => {
-              setShowShardMenu(false)
+              setShowZoneMenu(false)
               dispatch(setShowingAddAccountModal(false))
               window.open(`${PAGE_ROOT}${OnboardingRoutes.IMPORT_PRIVATE_KEY}`)
               window.close()
@@ -356,7 +345,7 @@ function WalletTypeHeader({
                     }
 
                     setSelectedAccountSigner(signerId ?? "")
-                    setShowShardMenu(true)
+                    setShowZoneMenu(true)
                   } else {
                     history.push("/keyring/unlock")
                   }
@@ -509,7 +498,6 @@ export default function AccountsNotificationPanelAccounts({
   const accountTotals = useBackgroundSelector(
     selectCurrentNetworkAccountTotalsByCategory
   )
-  console.log("=== accountTotals", accountTotals)
 
   const [pendingSelectedAddress, setPendingSelectedAddress] = useState("")
   const defaultSigner = useRef(
@@ -519,12 +507,9 @@ export default function AccountsNotificationPanelAccounts({
       ? accountTotals.imported[0].signerId ?? ""
       : ""
   )
-  const shard = useRef("")
 
-  const handleSetShard = (newShard: string) => {
-    // This is for updating user-selected shard for new address
-    shard.current = newShard
-  }
+  const zone = useRef(Zone.Cyprus1)
+  const handleSetZone = (newZone: Zone) => (zone.current = newZone)
 
   const isShowingAddAccountModal = useBackgroundSelector(
     selectShowingAddAccountModal
@@ -588,9 +573,6 @@ export default function AccountsNotificationPanelAccounts({
         if (accountTypeTotals === undefined || accountTypeTotals.length <= 0) {
           return <></>
         }
-
-        console.log("=== accountType", accountType)
-        console.log("=== accountTypeTotals", accountTypeTotals)
 
         const filteredAccountTypeTotals = searchAccountsHandle(
           searchAccountsValue,
@@ -711,19 +693,17 @@ export default function AccountsNotificationPanelAccounts({
                       path={accountTotalsBySignerId[0].path}
                       accountSigner={accountTotalsBySignerId[0].accountSigner}
                       signerId={accountTotalsBySignerId[0].signerId}
-                      setShard={handleSetShard}
+                      setZone={handleSetZone}
                       onClickAddAddress={
                         accountType === "imported" ||
                         accountType === "internal" ||
                         accountType === "private-key"
                           ? () => {
-                              if (shard.current === "") {
-                                throw new Error("shard is empty")
-                              } else if (
-                                !VALID_SHARDS.includes(shard.current)
-                              ) {
-                                dispatch(setSnackbarMessage("Invalid shard"))
-                                throw new Error("shard is invalid")
+                              if (zone.current === null) {
+                                throw new Error("zone is empty")
+                              } else if (!VALID_ZONES.includes(zone.current)) {
+                                dispatch(setSnackbarMessage("Invalid zone"))
+                                throw new Error("zone is invalid")
                               }
 
                               if (selectedAccountSigner === "private-key") {
@@ -731,7 +711,7 @@ export default function AccountsNotificationPanelAccounts({
                                 dispatch(
                                   deriveAddress({
                                     signerId: defaultSigner.current,
-                                    shard: shard.current,
+                                    zone: zone.current,
                                   })
                                 )
                               } else if (selectedAccountSigner == "") {
@@ -764,14 +744,14 @@ export default function AccountsNotificationPanelAccounts({
                                 dispatch(
                                   deriveAddress({
                                     signerId: defaultSigner.current,
-                                    shard: shard.current,
+                                    zone: zone.current,
                                   })
                                 )
                               } else {
                                 dispatch(
                                   deriveAddress({
                                     signerId: selectedAccountSigner,
-                                    shard: shard.current,
+                                    zone: zone.current,
                                   })
                                 )
                               }

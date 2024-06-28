@@ -14,6 +14,7 @@ import {
   MAX_KEYRING_IDLE_TIME,
   MAX_OUTSIDE_IDLE_TIME,
 } from "../services/keyring"
+import { Zone } from "quais"
 
 const originalCrypto = global.crypto
 beforeEach(() => {
@@ -244,7 +245,7 @@ describe("KeyringService when initialized", () => {
       ? await service.deriveAddress({
           type: "keyring",
           keyringID: id,
-          shard: "cyprus-1",
+          zone: Zone.Cyprus1,
         })
       : ""
     expect(newAddress).toEqual(

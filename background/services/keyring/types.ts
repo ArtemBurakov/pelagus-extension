@@ -1,7 +1,7 @@
 import { HexString, KeyringTypes } from "../../types"
 import { ServiceLifecycleEvents } from "../types"
 import { SignedTransaction } from "../../networks"
-import { QuaiHDWallet, Wallet } from "quais"
+import { QuaiHDWallet, Wallet, Zone } from "quais"
 import { SerializedHDWallet } from "quais/lib/commonjs/wallet/hdwallet"
 
 export type Keyring = {
@@ -19,12 +19,12 @@ export type PrivateKey = Keyring & {
 export type KeyringAccountSigner = {
   type: "keyring"
   keyringID: string
-  shard: string
+  zone: Zone
 }
 export type PrivateKeyAccountSigner = {
   type: "private-key"
   walletID: string
-  shard: string
+  zone: Zone
 }
 
 /////////////////////////////////////////////////////////////////////////////
