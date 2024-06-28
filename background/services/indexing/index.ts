@@ -31,6 +31,7 @@ import {
 import { getExtendedZoneForAddress } from "../chain/utils"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
 import { isQuaiHandle } from "../../constants/networks/networkUtils"
+import { NetworksArray } from "../../constants/networks/networks"
 
 // Transactions seen within this many blocks of the chain tip will schedule a
 // token refresh sooner than the standard rate.
@@ -135,11 +136,8 @@ export default class IndexingService extends BaseService<Events> {
     const tokenListLoad = this.fetchAndCacheTokenLists()
 
     this.chainService.emitter.once("serviceStarted").then(async () => {
-      const trackedNetworks = await this.chainService.getTrackedNetworks()
-
-      // Push any assets we have cached in the db for all active networks
       Promise.allSettled(
-        trackedNetworks.map(async (network) => {
+        NetworksArray.map(async (network) => {
           await this.cacheAssetsForNetwork(network)
           this.emitter.emit("assets", this.getCachedAssets(network))
         })

@@ -67,6 +67,7 @@ import AssetDataHelper from "./asset-data-helper"
 import KeyringService from "../keyring"
 import type { ValidatedAddEthereumChainParameter } from "../provider-bridge/utils"
 import { getRelevantTransactionAddresses } from "../enrichment/utils"
+import { setSelectedNetwork } from "../../redux-slices/ui"
 
 // The number of blocks to query at a time for historic asset transfers.
 // Unfortunately there's no "right" answer here that works well across different
@@ -174,11 +175,11 @@ export type PriorityQueuedTxToRetrieve = {
  *   case a service needs to interact with a network directly.
  */
 export default class ChainService extends BaseService<Events> {
-  // created for seamless communication with factory
   private providerFactory: ProviderFactory
 
-  // we will have here not only JsonRpcProvider but also a WebSocketProvider
-  private currentProvider: JsonRpcProvider | null = null
+  private currentProvider: JsonRpcProvider
+
+  private currentNetwork: NetworkInterfaceGA
 
   subscribedAccounts: {
     account: string
@@ -192,7 +193,7 @@ export default class ChainService extends BaseService<Events> {
 
   private lastUserActivityOnNetwork: {
     [chainID: string]: UNIXTime
-  } = {}
+  } = Object.fromEntries(NetworksArray.map((network) => [network.chainID, 0]))
 
   private lastUserActivityOnAddress: {
     [address: HexString]: UNIXTime
@@ -237,7 +238,7 @@ export default class ChainService extends BaseService<Events> {
     return new this(createDB(), await preferenceService, await keyringService)
   }
 
-  supportedNetworks: NetworkInterfaceGA[] = []
+  supportedNetworks = NetworksArray
 
   private trackedNetworks: NetworkInterfaceGA[]
 
@@ -306,38 +307,42 @@ export default class ChainService extends BaseService<Events> {
     this.subscribedAccounts = []
     this.subscribedNetworks = []
     this.transactionsToRetrieve = []
-    this.assetData = new AssetDataHelper(this.currentProvider)
   }
 
   override async internalStartService(): Promise<void> {
     await super.internalStartService()
 
     await this.db.initialize()
-    await this.initializeNetworks()
-    const accounts = await this.getAccountsToTrack()
-    const trackedNetworks = await this.getTrackedNetworks()
-    const transactions = await this.db.getAllTransactions()
 
+    const providerFactory = new ProviderFactory()
+    providerFactory.initializeNetworks(NetworksArray)
+    this.providerFactory = providerFactory
+
+    const { network: networkFromPreferences } =
+      await this.preferenceService.getSelectedAccount()
+
+    this.currentProvider = this.providerFactory.getProvider(
+      networkFromPreferences
+    )
+    this.assetData = new AssetDataHelper(this.currentProvider)
+
+    const accounts = await this.getAccountsToTrack()
+    const transactions = await this.db.getAllTransactions()
     this.emitter.emit("initializeActivities", { transactions, accounts })
 
     // get the latest blocks and subscribe for all active networks
     Promise.allSettled(
       accounts
         .flatMap((an) => [
-          // subscribe to all account transactions
           this.subscribeToAccountTransactions(an).catch((e) => {
             logger.error(e)
           }),
-          // do a base-asset balance check for every account
           this.getLatestBaseAccountBalance(an).catch((e) => {
             logger.error(e)
           }),
         ])
         .concat(
-          // Schedule any stored unconfirmed transactions for
-          // retrieval---either to confirm they no longer exist, or to
-          // read/monitor their status.
-          trackedNetworks.map((network) =>
+          NetworksArray.map((network) =>
             this.db
               .getNetworkPendingTransactions(network)
               .then((pendingTransactions) => {
@@ -354,129 +359,30 @@ export default class ChainService extends BaseService<Events> {
           )
         )
     )
-  }
 
-  // if there is no logic related to chain service logic
-  // we don't need this function anymore, so we can use just providerFactory.initializeNetworks(networks)
-  async initializeNetworks(): Promise<void> {
-    await this.updateSupportedNetworks()
+    // Optimized tracking networks and account to track
+    await Promise.allSettled(
+      NetworksArray.map(async (network) => {
+        await this.fetchLatestBlockForNetwork(network)
+        await this.subscribeToNewHeads(network)
+        await this.emitter.emit("networkSubscribed", network)
 
-    this.lastUserActivityOnNetwork =
-      Object.fromEntries(
-        this.supportedNetworks.map((network) => [network.chainID, 0])
-      ) || {}
-
-    const networks: NetworkInterfaceGA[] = [QuaiNetworkGA]
-
-    const providerFactory = new ProviderFactory()
-    providerFactory.initializeNetworks(networks)
-    this.providerFactory = providerFactory
-
-    // TODO-MIGRATION set current provider as first provider,
-    // but it is better to get from cache the last selected network
-    // and then get provider for this network
-    this.currentProvider = this.providerFactory.getProvider(QuaiNetworkGA)
-  }
-
-  // alternative for providerForNetworkOrThrow, need to think
-  public getProviderForNetwork(
-    network: NetworkInterfaceGA
-  ): JsonRpcProvider | undefined {
-    const provider = this.providerFactory.getProvider(network)
-    if (!provider) return undefined
-    return provider
+        const addressesToTrack = new Set(
+          accounts.map((account) => account.address)
+        )
+        addressesToTrack.forEach((address) => {
+          this.addAccountToTrack({
+            address,
+            network,
+          })
+        })
+      })
+    )
   }
 
   public switchNetwork(network: NetworkInterfaceGA): void {
+    this.currentNetwork = network
     this.currentProvider = this.providerFactory.getProvider(network)
-  }
-
-  /**
-   * Pulls the list of tracked networks from memory or indexedDB.
-   * Defaults to ethereum in the case that neither exist.
-   */
-  async getTrackedNetworks(): Promise<NetworkInterfaceGA[]> {
-    if (this.trackedNetworks.length) return this.trackedNetworks
-
-    // Since trackedNetworks will be an empty array at extension load (or reload time)
-    // we need a durable way to track which networks an extension is tracking.
-    // The below code should only be called once per extension reload for extensions
-    // with active accounts
-    const networksToTrack = await this.getNetworksToTrack()
-
-    await Promise.allSettled(
-      networksToTrack.map(async (network) =>
-        this.startTrackingNetworkOrThrow(network.chainID)
-      )
-    )
-
-    return this.trackedNetworks
-  }
-
-  private async subscribeToNetworkEvents(
-    network: NetworkInterfaceGA
-  ): Promise<void> {
-    const { currentProvider } = this
-    if (currentProvider) {
-      await Promise.allSettled([
-        this.fetchLatestBlockForNetwork(network),
-        this.subscribeToNewHeads(network),
-      ])
-    } else {
-      logger.error(
-        `Couldn't find provider for network ${network.baseAsset.name}`
-      )
-    }
-
-    this.emitter.emit("networkSubscribed", network)
-  }
-
-  /**
-   * Adds a supported network to list of active networks.
-   */
-  async startTrackingNetworkOrThrow(
-    chainID: string
-  ): Promise<NetworkInterfaceGA> {
-    const trackedNetwork = this.trackedNetworks.find((network) =>
-      sameChainID(network.chainID, chainID)
-    )
-
-    if (trackedNetwork) {
-      logger.warn(
-        `${trackedNetwork.baseAsset.name} already being tracked - no need to activate it`
-      )
-      return trackedNetwork
-    }
-
-    const networkToTrack = this.supportedNetworks.find((ntwrk) =>
-      sameChainID(ntwrk.chainID, chainID)
-    )
-
-    if (!networkToTrack) {
-      throw new Error(`Network with chainID ${chainID} is not supported`)
-    }
-
-    this.trackedNetworks.push(networkToTrack)
-
-    const existingSubscription = this.subscribedNetworks.find(
-      (networkSubscription) =>
-        networkSubscription.network.chainID === networkToTrack.chainID
-    )
-
-    if (!existingSubscription) {
-      this.subscribeToNetworkEvents(networkToTrack)
-      const addressesToTrack = new Set(
-        (await this.getAccountsToTrack()).map((account) => account.address)
-      )
-      addressesToTrack.forEach((address) => {
-        this.addAccountToTrack({
-          address,
-          network: networkToTrack,
-        })
-      })
-    }
-
-    return networkToTrack
   }
 
   /**
@@ -823,23 +729,6 @@ export default class ChainService extends BaseService<Events> {
     network: NetworkInterfaceGA
   ): Promise<AddressOnNetwork[]> {
     return this.db.getTrackedAddressesOnNetwork(network)
-  }
-
-  async getNetworksToTrack(): Promise<NetworkInterfaceGA[]> {
-    const chainIDs = await this.db.getChainIDsToTrack()
-    if (!chainIDs.size) return [QuaiNetworkGA]
-
-    const networks = await Promise.all(
-      [...chainIDs].map(async (chainID) => {
-        const network = NetworksArray.find((net) => net.chainID === chainID)
-        if (!network) return QuaiNetworkGA
-
-        return network
-      })
-    )
-    return networks.filter(
-      (network): network is NetworkInterfaceGA => !!network
-    )
   }
 
   async removeAccountToTrack(address: string): Promise<void> {
@@ -1383,7 +1272,6 @@ export default class ChainService extends BaseService<Events> {
     const networkWasInactive = this.networkIsInactive(chainID)
     this.lastUserActivityOnNetwork[chainID] = Date.now()
     if (networkWasInactive) {
-      // Reactivating a potentially deactivated network
       this.pollBlockPricesForNetwork(chainID)
     }
   }
@@ -2090,13 +1978,6 @@ export default class ChainService extends BaseService<Events> {
         "local"
       )
     }
-  }
-
-  async updateSupportedNetworks(): Promise<void> {
-    const supportedNetworks = await this.db.getAllEVMNetworks()
-
-    this.supportedNetworks = supportedNetworks
-    this.emitter.emit("supportedNetworks", supportedNetworks)
   }
 
   async queryAccountTokenDetails(

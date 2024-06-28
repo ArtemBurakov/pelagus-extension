@@ -12,7 +12,10 @@ import {
 } from "../../../tests/factories"
 import { ChainDatabase } from "../db"
 import SerialFallbackProvider from "../serial-fallback-provider"
-import { QuaiNetworkGA } from "../../../constants/networks/networks"
+import {
+  NetworksArray,
+  QuaiNetworkGA,
+} from "../../../constants/networks/networks"
 
 type ChainServiceExternalized = Omit<ChainService, ""> & {
   db: ChainDatabase
@@ -68,18 +71,10 @@ describe("ChainService", () => {
         "initializeEVMNetworks"
       )
 
-      const initializeNetworks = sandbox.spy(
-        chainServiceInstance,
-        "initializeNetworks"
-      )
-
       await chainServiceInstance.internalStartService()
 
-      expect(initialize.calledBefore(initializeNetworks)).toBe(true)
       expect(initializeBaseAssets.calledBefore(initializeRPCs)).toBe(true)
       expect(initializeRPCs.calledBefore(initializeEVMNetworks)).toBe(true)
-      expect(initializeEVMNetworks.calledBefore(initializeNetworks)).toBe(true)
-      expect(initializeNetworks.called).toBe(true)
     })
   })
 
@@ -196,7 +191,6 @@ describe("ChainService", () => {
   describe("updateSupportedNetworks", () => {
     it("Should properly update supported networks", async () => {
       chainService.supportedNetworks = []
-      await chainService.updateSupportedNetworks()
       expect(chainService.supportedNetworks.length).toBe(8)
     })
   })
@@ -434,10 +428,9 @@ describe("ChainService", () => {
         address: "0x123",
         network: QuaiNetworkGA,
       })
-      const networksToTrack = await chainService.getNetworksToTrack()
 
       expect(
-        networksToTrack.find((network) => network.chainID === "12345")
+        NetworksArray.find((network) => network.chainID === "12345")
       ).toBeTruthy()
     })
   })

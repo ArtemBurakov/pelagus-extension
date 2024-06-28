@@ -136,6 +136,7 @@ import localStorageShim from "./utils/local-storage-shim"
 import { getExtendedZoneForAddress } from "./services/chain/utils"
 import { NetworkInterfaceGA } from "./constants/networks/networkTypes"
 import { SignerImportMetadata } from "./services/keyring/types"
+import { NetworksArray } from "./constants/networks/networks"
 
 // This sanitizer runs on store and action data before serializing for remote
 // redux devtools. The goal is to end up with an object that is directly
@@ -1164,8 +1165,7 @@ export default class Main extends BaseService<never> {
     })
 
     this.keyringService.emitter.on("address", async (address) => {
-      const trackedNetworks = await this.chainService.getTrackedNetworks()
-      trackedNetworks.forEach((network) => {
+      NetworksArray.forEach((network) => {
         // Mark as loading and wire things up.
         this.store.dispatch(
           loadAccount({
@@ -1398,6 +1398,7 @@ export default class Main extends BaseService<never> {
         PELAGUS_INTERNAL_ORIGIN
       )
       this.chainService.pollBlockPricesForNetwork(network.chainID)
+      this.chainService.switchNetwork(network)
       this.store.dispatch(clearCustomGas())
     })
 

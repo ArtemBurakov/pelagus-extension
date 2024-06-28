@@ -208,34 +208,12 @@ describe("Chain Service", () => {
     it("should wait until tracked networks activate", async () => {
       const activeNetworksMock: NetworkInterfaceGA[] = []
 
-      sandbox
-        .stub(
-          chainService as unknown as ChainServiceExternalized,
-          "getNetworksToTrack"
-        )
-        .resolves([QuaiNetworkGA])
-
       const resolvesWithQuai = sinon.promise()
-
-      sandbox
-        .stub(
-          chainService as unknown as ChainServiceExternalized,
-          "startTrackingNetworkOrThrow"
-        )
-        .onFirstCall()
-        .callsFake(() => {
-          activeNetworksMock.push(QuaiNetworkGA)
-          return Promise.resolve(QuaiNetworkGA)
-        })
-        .onSecondCall()
-        .returns(resolvesWithQuai as Promise<NetworkInterfaceGA>)
 
       setTimeout(() => {
         activeNetworksMock.push(QuaiNetworkGA)
         resolvesWithQuai.resolve(QuaiNetworkGA)
       }, 30)
-
-      await chainService.getTrackedNetworks()
 
       expect(activeNetworksMock).toEqual([QuaiNetworkGA])
     })

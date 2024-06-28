@@ -86,7 +86,6 @@ describe("IndexingService", () => {
     })
 
     sandbox.stub(chainService, "supportedNetworks").value([QuaiNetworkGA])
-    sandbox.stub(chainService, "getTrackedNetworks").resolves([QuaiNetworkGA])
 
     indexedDB = new IDBFactory()
 

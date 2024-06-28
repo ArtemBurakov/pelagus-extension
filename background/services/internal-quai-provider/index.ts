@@ -29,6 +29,8 @@ import {
 import type { ValidatedAddEthereumChainParameter } from "../provider-bridge/utils"
 import { decodeJSON } from "../../lib/utils"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
+import { NetworksArray } from "../../constants/networks/networks"
+import networks from "../../redux-slices/networks"
 
 // A type representing the transaction requests that come in over JSON-RPC
 // requests like eth_sendTransaction and eth_signTransaction. These are very
@@ -268,7 +270,9 @@ export default class InternalQuaiProviderService extends BaseService<Events> {
       case "wallet_addEthereumChain": {
         const chainInfo = params[0] as ValidatedAddEthereumChainParameter
         const { chainId } = chainInfo
-        const supportedNetwork = await this.getTrackedNetworkByChainId(chainId)
+        const supportedNetwork = NetworksArray.find(
+          (network) => network.chainID === chainId
+        )
         if (supportedNetwork) {
           await this.switchToSupportedNetwork(origin, supportedNetwork)
           this.emitter.emit("selectedNetwork", supportedNetwork)
@@ -277,8 +281,8 @@ export default class InternalQuaiProviderService extends BaseService<Events> {
       }
       case "wallet_switchEthereumChain": {
         const newChainId = (params[0] as SwitchEthereumChainParameter).chainId
-        const supportedNetwork = await this.getTrackedNetworkByChainId(
-          newChainId
+        const supportedNetwork = NetworksArray.find(
+          (network) => network.chainID === newChainId
         )
         if (supportedNetwork) {
           this.switchToSupportedNetwork(origin, supportedNetwork)
@@ -297,8 +301,8 @@ export default class InternalQuaiProviderService extends BaseService<Events> {
         }
 
         if (options.chainId) {
-          const supportedNetwork = await this.getTrackedNetworkByChainId(
-            String(options.chainId)
+          const supportedNetwork = NetworksArray.find(
+            (network) => network.chainID === String(options.chainId)
           )
           if (!supportedNetwork) {
             throw new EIP1193Error(EIP1193_ERROR_CODES.userRejectedRequest)
@@ -400,32 +404,6 @@ export default class InternalQuaiProviderService extends BaseService<Events> {
         rejecter: reject,
       })
     })
-  }
-
-  /**
-   * Attempts to retrieve a network from the extension's currently
-   * tracked networks.  Falls back to querying supported networks and
-   * tracking a given network if it is supported.
-   *
-   * @param chainID EVM Network chainID
-   * @returns a supported EVMNetwork or undefined.
-   */
-  async getTrackedNetworkByChainId(
-    chainID: string
-  ): Promise<NetworkInterfaceGA | undefined> {
-    const trackedNetworks = await this.chainService.getTrackedNetworks()
-    const trackedNetwork = trackedNetworks.find((network) =>
-      sameChainID(network.chainID, chainID)
-    )
-
-    if (trackedNetwork) return trackedNetwork
-
-    try {
-      return await this.chainService.startTrackingNetworkOrThrow(chainID)
-    } catch (e) {
-      logger.warn(e)
-      return undefined
-    }
   }
 
   private async signTypedData(params: SignTypedDataRequest) {
