@@ -30,7 +30,6 @@ import { isBuiltInNetworkBaseAsset, isSameAsset } from "./utils/asset-utils"
 import { getProvider } from "./utils/contract-utils"
 import {
   EIP1559TransactionRequest,
-  EVMNetwork,
   SignedTransaction,
   sameNetwork,
 } from "../networks"
@@ -45,6 +44,8 @@ import { AccountSigner } from "../services/signing"
 import { normalizeEVMAddress } from "../lib/utils"
 import { setSnackbarMessage } from "./ui"
 import { getExtendedZoneForAddress } from "../services/chain/utils"
+import { NetworkInterfaceGA } from "../constants/networks/networkTypes"
+import { isQuaiHandle } from "../constants/networks/networkUtils"
 
 export type AssetWithRecentPrices<T extends AnyAsset = AnyAsset> = T & {
   recentPrices: {
@@ -209,7 +210,7 @@ export const getAccountNonceAndGasPrice = createBackgroundAsyncThunk(
       details,
     }: {
       details: {
-        network: EVMNetwork
+        network: NetworkInterfaceGA
         address: string
       }
     },
@@ -221,9 +222,7 @@ export const getAccountNonceAndGasPrice = createBackgroundAsyncThunk(
   }> => {
     const prevShard = globalThis.main.GetShard()
     globalThis.main.SetShard(getExtendedZoneForAddress(details.address))
-    const provider = globalThis.main.chainService.providerForNetworkOrThrow(
-      details.network
-    )
+    const provider = globalThis.main.chainService.providerForNetworkOrThrow()
     const normalizedAddress = normalizeEVMAddress(details.address)
     const nonce = await provider.getTransactionCount(
       normalizedAddress,
@@ -283,7 +282,7 @@ export const transferAsset = createBackgroundAsyncThunk(
         accountSigner,
       } = transferDetails
 
-      if (!fromNetwork.isQuai) {
+      if (!isQuaiHandle(fromNetwork)) {
         return {
           success: false,
           errorMessage:
@@ -308,8 +307,7 @@ export const transferAsset = createBackgroundAsyncThunk(
       }
 
       let data = ""
-      const provider =
-        globalThis.main.chainService.providerForNetworkOrThrow(fromNetwork)
+      const provider = globalThis.main.chainService.providerForNetworkOrThrow()
       if (!nonce) {
         nonce = await provider.getTransactionCount(fromAddress)
       }
@@ -367,7 +365,7 @@ export const transferAsset = createBackgroundAsyncThunk(
 )
 
 function genQuaiRawTransaction(
-  network: EVMNetwork,
+  network: NetworkInterfaceGA,
   fromAddress: string,
   toAddress: string,
   assetAmount: AnyAssetAmount,
@@ -497,7 +495,7 @@ export const checkTokenContractDetails = createBackgroundAsyncThunk(
     {
       contractAddress,
       network,
-    }: { contractAddress: NormalizedEVMAddress; network: EVMNetwork },
+    }: { contractAddress: NormalizedEVMAddress; network: NetworkInterfaceGA },
     { getState, extra: { main } }
   ) => {
     const state = getState() as RootState
@@ -518,9 +516,7 @@ export const checkTokenContractDetails = createBackgroundAsyncThunk(
 transactionConstructionSliceEmitter.on(
   "signedTransactionResult",
   async (tx) => {
-    const provider = globalThis.main.chainService.providerForNetworkOrThrow(
-      tx.network
-    )
+    const provider = globalThis.main.chainService.providerForNetworkOrThrow()
     try {
       await provider.broadcastTransaction(Zone.Cyprus1, serializeSigned(tx)) // TODO-MIGRATION
 

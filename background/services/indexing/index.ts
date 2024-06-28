@@ -1,6 +1,6 @@
 import logger from "../../lib/logger"
 import { HexString } from "../../types"
-import { EVMNetwork, sameNetwork } from "../../networks"
+import { sameNetwork } from "../../networks"
 import { AccountBalance, AddressOnNetwork } from "../../accounts"
 import {
   AnyAsset,
@@ -29,6 +29,8 @@ import {
   sameEVMAddress,
 } from "../../lib/utils"
 import { getExtendedZoneForAddress } from "../chain/utils"
+import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
+import { isQuaiHandle } from "../../constants/networks/networkUtils"
 
 // Transactions seen within this many blocks of the chain tip will schedule a
 // token refresh sooner than the standard rate.
@@ -72,7 +74,7 @@ export default class IndexingService extends BaseService<Events> {
    */
   private scheduledTokenRefresh = false
 
-  private cachedAssets: Record<EVMNetwork["chainID"], AnyAsset[]> =
+  private cachedAssets: Record<NetworkInterfaceGA["chainID"], AnyAsset[]> =
     Object.fromEntries(
       Object.keys(NETWORK_BY_CHAIN_ID).map((network) => [network, []])
     )
@@ -190,7 +192,7 @@ export default class IndexingService extends BaseService<Events> {
    */
   async getLatestAccountBalance(
     account: string,
-    network: EVMNetwork,
+    network: NetworkInterfaceGA,
     asset: FungibleAsset
   ): Promise<AccountBalance | null> {
     return this.db.getLatestAccountBalance(account, network, asset)
@@ -201,7 +203,7 @@ export default class IndexingService extends BaseService<Events> {
    * @returns An array of assets, including base assets that are "built in" to
    *          the codebase. Fiat currencies are not included.
    */
-  getCachedAssets(network: EVMNetwork): AnyAsset[] {
+  getCachedAssets(network: NetworkInterfaceGA): AnyAsset[] {
     return this.cachedAssets[network.chainID] ?? []
   }
 
@@ -209,7 +211,7 @@ export default class IndexingService extends BaseService<Events> {
    * Caches to memory asset metadata from hard-coded base assets and configured token
    * lists.
    */
-  async cacheAssetsForNetwork(network: EVMNetwork): Promise<void> {
+  async cacheAssetsForNetwork(network: NetworkInterfaceGA): Promise<void> {
     const customAssets = await this.db.getActiveCustomAssetsByNetworks([
       network,
     ])
@@ -232,14 +234,14 @@ export default class IndexingService extends BaseService<Events> {
    * @param contractAddress - the address of the asset on its home network
    */
   getKnownSmartContractAsset(
-    network: EVMNetwork,
+    network: NetworkInterfaceGA,
     contractAddress: HexString
   ): SmartContractFungibleAsset | undefined {
     const knownAssets = this.getCachedAssets(network)
     const searchResult = knownAssets.find(
       (asset): asset is SmartContractFungibleAsset =>
         isSmartContractFungibleAsset(asset) &&
-        asset.homeNetwork.name === network.name &&
+        asset.homeNetwork.baseAsset.name === network.baseAsset.name &&
         normalizeEVMAddress(asset.contractAddress) ===
           normalizeEVMAddress(contractAddress)
     )
@@ -616,7 +618,7 @@ export default class IndexingService extends BaseService<Events> {
    *        fungible asset. Useful in case this asset isn't found in existing metadata.
    */
   async addTokenToTrackByContract(
-    network: EVMNetwork,
+    network: NetworkInterfaceGA,
     contractAddress: string,
     metadata: { discoveryTxHash?: HexString; verified?: boolean } = {}
   ): Promise<SmartContractFungibleAsset | undefined> {
@@ -717,7 +719,7 @@ export default class IndexingService extends BaseService<Events> {
         const { network } = addressOnNetwork
 
         const prevShard = globalThis.main.SelectedShard
-        if (network.isQuai) {
+        if (isQuaiHandle(network)) {
           const shard = getExtendedZoneForAddress(addressOnNetwork.address)
           globalThis.main.SetShard(shard)
         }

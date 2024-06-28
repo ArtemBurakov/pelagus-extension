@@ -1,5 +1,5 @@
 import { IDBFactory } from "fake-indexeddb"
-import { QUAI, QUAI_NETWORK } from "../../../constants"
+import { QUAI } from "../../../constants"
 import {
   createAccountBalance,
   createAddressOnNetwork,
@@ -7,11 +7,12 @@ import {
   createAnyEVMBlock,
 } from "../../../tests/factories"
 import { ChainDatabase, createDB } from "../db"
+import { QuaiNetworkGA } from "../../../constants/networks/networks"
 
 describe("Chain Database ", () => {
   let db: ChainDatabase
   const account1 = createAddressOnNetwork()
-  const account2 = createAddressOnNetwork({ network: QUAI_NETWORK })
+  const account2 = createAddressOnNetwork({ network: QuaiNetworkGA })
 
   beforeEach(() => {
     // Reset state of indexedDB
@@ -60,11 +61,11 @@ describe("Chain Database ", () => {
   })
   describe("addOrUpdateTransaction", () => {
     const addTransactionEth = createAnyEVMTransaction({
-      network: QUAI_NETWORK,
+      network: QuaiNetworkGA,
     })
 
     const addTransactionOpt = createAnyEVMTransaction({
-      network: QUAI_NETWORK,
+      network: QuaiNetworkGA,
     })
     it("should correctly persist transactions to indexedDB", async () => {
       const getEthTransaction = await db.getTransaction(
@@ -98,12 +99,12 @@ describe("Chain Database ", () => {
       expect(getOptTransaction).toBeTruthy()
 
       const updateEth = createAnyEVMTransaction({
-        network: QUAI_NETWORK,
+        network: QuaiNetworkGA,
         hash: getEthTransaction?.hash,
         gasPrice: 40400000000n,
       })
       const updateOpt = createAnyEVMTransaction({
-        network: QUAI_NETWORK,
+        network: QuaiNetworkGA,
         hash: getOptTransaction?.hash,
         gasPrice: 40400000000n,
       })
@@ -153,11 +154,11 @@ describe("Chain Database ", () => {
     it("should return chainIds corresponding to the networks of accounts being tracked", async () => {
       await db.addAccountToTrack(account1)
       expect(await db.getChainIDsToTrack()).toEqual(
-        new Set(QUAI_NETWORK.chainID)
+        new Set(QuaiNetworkGA.chainID)
       )
       await db.addAccountToTrack(account2)
       expect(await db.getChainIDsToTrack()).toEqual(
-        new Set([QUAI_NETWORK.chainID])
+        new Set([QuaiNetworkGA.chainID])
       )
     })
     it("should disallow duplicate chain ids", async () => {
@@ -202,40 +203,40 @@ describe("Chain Database ", () => {
   })
   describe("getLatestBlock", () => {
     const block = createAnyEVMBlock({
-      network: QUAI_NETWORK,
+      network: QuaiNetworkGA,
     })
     it("should retrieve the most recent block for a given network", async () => {
       await db.addBlock(block)
-      expect(await db.getLatestBlock(QUAI_NETWORK)).toBeTruthy()
+      expect(await db.getLatestBlock(QuaiNetworkGA)).toBeTruthy()
     })
   })
   describe("getNetworkPendingTransactions", () => {
     it("should return all pending transactions", async () => {
       const pendingEthTx1 = createAnyEVMTransaction({
-        network: QUAI_NETWORK,
+        network: QuaiNetworkGA,
         blockHash: null,
       })
 
       const pendingEthTx2 = createAnyEVMTransaction({
-        network: QUAI_NETWORK,
+        network: QuaiNetworkGA,
         blockHash: null,
       })
 
       const completeEthTx = createAnyEVMTransaction({
-        network: QUAI_NETWORK,
+        network: QuaiNetworkGA,
       })
 
       const pendingOptimismTx1 = createAnyEVMTransaction({
-        network: QUAI_NETWORK,
+        network: QuaiNetworkGA,
         blockHash: null,
       })
 
       const ethPendingTransactions = await db.getNetworkPendingTransactions(
-        QUAI_NETWORK
+        QuaiNetworkGA
       )
 
       const opPendingTransactions = await db.getNetworkPendingTransactions(
-        QUAI_NETWORK
+        QuaiNetworkGA
       )
 
       // Should pick up pending transactions
@@ -302,29 +303,6 @@ describe("Chain Database ", () => {
       expect(assetTransferLookups[0].addressNetwork).toEqual(addressNetwork)
       expect(assetTransferLookups[0].startBlock).toEqual(0n)
       expect(assetTransferLookups[0].endBlock).toEqual(1n)
-    })
-  })
-
-  describe("addEVMNetwork", () => {
-    it("Should correctly add a network, baseAsset, and rpcURL(s) when adding an evm network", async () => {
-      await db.addEVMNetwork({
-        chainName: "Foo",
-        chainID: "12345",
-        decimals: 18,
-        symbol: "BAR",
-        assetName: "Foocoin",
-        rpcUrls: ["https://foo.com"],
-        blockExplorerURL: "https://someurl.com",
-      })
-
-      expect(await db.getEVMNetworkByChainID("12345")).toBeTruthy()
-      expect(
-        (await db.getAllRpcUrls()).find((rpcUrl) =>
-          rpcUrl.rpcUrls.includes("https://foo.com")
-        )
-      ).toBeTruthy()
-
-      expect(await db.getBaseAssetForNetwork("12345")).toBeTruthy()
     })
   })
 })

@@ -15,8 +15,6 @@ import {
   selectTransactionMainCurrencyPricePoint,
 } from "@pelagus/pelagus-background/redux-slices/selectors/transactionConstructionSelectors"
 import { selectCurrentNetwork } from "@pelagus/pelagus-background/redux-slices/selectors"
-import { isBuiltInNetwork } from "@pelagus/pelagus-background/constants"
-import { EVMNetwork } from "@pelagus/pelagus-background/networks"
 import { useTranslation } from "react-i18next"
 import {
   PricePoint,
@@ -25,6 +23,7 @@ import {
 } from "@pelagus/pelagus-background/assets"
 import type { EnrichedEVMTransactionRequest } from "@pelagus/pelagus-background/services/enrichment"
 import { useBackgroundSelector } from "../../hooks"
+import { NetworkInterfaceGA } from "@pelagus/pelagus-background/constants/networks/networkTypes"
 
 const getFeeDollarValue = (
   currencyPrice: PricePoint | undefined,
@@ -65,7 +64,7 @@ const getFeeDollarValue = (
 const estimateGweiAmount = (options: {
   baseFeePerGas: bigint
   networkSettings: NetworkFeeSettings
-  network: EVMNetwork
+  network: NetworkInterfaceGA
   transactionData?: EnrichedEVMTransactionRequest
 }): string => {
   const { networkSettings, baseFeePerGas } = options
@@ -96,7 +95,6 @@ export default function FeeSettingsText({
   const transactionData = useBackgroundSelector(selectTransactionData)
   const selectedNetwork = useBackgroundSelector(selectCurrentNetwork)
   const currentNetwork = transactionData?.network || selectedNetwork
-  const networkIsBuiltIn = isBuiltInNetwork(currentNetwork)
   const estimatedFeesPerGas = useBackgroundSelector(selectEstimatedFeesPerGas)
   let networkSettings = useBackgroundSelector(selectDefaultNetworkFeeSettings)
   networkSettings = customNetworkSetting ?? networkSettings
@@ -143,7 +141,7 @@ export default function FeeSettingsText({
         <>{t("networkFees.toBeDetermined")}</>
       ) : (
         <>
-          {networkIsBuiltIn && <span>~${dollarValue}</span>}
+          <span>~${dollarValue}</span>
           <span className="fee_gwei">({gweiValue})</span>
         </>
       )}

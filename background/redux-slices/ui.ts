@@ -1,15 +1,16 @@
 import { createSlice, createSelector } from "@reduxjs/toolkit"
 import Emittery from "emittery"
 import { AddressOnNetwork } from "../accounts"
-import { QUAI_NETWORK } from "../constants"
 import { AnalyticsEvent, OneTimeAnalyticsEvent } from "../lib/posthog"
-import { EVMNetwork, ChainIdWithError } from "../networks"
+import { ChainIdWithError } from "../networks"
 import { AnalyticsPreferences } from "../services/preferences/types"
 import { AccountSignerWithId } from "../signing"
 import { AccountSignerSettings } from "../ui"
 import { AccountState, addAddressNetwork } from "./accounts"
 import { createBackgroundAsyncThunk } from "./utils"
 import { getExtendedZoneForAddress } from "../services/chain/utils"
+import { NetworkInterfaceGA } from "../constants/networks/networkTypes"
+import { QuaiNetworkGA } from "../constants/networks/networks"
 
 export const defaultSettings = {
   hideDust: false,
@@ -57,7 +58,7 @@ export type Events = {
   newSelectedAccount: AddressOnNetwork
   newSelectedAccountSwitched: AddressOnNetwork
   userActivityEncountered: AddressOnNetwork
-  newSelectedNetwork: EVMNetwork
+  newSelectedNetwork: NetworkInterfaceGA
   updateAnalyticsPreferences: Partial<AnalyticsPreferences>
   addCustomNetworkResponse: [string, boolean]
   showDefaultWalletBanner: boolean
@@ -71,7 +72,7 @@ export const initialState: UIState = {
   showingAddAccountModal: false,
   selectedAccount: {
     address: "",
-    network: QUAI_NETWORK,
+    network: QuaiNetworkGA,
   },
   initializationLoadingTimeExpired: false,
   settings: defaultSettings,
@@ -359,9 +360,7 @@ export const userActivityEncountered = createBackgroundAsyncThunk(
 
 export const setSelectedNetwork = createBackgroundAsyncThunk(
   "ui/setSelectedNetwork",
-  async (network: EVMNetwork, { getState, dispatch }) => {
-    if (network.name == "Ethereum") return
-
+  async (network: NetworkInterfaceGA, { getState, dispatch }) => {
     const state = getState() as { ui: UIState; account: AccountState }
     const { ui, account } = state
     const currentlySelectedChainID = ui.selectedAccount.network.chainID

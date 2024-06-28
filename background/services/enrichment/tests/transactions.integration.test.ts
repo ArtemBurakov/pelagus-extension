@@ -7,7 +7,7 @@ import {
 } from "../../../tests/factories"
 import { makeSerialFallbackProvider } from "../../chain/serial-fallback-provider"
 import { annotationsFromLogs } from "../transactions"
-import { QUAI_NETWORK } from "../../../constants"
+import { QuaiNetworkGA } from "../../../constants/networks/networks"
 
 // These logs reference transaction https://etherscan.io/tx/0x0ba306853f8be38d54327675f14694d582a14759b851f2126dd900bef0aff840
 // prettier-ignore
@@ -40,7 +40,7 @@ describe("Enrichment Service Transactions", () => {
 
       await chainService.addAccountToTrack({
         address: "0x9eef87f4c08d8934cb2a3309df4dec5635338115",
-        network: QUAI_NETWORK,
+        network: QuaiNetworkGA,
       })
 
       await indexingService.addOrUpdateCustomAsset({
@@ -48,7 +48,7 @@ describe("Enrichment Service Transactions", () => {
         symbol: "USDC",
         name: "USDC Coin",
         decimals: 6,
-        homeNetwork: QUAI_NETWORK,
+        homeNetwork: QuaiNetworkGA,
       })
 
       await indexingService.addOrUpdateCustomAsset({
@@ -56,7 +56,7 @@ describe("Enrichment Service Transactions", () => {
         symbol: "FRAX",
         name: "FRAX Token",
         decimals: 18,
-        homeNetwork: QUAI_NETWORK,
+        homeNetwork: QuaiNetworkGA,
       })
 
       sandbox
@@ -68,7 +68,7 @@ describe("Enrichment Service Transactions", () => {
         indexingService,
         nameService,
         TEST_ERC20_LOGS,
-        QUAI_NETWORK,
+        QuaiNetworkGA,
         2,
         Date.now(),
         createAnyEVMBlock()

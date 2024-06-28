@@ -439,11 +439,11 @@ export default class Main extends BaseService<never> {
       // Also refresh the transactions in the account
       this.enrichActivitiesForSelectedAccount()
 
-      const selectedAccount = await this.store.getState().ui.selectedAccount
-      const currentAccountState = await this.store.getState().account
-        .accountsData.evm[selectedAccount.network.chainID]?.[
-        normalizeEVMAddress(selectedAccount.address)
-      ]
+      const selectedAccount = this.store.getState().ui.selectedAccount
+      const currentAccountState =
+        this.store.getState().account.accountsData.evm[
+          selectedAccount.network.chainID
+        ]?.[normalizeEVMAddress(selectedAccount.address)]
       if (
         currentAccountState === undefined ||
         currentAccountState === "loading"
@@ -775,8 +775,7 @@ export default class Main extends BaseService<never> {
     const accountsToTrack = await this.chainService.getAccountsToTrack()
     const transaction = await this.chainService.getETX(
       addressNetwork.network,
-      txHash,
-      getExtendedZoneForAddress(to)
+      txHash
     )
 
     if (
@@ -1738,14 +1737,6 @@ export default class Main extends BaseService<never> {
     }
   }
 
-  async removeEVMNetwork(chainID: string): Promise<void> {
-    // Per origin chain id settings
-    await this.internalQuaiProviderService.removePrefererencesForChain(chainID)
-    // Connected dApps
-    await this.providerBridgeService.revokePermissionsForChain(chainID)
-    await this.chainService.removeCustomChain(chainID)
-  }
-
   async queryCustomTokenDetails(
     contractAddress: NormalizedEVMAddress,
     addressOnNetwork: AddressOnNetwork
@@ -1797,11 +1788,11 @@ export default class Main extends BaseService<never> {
       const openTime = Date.now()
 
       const originalNetworkName =
-        this.store.getState().ui.selectedAccount.network.name
+        this.store.getState().ui.selectedAccount.network.baseAsset.name
 
       port.onDisconnect.addListener(() => {
         const networkNameAtClose =
-          this.store.getState().ui.selectedAccount.network.name
+          this.store.getState().ui.selectedAccount.network.baseAsset.name
         this.analyticsService.sendAnalyticsEvent(AnalyticsEvent.UI_SHOWN, {
           openTime: new Date(openTime).toISOString(),
           closeTime: new Date().toISOString(),

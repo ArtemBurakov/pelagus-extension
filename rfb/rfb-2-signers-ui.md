@@ -222,6 +222,8 @@ type SigningRequest =
 `Signing/index.tsx`
 
 ```typescript
+import { NetworkInterfaceGA } from "@pelagus/pelagus-background/constants/networks/networkTypes";
+
 /**
  * Details regarding a signature request, resolved for a signer ahead of time
  * based on the type of signature, the account whose signature is being
@@ -230,7 +232,7 @@ type SigningRequest =
  */
 type ResolvedSignatureDetails = {
   signer: AccountSigner
-  network: EVMNetwork
+  network: NetworkInterfaceGA
   renderedSigningData: ReactElement
   signActionCreator: ActionCreatorWithoutPayload
   rejectActionCreator: ActionCreatorWithoutPayload
@@ -296,12 +298,23 @@ export function Signing(props: SigningProps): ReactElement {
 
   return (
     <section>
-      <SignTransactionNetworkAccountInfoTopBar accountTotal={signerAccountTotal} />
-      <SigningFrameComponent {...{ ...props, ...signatureDetails }}>
-        {renderedSigningData}
-      </SigningFrame>
-    </section>
-  )
+      <SignTransactionNetworkAccountInfoTopBar accountTotal = { signerAccountTotal }
+  />
+  < SigningFrameComponent
+  {...
+    { ...
+      props,
+    ...
+      signatureDetails
+    }
+  }
+>
+  {
+    renderedSigningData
+  }
+  </SigningFrame>
+  < /section>
+)
 }
 ```
 

@@ -22,6 +22,7 @@ import { EVMLog, SmartContract } from "../networks"
 import { AddressOnNetwork } from "../accounts"
 import { getExtendedZoneForAddress } from "../services/chain/utils"
 import { SmartContractAmount, SmartContractFungibleAsset } from "../assets"
+import { isQuaiHandle } from "../constants/networks/networkUtils"
 
 export const ERC20_FUNCTIONS = {
   allowance: FunctionFragment.from(
@@ -187,7 +188,7 @@ export const getTokenBalances = async (
   let multicallAddress =
     CHAIN_SPECIFIC_MULTICALL_CONTRACT_ADDRESSES[network.chainID] ||
     MULTICALL_CONTRACT_ADDRESS
-  if (network.isQuai) {
+  if (isQuaiHandle(network)) {
     multicallAddress = ShardToMulticall(
       getExtendedZoneForAddress(address),
       network

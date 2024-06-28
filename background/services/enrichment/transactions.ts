@@ -2,7 +2,6 @@ import {
   AnyEVMBlock,
   AnyEVMTransaction,
   EVMLog,
-  EVMNetwork,
   isEIP1559TransactionRequest,
 } from "../../networks"
 import {
@@ -35,6 +34,8 @@ import {
 } from "../../lib/erc20"
 import { isDefined, isFulfilledPromise } from "../../lib/utils/type-guards"
 import { getExtendedZoneForAddress } from "../chain/utils"
+import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
+import { Shard } from "quais"
 
 async function buildSubannotations(
   chainService: ChainService,
@@ -44,7 +45,7 @@ async function buildSubannotations(
   addressEnrichmentsByAddress: {
     [k: string]: EnrichedAddressOnNetwork
   },
-  network: EVMNetwork,
+  network: NetworkInterfaceGA,
   desiredDecimals: number,
   resolvedTime: number,
   block: AnyEVMBlock | undefined
@@ -117,7 +118,7 @@ export async function annotationsFromLogs(
   indexingService: IndexingService,
   nameService: NameService,
   logs: EVMLog[],
-  network: EVMNetwork,
+  network: NetworkInterfaceGA,
   desiredDecimals: number,
   resolvedTime: number,
   block: AnyEVMBlock | undefined
@@ -189,7 +190,7 @@ export default async function resolveTransactionAnnotation(
   chainService: ChainService,
   indexingService: IndexingService,
   nameService: NameService,
-  network: EVMNetwork,
+  network: NetworkInterfaceGA,
   transaction:
     | AnyEVMTransaction
     | (PartialTransactionRequestWithFrom & {
@@ -299,12 +300,12 @@ export default async function resolveTransactionAnnotation(
       useDestinationShard && transaction.to
         ? await chainService.getBlockDataExternal(
             network,
-            getExtendedZoneForAddress(transaction.to, false),
+            getExtendedZoneForAddress(transaction.to, false) as Shard,
             blockHash
           )
         : await chainService.getBlockDataExternal(
             network,
-            getExtendedZoneForAddress(transaction.from, false),
+            getExtendedZoneForAddress(transaction.from, false) as Shard,
             blockHash
           )
     txAnnotation = {

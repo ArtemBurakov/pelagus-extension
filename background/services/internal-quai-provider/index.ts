@@ -11,16 +11,8 @@ import logger from "../../lib/logger"
 import BaseService from "../base"
 import { ServiceCreatorFunction, ServiceLifecycleEvents } from "../types"
 import ChainService from "../chain"
-import {
-  EVMNetwork,
-  sameChainID,
-  SignedTransaction,
-  toHexChainID,
-} from "../../networks"
-import {
-  ethersTransactionFromSignedTransaction,
-  transactionRequestFromEthersTransactionRequest,
-} from "../chain/utils"
+import { sameChainID, SignedTransaction, toHexChainID } from "../../networks"
+import { transactionRequestFromEthersTransactionRequest } from "../chain/utils"
 import PreferenceService from "../preferences"
 import { internalProviderPort } from "../../redux-slices/utils/contract-utils"
 import {
@@ -36,6 +28,7 @@ import {
 } from "../enrichment"
 import type { ValidatedAddEthereumChainParameter } from "../provider-bridge/utils"
 import { decodeJSON } from "../../lib/utils"
+import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
 
 // A type representing the transaction requests that come in over JSON-RPC
 // requests like eth_sendTransaction and eth_signTransaction. These are very
@@ -99,14 +92,14 @@ type Events = ServiceLifecycleEvents & {
   transactionSignatureRequest: DAppRequestEvent<
     Partial<EnrichedEVMTransactionRequest> & {
       from: string
-      network: EVMNetwork
+      network: NetworkInterfaceGA
     },
     SignedTransaction
   >
   signTypedDataRequest: DAppRequestEvent<SignTypedDataRequest, string>
   signDataRequest: DAppRequestEvent<MessageSigningRequest, string>
-  selectedNetwork: EVMNetwork
-  watchAssetRequest: { contractAddress: string; network: EVMNetwork }
+  selectedNetwork: NetworkInterfaceGA
+  watchAssetRequest: { contractAddress: string; network: NetworkInterfaceGA }
 }
 
 export default class InternalQuaiProviderService extends BaseService<Events> {
@@ -221,11 +214,7 @@ export default class InternalQuaiProviderService extends BaseService<Events> {
       case "net_version":
       case "web3_clientVersion":
       case "web3_sha3":
-        return this.chainService.send(
-          method,
-          params,
-          await this.getCurrentOrDefaultNetworkForOrigin(origin)
-        )
+        return this.chainService.send(method, params)
       case "quai_accounts": {
         const { address } = await this.preferenceService.getSelectedAccount()
         return [address]
@@ -340,15 +329,15 @@ export default class InternalQuaiProviderService extends BaseService<Events> {
     }
   }
 
-  private async getCurrentInternalNetwork(): Promise<EVMNetwork> {
+  private async getCurrentInternalNetwork(): Promise<NetworkInterfaceGA> {
     return this.db.getCurrentNetworkForOrigin(
       PELAGUS_INTERNAL_ORIGIN
-    ) as Promise<EVMNetwork>
+    ) as Promise<NetworkInterfaceGA>
   }
 
   async getCurrentOrDefaultNetworkForOrigin(
     origin: string
-  ): Promise<EVMNetwork> {
+  ): Promise<NetworkInterfaceGA> {
     const currentNetwork = await this.db.getCurrentNetworkForOrigin(origin)
     if (!currentNetwork) {
       // If this is a new dapp or the dapp has not implemented wallet_switchEthereumChain
@@ -423,7 +412,7 @@ export default class InternalQuaiProviderService extends BaseService<Events> {
    */
   async getTrackedNetworkByChainId(
     chainID: string
-  ): Promise<EVMNetwork | undefined> {
+  ): Promise<NetworkInterfaceGA | undefined> {
     const trackedNetworks = await this.chainService.getTrackedNetworks()
     const trackedNetwork = trackedNetworks.find((network) =>
       sameChainID(network.chainID, chainID)
@@ -474,7 +463,7 @@ export default class InternalQuaiProviderService extends BaseService<Events> {
 
   async switchToSupportedNetwork(
     origin: string,
-    supportedNetwork: EVMNetwork
+    supportedNetwork: NetworkInterfaceGA
   ): Promise<void> {
     const { address } = await this.preferenceService.getSelectedAccount()
     await this.chainService.markAccountActivity({

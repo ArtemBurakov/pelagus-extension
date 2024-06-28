@@ -1,4 +1,4 @@
-import { AnyEVMTransaction, EVMNetwork } from "../../networks"
+import { AnyEVMTransaction } from "../../networks"
 import ChainService from "../chain"
 import IndexingService from "../indexing"
 import NameService from "../name"
@@ -18,6 +18,8 @@ import {
   isEIP2612TypedData,
 } from "./utils"
 import resolveTransactionAnnotation from "./transactions"
+import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
+import { TransactionResponse } from "quais"
 
 export * from "./types"
 
@@ -90,7 +92,7 @@ export default class EnrichmentService extends BaseService<Events> {
   }
 
   async enrichTransactionSignature(
-    network: EVMNetwork,
+    network: NetworkInterfaceGA,
     transaction: PartialTransactionRequestWithFrom,
     desiredDecimals: number
   ): Promise<EnrichedEVMTransactionSignatureRequest> {
@@ -143,17 +145,19 @@ export default class EnrichmentService extends BaseService<Events> {
   }
 
   async enrichTransaction(
-    transaction: AnyEVMTransaction,
+    transaction: AnyEVMTransaction | TransactionResponse,
     desiredDecimals: number
   ): Promise<EnrichedEVMTransaction> {
+    // TODO-MIGRATION: Remove const temporaryTransaction
+    const temporaryTransaction = transaction as AnyEVMTransaction
     return {
-      ...transaction,
+      ...temporaryTransaction,
       annotation: await resolveTransactionAnnotation(
         this.chainService,
         this.indexingService,
         this.nameService,
-        transaction.network,
-        transaction,
+        temporaryTransaction.network,
+        temporaryTransaction,
         desiredDecimals
       ),
     }

@@ -3,8 +3,7 @@ import ChainService, {
   PriorityQueuedTxToRetrieve,
   QueuedTxToRetrieve,
 } from ".."
-import { MINUTE, QUAI_NETWORK, SECOND } from "../../../constants"
-import { EVMNetwork } from "../../../networks"
+import { MINUTE, SECOND } from "../../../constants"
 import * as gas from "../../../lib/gas"
 import {
   createAddressOnNetwork,
@@ -19,6 +18,8 @@ import {
   EnrichedLegacyTransactionSignatureRequest,
 } from "../../enrichment"
 import { AddressOnNetwork } from "../../../accounts"
+import { NetworkInterfaceGA } from "../../../constants/networks/networkTypes"
+import { QuaiNetworkGA } from "../../../constants/networks/networks"
 
 type ChainServiceExternalized = Omit<ChainService, ""> & {
   populatePartialEIP1559TransactionRequest: () => void
@@ -63,7 +64,7 @@ describe("Chain Service", () => {
       const partialTransactionRequest: EnrichedEIP1559TransactionSignatureRequest =
         {
           from: "0x0d18b6e68ec588149f2fc20b76ff70b1cfb28882",
-          network: QUAI_NETWORK,
+          network: QuaiNetworkGA,
           nonce: 1,
           maxPriorityFeePerGas: 1n,
           maxFeePerGas: 2n,
@@ -75,7 +76,7 @@ describe("Chain Service", () => {
       )
 
       await chainService.populatePartialTransactionRequest(
-        QUAI_NETWORK,
+        QuaiNetworkGA,
         partialTransactionRequest,
         { maxFeePerGas: 100n, maxPriorityFeePerGas: 1000n }
       )
@@ -83,8 +84,8 @@ describe("Chain Service", () => {
       expect(stub.callCount).toBe(1)
 
       await chainService.populatePartialTransactionRequest(
-        QUAI_NETWORK,
-        { ...partialTransactionRequest, network: QUAI_NETWORK },
+        QuaiNetworkGA,
+        { ...partialTransactionRequest, network: QuaiNetworkGA },
         { maxFeePerGas: 100n, maxPriorityFeePerGas: 1000n }
       )
 
@@ -95,7 +96,7 @@ describe("Chain Service", () => {
       const partialTransactionRequest: EnrichedLegacyTransactionSignatureRequest =
         {
           from: "0x0d18b6e68ec588149f2fc20b76ff70b1cfb28882",
-          network: QUAI_NETWORK,
+          network: QuaiNetworkGA,
           nonce: 1,
           gasPrice: 1_000n,
         }
@@ -106,7 +107,7 @@ describe("Chain Service", () => {
       )
 
       await chainService.populatePartialTransactionRequest(
-        QUAI_NETWORK,
+        QuaiNetworkGA,
         partialTransactionRequest,
         { maxFeePerGas: 100n, maxPriorityFeePerGas: 1000n }
       )
@@ -117,7 +118,7 @@ describe("Chain Service", () => {
 
   describe("markNetworkActivity", () => {
     beforeEach(async () => {
-      sandbox.stub(chainService, "supportedNetworks").value([QUAI_NETWORK])
+      sandbox.stub(chainService, "supportedNetworks").value([QuaiNetworkGA])
 
       await chainService.startService()
     })
@@ -131,15 +132,15 @@ describe("Chain Service", () => {
 
       const lastUserActivity = (
         chainService as unknown as ChainServiceExternalized
-      ).lastUserActivityOnNetwork[QUAI_NETWORK.chainID]
+      ).lastUserActivityOnNetwork[QuaiNetworkGA.chainID]
 
       jest.advanceTimersByTime(100)
 
-      chainService.markNetworkActivity(QUAI_NETWORK.chainID)
+      chainService.markNetworkActivity(QuaiNetworkGA.chainID)
 
       expect(lastUserActivity).toBeLessThan(
         (chainService as unknown as ChainServiceExternalized)
-          .lastUserActivityOnNetwork[QUAI_NETWORK.chainID]
+          .lastUserActivityOnNetwork[QuaiNetworkGA.chainID]
       )
 
       jest.useRealTimers()
@@ -149,20 +150,20 @@ describe("Chain Service", () => {
       // Set last activity time to 10 minutes ago
       ;(
         chainService as unknown as ChainServiceExternalized
-      ).lastUserActivityOnNetwork[QUAI_NETWORK.chainID] =
+      ).lastUserActivityOnNetwork[QuaiNetworkGA.chainID] =
         Date.now() - 10 * MINUTE
       const getBlockPricesStub = sandbox
         .stub(gas, "default")
         .callsFake(async () => createBlockPrices())
 
-      await chainService.markNetworkActivity(QUAI_NETWORK.chainID)
+      await chainService.markNetworkActivity(QuaiNetworkGA.chainID)
       expect(getBlockPricesStub.called).toEqual(true)
     })
   })
 
   describe("markAccountActivity", () => {
     beforeEach(async () => {
-      sandbox.stub(chainService, "supportedNetworks").value([QUAI_NETWORK])
+      sandbox.stub(chainService, "supportedNetworks").value([QuaiNetworkGA])
       await chainService.startService()
     })
 
@@ -176,14 +177,14 @@ describe("Chain Service", () => {
         .callsFake(async () => {})
 
       chainService.markAccountActivity(
-        createAddressOnNetwork({ network: QUAI_NETWORK })
+        createAddressOnNetwork({ network: QuaiNetworkGA })
       )
 
-      expect(stub.calledWith(QUAI_NETWORK.chainID)).toEqual(true)
+      expect(stub.calledWith(QuaiNetworkGA.chainID)).toEqual(true)
     })
 
     it("should call loadRecentAssetTransfers if the NETWORK_POLLING_TIMEOUT has been exceeded", async () => {
-      const account = createAddressOnNetwork({ network: QUAI_NETWORK })
+      const account = createAddressOnNetwork({ network: QuaiNetworkGA })
 
       // Set last activity time to 10 minutes ago
       ;(
@@ -197,7 +198,7 @@ describe("Chain Service", () => {
         .callsFake(async () => {})
 
       await chainService.markAccountActivity(
-        createAddressOnNetwork({ network: QUAI_NETWORK })
+        createAddressOnNetwork({ network: QuaiNetworkGA })
       )
       expect(stub.called).toEqual(true)
     })
@@ -205,14 +206,14 @@ describe("Chain Service", () => {
 
   describe("getActiveNetworks", () => {
     it("should wait until tracked networks activate", async () => {
-      const activeNetworksMock: EVMNetwork[] = []
+      const activeNetworksMock: NetworkInterfaceGA[] = []
 
       sandbox
         .stub(
           chainService as unknown as ChainServiceExternalized,
           "getNetworksToTrack"
         )
-        .resolves([QUAI_NETWORK])
+        .resolves([QuaiNetworkGA])
 
       const resolvesWithQuai = sinon.promise()
 
@@ -223,20 +224,20 @@ describe("Chain Service", () => {
         )
         .onFirstCall()
         .callsFake(() => {
-          activeNetworksMock.push(QUAI_NETWORK)
-          return Promise.resolve(QUAI_NETWORK)
+          activeNetworksMock.push(QuaiNetworkGA)
+          return Promise.resolve(QuaiNetworkGA)
         })
         .onSecondCall()
-        .returns(resolvesWithQuai as Promise<EVMNetwork>)
+        .returns(resolvesWithQuai as Promise<NetworkInterfaceGA>)
 
       setTimeout(() => {
-        activeNetworksMock.push(QUAI_NETWORK)
-        resolvesWithQuai.resolve(QUAI_NETWORK)
+        activeNetworksMock.push(QuaiNetworkGA)
+        resolvesWithQuai.resolve(QuaiNetworkGA)
       }, 30)
 
       await chainService.getTrackedNetworks()
 
-      expect(activeNetworksMock).toEqual([QUAI_NETWORK])
+      expect(activeNetworksMock).toEqual([QuaiNetworkGA])
     })
   })
   describe("Queued Transaction Retrieve", () => {
@@ -347,7 +348,7 @@ describe("Chain Service", () => {
         allHashesToAdd.forEach((hashes) =>
           hashes.forEach((txHash, idx) =>
             chainServiceExternalized.queueTransactionHashToRetrieve(
-              QUAI_NETWORK,
+              QuaiNetworkGA,
               txHash,
               Date.now(),
               idx < PRIORITY_MAX_COUNT ? 1 : 0

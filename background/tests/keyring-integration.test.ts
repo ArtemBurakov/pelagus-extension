@@ -9,8 +9,9 @@ import KeyringService, {
 } from "../services/keyring"
 import { KeyringTypes } from "../types"
 import { EIP1559TransactionRequest } from "../networks"
-import { QUAI_NETWORK, QUAI } from "../constants"
+import { QUAI } from "../constants"
 import logger from "../lib/logger"
+import { QuaiNetworkGA } from "../constants/networks/networks"
 
 const originalCrypto = global.crypto
 beforeEach(() => {
@@ -55,7 +56,8 @@ const validTransactionRequests: {
     gasLimit: 0n,
     chainID: "0",
     network: {
-      name: "none",
+      chains: [],
+      rpcUrls: "",
       chainID: "0",
       baseAsset: QUAI,
       family: "EVM",
@@ -130,7 +132,7 @@ describe("KeyringService when uninitialized", () => {
     it("won't sign transactions", async () => {
       await expect(
         service.signTransaction(
-          { address: "0x0", network: QUAI_NETWORK },
+          { address: "0x0", network: QuaiNetworkGA },
           validTransactionRequests.simple
         )
       ).rejects.toThrow("KeyringService must be unlocked.")
@@ -267,7 +269,7 @@ describe("KeyringService when initialized", () => {
 
     await expect(
       service.signTransaction(
-        { address, network: QUAI_NETWORK },
+        { address, network: QuaiNetworkGA },
         transactionWithFrom
       )
     ).resolves.toMatchObject({
@@ -295,7 +297,7 @@ describe("KeyringService when initialized", () => {
 
     await expect(
       service.signTransaction(
-        { address, network: QUAI_NETWORK },
+        { address, network: QuaiNetworkGA },
         transactionWithFrom
       )
     ).resolves.toBeDefined()
@@ -504,7 +506,7 @@ describe("Keyring service when autolocking", () => {
         }
 
         await service.signTransaction(
-          { address, network: QUAI_NETWORK },
+          { address, network: QuaiNetworkGA },
           transactionWithFrom
         )
       },
