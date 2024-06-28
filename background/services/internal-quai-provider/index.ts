@@ -30,7 +30,6 @@ import type { ValidatedAddEthereumChainParameter } from "../provider-bridge/util
 import { decodeJSON } from "../../lib/utils"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
 import { NetworksArray } from "../../constants/networks/networks"
-import networks from "../../redux-slices/networks"
 
 // A type representing the transaction requests that come in over JSON-RPC
 // requests like eth_sendTransaction and eth_signTransaction. These are very
