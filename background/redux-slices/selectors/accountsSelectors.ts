@@ -40,8 +40,6 @@ import { AccountSigner, SignerType } from "../../services/signing"
 import { assertUnreachable } from "../../lib/utils/type-guards"
 import { getExtendedZoneForAddress } from "../../services/chain/utils"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
-import { SignerImportSource } from "../../services/keyring/types"
-import { getAddress } from "quais"
 
 // TODO What actual precision do we want here? Probably more than 2
 // TODO decimals? Maybe it's configurable?
@@ -380,9 +378,7 @@ function getNetworkAccountTotalsByCategory(
 
   return Object.entries(accounts.accountsData.evm[network.chainID] ?? {})
     .filter(([, accountData]) => typeof accountData !== "undefined")
-    .map(([add, accountData]): AccountTotal => {
-      const address = getAddress(add) // TODO-MIGRATION temp fix
-
+    .map(([address, accountData]): AccountTotal => {
       const shortenedAddress = truncateAddress(address)
       const accountSigner = accountSignersByAddress[address]
       const signerId = signerIdFor(accountSigner)
