@@ -35,10 +35,11 @@ import {
   selectSourcesByAddress,
 } from "./keyringsSelectors"
 import { AccountBalance, AddressOnNetwork } from "../../accounts"
-import { EVMNetwork, sameNetwork } from "../../networks"
+import { sameNetwork } from "../../networks"
 import { AccountSigner, SignerType } from "../../services/signing"
 import { assertUnreachable } from "../../lib/utils/type-guards"
 import { getExtendedZoneForAddress } from "../../services/chain/utils"
+import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
 import { SignerImportSource } from "../../services/keyring/types"
 import { getAddress } from "quais"
 
@@ -368,7 +369,7 @@ const getTotalBalance = (
 
 function getNetworkAccountTotalsByCategory(
   state: RootState,
-  network: EVMNetwork
+  network: NetworkInterfaceGA
 ): CategorizedAccountTotals {
   const accounts = getAccountState(state)
   const assets = getAssetsState(state)
@@ -448,7 +449,7 @@ function getNetworkAccountTotalsByCategory(
 
 const selectNetworkAccountTotalsByCategoryResolver = createSelector(
   (state: RootState) => state,
-  (state) => (network: EVMNetwork) => {
+  (state) => (network: NetworkInterfaceGA) => {
     return getNetworkAccountTotalsByCategory(state, network)
   }
 )

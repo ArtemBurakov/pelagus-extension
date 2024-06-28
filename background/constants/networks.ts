@@ -8,6 +8,7 @@ import { QUAI, QUAI_LOCAL } from "."
 import { EVMNetwork } from "../networks"
 import SerialFallbackProvider from "../services/chain/serial-fallback-provider"
 import { getExtendedZoneForAddress } from "../services/chain/utils"
+import { NetworkInterfaceGA } from "./networks/networkTypes"
 
 export const VALID_ZONES: Array<Zone> = [
   Zone.Cyprus1,
@@ -254,13 +255,7 @@ export const QUAI_NETWORK_LOCAL: EVMNetwork = {
 export const DEFAULT_NETWORKS = [QUAI_NETWORK]
 export const DEFAULT_TEST_NETWORKS = [QUAI_NETWORK_LOCAL]
 
-export function isBuiltInNetwork(network: EVMNetwork): boolean {
-  return DEFAULT_NETWORKS.some(
-    (builtInNetwork) => builtInNetwork.chainID === network.chainID
-  )
-}
-
-export function isTestNetwork(network: EVMNetwork): boolean {
+export function isTestNetwork(network: NetworkInterfaceGA): boolean {
   return DEFAULT_TEST_NETWORKS.some(
     (testNetwork) => testNetwork.chainID === network.chainID
   )
@@ -471,7 +466,10 @@ export function getProviderForGivenShard(
   return providers
 }
 
-export function ShardToMulticall(shard: string, network: EVMNetwork): string {
+export function ShardToMulticall(
+  shard: string,
+  network: NetworkInterfaceGA
+): string {
   if (network.chains === undefined) return ""
 
   for (const chain of network.chains) {
@@ -482,7 +480,7 @@ export function ShardToMulticall(shard: string, network: EVMNetwork): string {
 }
 
 export function CurrentShardToExplorer(
-  network: EVMNetwork,
+  network: NetworkInterfaceGA,
   address?: string
 ): string {
   let currentShard = ""

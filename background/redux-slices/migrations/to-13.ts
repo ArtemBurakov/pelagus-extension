@@ -15,7 +15,7 @@ export const transactionPropertiesForUI = [
   "blockHash",
   "status",
   "network.chainID",
-  "network.name",
+  "network.baseAsset.name",
   "network.baseAsset.symbol",
   "maxFeePerGas",
   "gasPrice",

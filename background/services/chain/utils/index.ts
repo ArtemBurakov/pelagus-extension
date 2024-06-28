@@ -6,10 +6,7 @@ import {
   Block,
   TransactionResponse,
 } from "quais"
-import {
-  Block as EthersBlock,
-  TransactionRequest as EthersTransactionRequest,
-} from "@quais/abstract-provider"
+import { TransactionRequest as EthersTransactionRequest } from "@quais/abstract-provider"
 
 // TODO-MIGRATION: Update TransactionTypes
 import {
@@ -19,7 +16,6 @@ import {
 } from "quais-old"
 import {
   AnyEVMTransaction,
-  EVMNetwork,
   AnyEVMBlock,
   EIP1559TransactionRequest,
   ConfirmedEVMTransaction,
@@ -33,29 +29,25 @@ import {
 } from "../../../networks"
 import type { PartialTransactionRequestWithFrom } from "../../enrichment"
 import { NetworkInterfaceGA } from "../../../constants/networks/networkTypes"
-
 /**
  * Parse a block as returned by a polling provider.
  */
 export function blockFromEthersBlock(
   network: NetworkInterfaceGA,
-  gethResult: Block
+  block: Block
 ): AnyEVMBlock {
+  if (!block) throw new Error("Failed get Block")
+
+  //TODO-MIGRATION: CHECK BLOCK (blockHeight and parentHash)
   return {
-    hash: gethResult.hash,
-    blockHeight: gethResult.number as number,
-    parentHash: gethResult.parentHash as string,
-    // FIXME Hold for ethers/v5.4.8 _difficulty BigNumber field; the current
-    // FIXME difficutly field is a `number` and has overflowed since Ethereum
-    // FIXME difficulty has exceeded MAX_SAFE_INTEGER. The current ethers
-    // FIXME version devolves to `null` in that scenario, and does not reflect
-    // FIXME in its type. The upcoming release will have a BigNumber
-    // FIXME _difficulty field.
+    hash: block.woBody.header.hash,
+    blockHeight: Number(block.woBody.header.number[2]),
+    parentHash: block.woBody.header.parentHash[2],
     difficulty: 0n,
-    timestamp: gethResult.timestamp,
-    baseFeePerGas: gethResult.baseFeePerGas?.toBigInt() as bigint,
+    timestamp: block.date?.getTime(),
+    baseFeePerGas: block.woBody.header.baseFeePerGas,
     network,
-  }
+  } as AnyEVMBlock
 }
 
 /**
@@ -282,7 +274,7 @@ export function enrichTransactionWithReceipt(
   transaction: AnyEVMTransaction,
   receipt: TransactionReceipt
 ): ConfirmedEVMTransaction {
-  const gasUsed = receipt.gasUsed
+  const { gasUsed } = receipt
 
   return {
     ...transaction,
@@ -298,14 +290,16 @@ export function enrichTransactionWithReceipt(
      * into account L1 rollup fees.
      */
     // TODO-MIGRATION new type does not have effectiveGasPrice
-    //gasPrice: receipt.effectiveGasPrice?.toBigInt() ?? transaction.gasPrice,
+    // gasPrice: receipt.effectiveGasPrice?.toBigInt() ?? transaction.gasPrice,
     gasPrice: receipt.gasPrice,
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore TODO-MIGRATION ignoring for now
     logs: receipt.logs.map(({ address, data, topics }) => ({
       contractAddress: address,
       data,
       topics,
     })),
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore TODO-MIGRATION ignoring for now
     etxs: receipt.etxs,
     status:
@@ -322,14 +316,7 @@ export function enrichTransactionWithReceipt(
  * Parse a transaction as returned by a polling provider.
  */
 export function transactionFromEthersTransaction(
-  tx:
-    | TransactionResponse
-    | (AnyEVMTransaction & {
-        from: string
-        blockHash?: string
-        blockNumber?: number
-        type?: number | null
-      }),
+  tx: TransactionResponse | EthersTransaction,
   network: NetworkInterfaceGA
 ): AnyEVMTransaction {
   if (!tx || tx.hash === undefined) {
@@ -339,43 +326,54 @@ export function transactionFromEthersTransaction(
     throw new Error(`Unknown transaction type ${tx.type}`)
   }
 
+  // TODO-MIGRATION: Remove this (currently using only for type)
+  const temporaryTx = tx as EthersTransaction & {
+    from: string
+    blockHash?: string
+    blockNumber?: number
+    type?: number | null
+  }
+
   const newTx = {
-    hash: tx.hash,
-    from: tx.from,
-    to: tx.to ?? undefined,
-    nonce: parseInt(tx.nonce.toString(), 10),
+    hash: temporaryTx.hash,
+    from: temporaryTx.from,
+    to: temporaryTx.to ?? undefined,
+    nonce: parseInt(temporaryTx.nonce.toString(), 10),
     // TODO-MIGRATION: Update with gasLimit: toBigInt(tx.gasLimit)
-    gasLimit: tx.gasLimit.toBigInt(),
+    gasLimit: temporaryTx.gasLimit,
     // TODO-MIGRATION: Update with gasPrice: tx.gasPrice ? toBigInt(tx.gasPrice) : null
-    gasPrice: tx.gasPrice ? tx.gasPrice.toBigInt() : null,
+    gasPrice: temporaryTx.gasPrice ? temporaryTx.gasPrice : null,
     // TODO-MIGRATION: Update with maxFeePerGas: tx.maxFeePerGas ? toBigInt(tx.maxFeePerGas) : null
-    maxFeePerGas: tx.maxFeePerGas ? tx.maxFeePerGas.toBigInt() : null,
+    maxFeePerGas: temporaryTx.maxFeePerGas ? temporaryTx.maxFeePerGas : null,
     // TODO-MIGRATION: Update with maxPriorityFeePerGas: tx.maxPriorityFeePerGas
     //       ? toBigInt(tx.maxPriorityFeePerGas)
     //       : null
-    maxPriorityFeePerGas: tx.maxPriorityFeePerGas
-      ? tx.maxPriorityFeePerGas.toBigInt()
+    maxPriorityFeePerGas: temporaryTx.maxPriorityFeePerGas
+      ? temporaryTx.maxPriorityFeePerGas
       : null,
     // TODO-MIGRATION: Update with value: toBigInt(tx.value)
-    value: tx.value.toBigInt(),
-    input: tx.data,
-    type: tx.type,
-    blockHash: tx.blockHash || null,
-    blockHeight: tx.blockNumber || null,
+    value: temporaryTx.value,
+    input: temporaryTx.data,
+    type: temporaryTx.type,
+    blockHash: temporaryTx.blockHash || null,
+    blockHeight: temporaryTx.blockNumber || null,
     network,
     asset: network.baseAsset,
   } as const // narrow types for compatiblity with our internal ones
 
-  if (tx.r && tx.s && tx.v) {
-    const signedTx: SignedTransaction = {
+  if (temporaryTx.r && temporaryTx.s && temporaryTx.v) {
+    // TODO-MIGARTION: Update any type with signedTx
+    const signedTx: any = {
       ...newTx,
-      r: tx.r,
-      s: tx.s,
-      v: tx.v,
+      r: temporaryTx.r,
+      s: temporaryTx.s,
+      v: temporaryTx.v,
     }
     return signedTx
   }
-  return newTx
+
+  // TODO-MIGARTION: Remove any type
+  return newTx as any
 }
 
 export const getExtendedZoneForAddress = (

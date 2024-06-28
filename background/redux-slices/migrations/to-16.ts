@@ -1,5 +1,6 @@
 import { NETWORK_BY_CHAIN_ID } from "../../constants"
-import { EVMNetwork } from "../../networks"
+import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
+import { NetworksArray, QuaiNetworkGA } from "../../constants/networks/networks"
 
 type OldState = {
   activities: {
@@ -14,11 +15,11 @@ type OldState = {
               spenderAddress: string
               spender?: {
                 address: string
-                network: EVMNetwork
+                network: NetworkInterfaceGA
                 annotation: {
                   nameOnNetwork: {
                     name: string
-                    network: EVMNetwork
+                    network: NetworkInterfaceGA
                   }
                 }
               }
@@ -42,11 +43,11 @@ type NewState = {
               type: string
               spender: {
                 address: string
-                network: EVMNetwork
+                network: NetworkInterfaceGA
                 annotation: {
                   nameOnNetwork?: {
                     name: string
-                    network: EVMNetwork
+                    network: NetworkInterfaceGA
                   }
                 }
               }
@@ -87,12 +88,17 @@ export default (prevState: Record<string, unknown>): NewState => {
             ) {
               const spender = {
                 address: annotation.spenderAddress,
-                network: NETWORK_BY_CHAIN_ID[chainID],
+                network:
+                  NetworksArray.find((net) => net.chainID === chainID) ??
+                  QuaiNetworkGA,
                 annotation: annotation.spenderName
                   ? {
                       nameOnNetwork: {
                         name: annotation.spenderName,
-                        network: NETWORK_BY_CHAIN_ID[chainID],
+                        network:
+                          NetworksArray.find(
+                            (net) => net.chainID === chainID
+                          ) ?? QuaiNetworkGA,
                       },
                     }
                   : {},

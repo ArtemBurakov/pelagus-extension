@@ -91,7 +91,7 @@ export type EVMBlock = {
   difficulty: bigint
   blockHeight: number
   timestamp: UNIXTime
-  network: EVMNetwork
+  network: NetworkInterfaceGA
 }
 
 /**
@@ -334,7 +334,7 @@ export type AnyEVMTransaction =
  * the given `baseFeePerGas` will be included in the next block.
  */
 export type BlockPrices = {
-  network: Network
+  network: NetworkInterfaceGA
   blockNumber: number
   baseFeePerGas: bigint
   /**

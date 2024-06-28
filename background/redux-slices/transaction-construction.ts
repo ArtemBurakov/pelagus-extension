@@ -5,7 +5,6 @@ import {
   BlockEstimate,
   BlockPrices,
   EIP1559TransactionRequest,
-  EVMNetwork,
   isEIP1559TransactionRequest,
   LegacyEVMTransactionRequest,
   SignedTransaction,
@@ -17,6 +16,7 @@ import {
 } from "../services/enrichment"
 import { createBackgroundAsyncThunk } from "./utils"
 import { SignOperation } from "./signing"
+import { NetworkInterfaceGA } from "../constants/networks/networkTypes"
 import { TransactionRequest as NewTransactionRequest } from "quais"
 import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
 
@@ -256,7 +256,12 @@ const transactionSlice = createSlice({
       immerState,
       {
         payload: { estimatedFeesPerGas, network },
-      }: { payload: { estimatedFeesPerGas: BlockPrices; network: EVMNetwork } }
+      }: {
+        payload: {
+          estimatedFeesPerGas: BlockPrices
+          network: NetworkInterfaceGA
+        }
+      }
     ) => {
       immerState.estimatedFeesPerGas = {
         ...(immerState.estimatedFeesPerGas ?? {}),

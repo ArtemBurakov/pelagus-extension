@@ -396,7 +396,7 @@ export default class ChainService extends BaseService<Events> {
    * Defaults to ethereum in the case that neither exist.
    */
   async getTrackedNetworks(): Promise<NetworkInterfaceGA[]> {
-    if (this.trackedNetworks.length > 0) return this.trackedNetworks
+    if (this.trackedNetworks.length) return this.trackedNetworks
 
     // Since trackedNetworks will be an empty array at extension load (or reload time)
     // we need a durable way to track which networks an extension is tracking.
@@ -693,7 +693,6 @@ export default class ChainService extends BaseService<Events> {
     const normalizedAddress = normalizeEVMAddress(transactionRequest.from)
     const { currentProvider } = this
 
-    // https://docs.ethers.io/v5/single-page/#/v5/api/providers/provider/-%23-Provider-getTransactionCount
     const chainTransactionCount = await currentProvider?.getTransactionCount(
       transactionRequest.from,
       "latest"
@@ -828,10 +827,7 @@ export default class ChainService extends BaseService<Events> {
 
   async getNetworksToTrack(): Promise<NetworkInterfaceGA[]> {
     const chainIDs = await this.db.getChainIDsToTrack()
-    if (!chainIDs.size) {
-      // Default to tracking Ethereum so ENS resolution works during onboarding
-      return [QuaiNetworkGA]
-    }
+    if (!chainIDs.size) return [QuaiNetworkGA]
 
     const networks = await Promise.all(
       [...chainIDs].map(async (chainID) => {
@@ -862,7 +858,6 @@ export default class ChainService extends BaseService<Events> {
     const prevShard = globalThis.main.SelectedShard
     const addrShard = getExtendedZoneForAddress(address)
     if (globalThis.main.SelectedShard !== addrShard) {
-      // Ideally this never happens, but it might
       globalThis.main.SetShard(addrShard)
     }
     let err = false
@@ -906,7 +901,6 @@ export default class ChainService extends BaseService<Events> {
       address: normalizedAddress,
       network,
       assetAmount: {
-        // Data stored in chain db for network base asset might be stale
         asset: await this.db.getBaseAssetForNetwork(network.chainID),
         amount: balance ?? toBigInt(0),
       },
@@ -1446,9 +1440,12 @@ export default class ChainService extends BaseService<Events> {
       return
     }
 
+    const { address } = await this.preferenceService.getSelectedAccount()
+    const shard = getExtendedZoneForAddress(address, false) as Shard
     const blockPrices = await getBlockPrices(
       subscription.network,
-      subscription.provider
+      subscription.provider,
+      shard
     )
     this.emitter.emit("blockPrices", {
       blockPrices,
@@ -1463,8 +1460,9 @@ export default class ChainService extends BaseService<Events> {
     network: NetworkInterfaceGA,
     provider: JsonRpcProvider
   ): Promise<void> {
-    // TODO-MIGRATION for now supporting only cyprus shards, need to be fixed
-    const ethersBlock = await provider.getBlock(Shard.Cyprus, "latest")
+    const { address } = await this.preferenceService.getSelectedAccount()
+    const shard = getExtendedZoneForAddress(address, false) as Shard
+    const ethersBlock = await provider.getBlock(shard, "latest")
     // add new head to database
     const block = blockFromProviderBlock(network, ethersBlock)
     await this.db.addBlock(block)
@@ -1910,9 +1908,9 @@ export default class ChainService extends BaseService<Events> {
     if (provider) {
       try {
         const blockNumber = await provider.getBlockNumber()
-
-        // TODO-MIGRATION for now supporting only cyprus shards, need to be fixed
-        const result = await provider.getBlock(Shard.Cyprus, blockNumber)
+        const { address } = await this.preferenceService.getSelectedAccount()
+        const shard = getExtendedZoneForAddress(address, false) as Shard
+        const result = await provider.getBlock(shard, blockNumber)
 
         if (!result) throw new Error("Failed to get block")
 

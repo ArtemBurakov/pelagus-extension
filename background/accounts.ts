@@ -1,5 +1,4 @@
 import { AnyAssetAmount } from "./assets"
-import { EVMNetwork } from "./networks"
 import { HexString } from "./types"
 import { NetworkInterfaceGA } from "./constants/networks/networkTypes"
 

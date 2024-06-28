@@ -11,10 +11,10 @@ export async function resolveAddressAnnotation(
   nameService: NameService,
   addressOnNetwork: AddressOnNetwork
 ): Promise<AddressOnNetworkAnnotation> {
-  const { address, network } = addressOnNetwork
+  const { address } = addressOnNetwork
   const prevShard = globalThis.main.GetShard()
   globalThis.main.SetShard(getExtendedZoneForAddress(address))
-  const provider = chainService.providerForNetworkOrThrow(network)
+  const provider = chainService.providerForNetworkOrThrow()
   const codeHex = await provider.getCode(address)
   globalThis.main.SetShard(prevShard)
   const [balance, nameRecord] = await Promise.all([

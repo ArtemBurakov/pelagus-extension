@@ -4,4 +4,11 @@ export interface NetworkInterfaceGA {
   family: string
   derivationPath?: string
   rpcUrls: string[] | string
+  chains: {
+    name: string
+    shard: string
+    blockExplorerUrl: string
+    multicall: string
+  }[]
+  blockExplorerURL?: string
 }

@@ -51,14 +51,10 @@ export default class NameService extends BaseService<Events> {
    * discrimant might be used within a network family between networks.
    */
   private cachedResolvedNames: {
-    EVM: {
-      [chainID: string]: {
-        [address: HexString]: ResolvedNameRecord | undefined
-      }
+    [chainID: string]: {
+      [address: HexString]: ResolvedNameRecord | undefined
     }
-  } = {
-    EVM: {},
-  }
+  } = {}
 
   /**
    * Create a new NameService. The service isn't initialized until
@@ -154,12 +150,12 @@ export default class NameService extends BaseService<Events> {
   ): Promise<ResolvedNameRecord | undefined> {
     const { address, network } = normalizeAddressOnNetwork(addressOnNetwork)
 
-    if (!this.cachedResolvedNames[network.family][network.chainID]) {
-      this.cachedResolvedNames[network.family][network.chainID] = {}
+    if (!this.cachedResolvedNames[network.chainID]) {
+      this.cachedResolvedNames[network.chainID] = {}
     }
 
     const cachedResolvedNameRecord =
-      this.cachedResolvedNames[network.family]?.[network.chainID]?.[address]
+      this.cachedResolvedNames?.[network.chainID]?.[address]
 
     if (checkCache && cachedResolvedNameRecord) {
       const {
@@ -227,8 +223,7 @@ export default class NameService extends BaseService<Events> {
 
     const cachedNameOnNetwork = cachedResolvedNameRecord?.resolved.nameOnNetwork
 
-    this.cachedResolvedNames[network.family][network.chainID][address] =
-      nameRecord
+    this.cachedResolvedNames[network.chainID][address] = nameRecord
 
     if (cachedNameOnNetwork?.name !== nameOnNetwork.name) {
       this.emitter.emit("resolvedName", nameRecord)
@@ -238,8 +233,8 @@ export default class NameService extends BaseService<Events> {
   }
 
   clearNameCacheEntry(chainId: string, address: HexString): void {
-    if (this.cachedResolvedNames.EVM[chainId]?.[address] !== undefined) {
-      delete this.cachedResolvedNames.EVM[chainId][address]
+    if (this.cachedResolvedNames[chainId]?.[address] !== undefined) {
+      delete this.cachedResolvedNames[chainId][address]
     }
   }
 

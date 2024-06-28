@@ -1,6 +1,5 @@
 import sinon from "sinon"
 import ChainService from ".."
-import { QUAI_NETWORK } from "../../../constants"
 import {
   AnyEVMTransaction,
   TransactionRequest,
@@ -13,6 +12,7 @@ import {
 } from "../../../tests/factories"
 import { ChainDatabase } from "../db"
 import SerialFallbackProvider from "../serial-fallback-provider"
+import { QuaiNetworkGA } from "../../../constants/networks/networks"
 
 type ChainServiceExternalized = Omit<ChainService, ""> & {
   db: ChainDatabase
@@ -44,7 +44,7 @@ describe("ChainService", () => {
       // Startup is simulated in the `beforeEach`
       expect(
         chainService.subscribedNetworks.filter(
-          ({ network }) => network.chainID === QUAI_NETWORK.chainID
+          ({ network }) => network.chainID === QuaiNetworkGA.chainID
         )
       ).toHaveLength(1)
     })
@@ -100,8 +100,8 @@ describe("ChainService", () => {
       )
 
     const transactionRequestWithoutNonce = createLegacyTransactionRequest({
-      network: QUAI_NETWORK,
-      chainID: QUAI_NETWORK.chainID,
+      network: QuaiNetworkGA,
+      chainID: QuaiNetworkGA.chainID,
       nonce: undefined,
     })
 
@@ -144,8 +144,8 @@ describe("ChainService", () => {
       )
 
     const transactionRequestWithoutNonce = createLegacyTransactionRequest({
-      network: QUAI_NETWORK,
-      chainID: QUAI_NETWORK.chainID,
+      network: QuaiNetworkGA,
+      chainID: QuaiNetworkGA.chainID,
       nonce: undefined,
     })
 
@@ -187,7 +187,7 @@ describe("ChainService", () => {
     // Transaction should be persisted to the db
     expect(
       await chainServiceExternalized.getTransaction(
-        QUAI_NETWORK,
+        QuaiNetworkGA,
         validQuaiTransaction.hash
       )
     ).toBeTruthy()
@@ -198,30 +198,6 @@ describe("ChainService", () => {
       chainService.supportedNetworks = []
       await chainService.updateSupportedNetworks()
       expect(chainService.supportedNetworks.length).toBe(8)
-    })
-  })
-
-  describe("addCustomChain", () => {
-    // prettier-ignore
-    const FANTOM_CHAIN_PARAMS = { chainId: "250", blockExplorerUrl: "https://ftmscan.com", chainName: "Fantom Opera", nativeCurrency: { name: "Fantom", symbol: "FTM", decimals: 18, }, rpcUrls: [ "https://fantom-mainnet.gateway.pokt.network/v1/lb/62759259ea1b320039c9e7ac", "https://rpc.ftm.tools", "https://rpc.ankr.com/fantom", "https://rpc.fantom.network", "https://rpc2.fantom.network", "https://rpc3.fantom.network", "https://rpcapi.fantom.network", "https://fantom-mainnet.public.blastapi.io", "https://1rpc.io/ftm", ], blockExplorerUrls: ["https://ftmscan.com"], }
-    it("should update supported networks after adding a chain", async () => {
-      expect(chainService.supportedNetworks.length).toBe(8)
-      await chainService.addCustomChain(FANTOM_CHAIN_PARAMS)
-      expect(chainService.supportedNetworks.length).toBe(9)
-    })
-
-    it("should create a provider for the new chain", async () => {
-      expect(chainService.providers.evm["250"]).toBe(undefined)
-      await chainService.addCustomChain(FANTOM_CHAIN_PARAMS)
-      expect(chainService.providers.evm["250"]).toBeInstanceOf(
-        SerialFallbackProvider
-      )
-    })
-
-    it("should start tracking the new chain", async () => {
-      expect((await chainService.getTrackedNetworks()).length).toBe(1)
-      await chainService.addCustomChain(FANTOM_CHAIN_PARAMS)
-      expect((await chainService.getTrackedNetworks()).length).toBe(2)
     })
   })
 
@@ -248,8 +224,8 @@ describe("ChainService", () => {
       const chainServiceExternalized =
         chainService as unknown as ChainServiceExternalized
       const transactionRequest = createLegacyTransactionRequest({
-        network: QUAI_NETWORK,
-        chainID: QUAI_NETWORK.chainID,
+        network: QuaiNetworkGA,
+        chainID: QuaiNetworkGA.chainID,
         nonce: CHAIN_NONCE,
       })
 
@@ -265,8 +241,8 @@ describe("ChainService", () => {
       const chainServiceExternalized =
         chainService as unknown as ChainServiceExternalized
       const transactionRequest = createLegacyTransactionRequest({
-        network: QUAI_NETWORK,
-        chainID: QUAI_NETWORK.chainID,
+        network: QuaiNetworkGA,
+        chainID: QuaiNetworkGA.chainID,
         nonce: CHAIN_NONCE,
       })
 
@@ -282,8 +258,8 @@ describe("ChainService", () => {
       const chainServiceExternalized =
         chainService as unknown as ChainServiceExternalized
       const transactionRequest = createLegacyTransactionRequest({
-        network: QUAI_NETWORK,
-        chainID: QUAI_NETWORK.chainID,
+        network: QuaiNetworkGA,
+        chainID: QuaiNetworkGA.chainID,
         nonce: CHAIN_NONCE,
       })
 
@@ -302,8 +278,8 @@ describe("ChainService", () => {
       const chainServiceExternalized =
         chainService as unknown as ChainServiceExternalized
       const transactionRequest = createLegacyTransactionRequest({
-        network: QUAI_NETWORK,
-        chainID: QUAI_NETWORK.chainID,
+        network: QuaiNetworkGA,
+        chainID: QuaiNetworkGA.chainID,
         nonce: undefined,
       })
 
@@ -319,8 +295,8 @@ describe("ChainService", () => {
       const chainServiceExternalized =
         chainService as unknown as ChainServiceExternalized
       const transactionRequest = createLegacyTransactionRequest({
-        network: QUAI_NETWORK,
-        chainID: QUAI_NETWORK.chainID,
+        network: QuaiNetworkGA,
+        chainID: QuaiNetworkGA.chainID,
         nonce: undefined,
       })
 
@@ -336,8 +312,8 @@ describe("ChainService", () => {
       const chainServiceExternalized =
         chainService as unknown as ChainServiceExternalized
       const transactionRequest = createLegacyTransactionRequest({
-        network: QUAI_NETWORK,
-        chainID: QUAI_NETWORK.chainID,
+        network: QuaiNetworkGA,
+        chainID: QuaiNetworkGA.chainID,
         nonce: undefined,
       })
 
@@ -356,8 +332,8 @@ describe("ChainService", () => {
       const chainServiceExternalized =
         chainService as unknown as ChainServiceExternalized
       const transactionRequest = createLegacyTransactionRequest({
-        network: QUAI_NETWORK,
-        chainID: QUAI_NETWORK.chainID,
+        network: QuaiNetworkGA,
+        chainID: QuaiNetworkGA.chainID,
         nonce: undefined,
       })
 
@@ -390,8 +366,8 @@ describe("ChainService", () => {
       const chainServiceExternalized =
         chainService as unknown as ChainServiceExternalized
       const transactionRequest = createLegacyTransactionRequest({
-        network: QUAI_NETWORK,
-        chainID: QUAI_NETWORK.chainID,
+        network: QuaiNetworkGA,
+        chainID: QuaiNetworkGA.chainID,
         nonce: NONCE,
       }) as TransactionRequestWithNonce
       const { chainID, from } = transactionRequest
@@ -422,8 +398,8 @@ describe("ChainService", () => {
       const chainServiceExternalized =
         chainService as unknown as ChainServiceExternalized
       const transactionRequest = createLegacyTransactionRequest({
-        network: QUAI_NETWORK,
-        chainID: QUAI_NETWORK.chainID,
+        network: QuaiNetworkGA,
+        chainID: QuaiNetworkGA.chainID,
         nonce: NONCE,
       }) as TransactionRequestWithNonce
       const { chainID, from } = transactionRequest
@@ -449,36 +425,14 @@ describe("ChainService", () => {
 
   describe("getNetworksToTrack", () => {
     it("Should fetch built-in and custom networks to track", async () => {
-      await chainService.addCustomChain({
-        chainName: "Foo",
-        chainId: "12345",
-        nativeCurrency: {
-          name: "FooCoin",
-          symbol: "FOO",
-          decimals: 18,
-        },
-        rpcUrls: ["https://foo.com"],
-        blockExplorerUrl: "https://fooscanner.com",
+      await chainService.addAccountToTrack({
+        address: "0x123",
+        network: QuaiNetworkGA,
       })
 
       await chainService.addAccountToTrack({
         address: "0x123",
-        network: {
-          name: "Foo",
-          chainID: "12345",
-          family: "EVM",
-          baseAsset: {
-            decimals: 18,
-            symbol: "FOO",
-            name: "FooCoin",
-            chainID: "12345",
-          },
-        },
-      })
-
-      await chainService.addAccountToTrack({
-        address: "0x123",
-        network: QUAI_NETWORK,
+        network: QuaiNetworkGA,
       })
       const networksToTrack = await chainService.getNetworksToTrack()
 

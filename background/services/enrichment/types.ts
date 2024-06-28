@@ -3,13 +3,13 @@ import { AccountBalance, AddressOnNetwork } from "../../accounts"
 import {
   AnyEVMTransaction,
   EIP1559TransactionRequest,
-  EVMNetwork,
   LegacyEVMTransactionRequest,
 } from "../../networks"
 import { AssetDecimalAmount } from "../../redux-slices/utils/asset-utils"
 import { UNIXTime } from "../../types"
 import { SignTypedDataRequest } from "../../utils/signing"
 import { ResolvedNameRecord } from "../name"
+import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
 
 export type BaseTransactionAnnotation = {
   /**
@@ -91,14 +91,14 @@ export type EnrichedEIP1559TransactionSignatureRequest =
   Partial<EIP1559TransactionRequest> & {
     from: string
     annotation?: TransactionAnnotation
-    network: EVMNetwork
+    network: NetworkInterfaceGA
   }
 
 export type EnrichedLegacyTransactionSignatureRequest =
   Partial<LegacyEVMTransactionRequest> & {
     from: string
     annotation?: TransactionAnnotation
-    network: EVMNetwork
+    network: NetworkInterfaceGA
   }
 
 export type EnrichedEIP1559TransactionRequest = EIP1559TransactionRequest & {
@@ -114,10 +114,16 @@ export type EnrichedEVMTransactionRequest =
   | EnrichedLegacyTransactionRequest
 
 type PartialEIP1559TransactionRequestWithFrom =
-  | Partial<EIP1559TransactionRequest> & { from: string; network: EVMNetwork }
+  | Partial<EIP1559TransactionRequest> & {
+      from: string
+      network: NetworkInterfaceGA
+    }
 
 type PartialLegacyEVMTransactionRequestWithFrom =
-  | Partial<LegacyEVMTransactionRequest> & { from: string; network: EVMNetwork }
+  | Partial<LegacyEVMTransactionRequest> & {
+      from: string
+      network: NetworkInterfaceGA
+    }
 
 export type PartialTransactionRequestWithFrom =
   | PartialEIP1559TransactionRequestWithFrom

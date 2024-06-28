@@ -15,10 +15,7 @@ import {
 } from "@pelagus/pelagus-background/assets"
 import { ReadOnlyAccountSigner } from "@pelagus/pelagus-background/services/signing"
 import { useTranslation } from "react-i18next"
-import {
-  CurrentShardToExplorer,
-  DEFAULT_NETWORKS_BY_CHAIN_ID,
-} from "@pelagus/pelagus-background/constants"
+import { CurrentShardToExplorer } from "@pelagus/pelagus-background/constants"
 import {
   isUntrustedAsset,
   isUnverifiedAssetByUser,
@@ -34,6 +31,8 @@ import { blockExplorer } from "../utils/constants"
 import AssetVerifyToggler from "../components/Wallet/UnverifiedAsset/AssetVerifyToggler"
 import { trimWithEllipsis } from "../utils/textUtils"
 import AssetWarningWrapper from "../components/Wallet/UnverifiedAsset/AssetWarningWrapper"
+import { NetworksArray } from "@pelagus/pelagus-background/constants/networks/networks"
+import { isQuaiHandle } from "@pelagus/pelagus-background/constants/networks/networkUtils"
 
 const MAX_SYMBOL_LENGTH = 10
 
@@ -150,9 +149,12 @@ export default function SingleAsset(): ReactElement {
                     <a
                       className="new_tab_link"
                       href={
-                        DEFAULT_NETWORKS_BY_CHAIN_ID.has(currentNetwork.chainID)
+                        NetworksArray.find(
+                          (network) =>
+                            network.chainID === currentNetwork.chainID
+                        )
                           ? `${
-                              currentNetwork.isQuai
+                              isQuaiHandle(currentNetwork)
                                 ? CurrentShardToExplorer(
                                     currentNetwork,
                                     account.address

@@ -2,7 +2,7 @@ import { webcrypto } from "crypto"
 import browser from "webextension-polyfill"
 import { KeyringTypes } from "../types"
 import { EIP1559TransactionRequest } from "../networks"
-import { QUAI_NETWORK, QUAI } from "../constants"
+import { QUAI } from "../constants"
 import logger from "../lib/logger"
 import { KeyringService } from "../services"
 import {
@@ -14,6 +14,7 @@ import {
   MAX_KEYRING_IDLE_TIME,
   MAX_OUTSIDE_IDLE_TIME,
 } from "../services/keyring"
+import { QuaiNetworkGA } from "../constants/networks/networks"
 import { Zone } from "quais"
 
 const originalCrypto = global.crypto
@@ -59,7 +60,8 @@ const validTransactionRequests: {
     gasLimit: 0n,
     chainID: "0",
     network: {
-      name: "none",
+      chains: [],
+      rpcUrls: "",
       chainID: "0",
       baseAsset: QUAI,
       family: "EVM",
@@ -134,7 +136,7 @@ describe("KeyringService when uninitialized", () => {
     it("won't sign transactions", async () => {
       await expect(
         service.signTransaction(
-          { address: "0x0", network: "9000" },
+          { address: "0x0", network: QuaiNetworkGA.chainID },
           validTransactionRequests.simple
         )
       ).rejects.toThrow("KeyringService must be unlocked.")
@@ -270,7 +272,10 @@ describe("KeyringService when initialized", () => {
     }
 
     await expect(
-      service.signTransaction({ address, network: "9000" }, transactionWithFrom)
+      service.signTransaction(
+        { address, network: QuaiNetworkGA.chainID },
+        transactionWithFrom
+      )
     ).resolves.toMatchObject({
       from: expect.stringMatching(new RegExp(address, "i")), // case insensitive match
       r: expect.anything(),
@@ -295,7 +300,10 @@ describe("KeyringService when initialized", () => {
     expect(goodUnlockResult).toEqual(true)
 
     await expect(
-      service.signTransaction({ address, network: "9000" }, transactionWithFrom)
+      service.signTransaction(
+        { address, network: QuaiNetworkGA.chainID },
+        transactionWithFrom
+      )
     ).resolves.toBeDefined()
   })
 
@@ -502,7 +510,7 @@ describe("Keyring service when autolocking", () => {
         }
 
         await service.signTransaction(
-          { address, network: "9000" },
+          { address, network: QuaiNetworkGA.chainID },
           transactionWithFrom
         )
       },
