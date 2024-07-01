@@ -1,5 +1,6 @@
 import { webcrypto } from "crypto"
 import browser from "webextension-polyfill"
+import { Zone } from "quais"
 import { KeyringTypes } from "../types"
 import { EIP1559TransactionRequest } from "../networks"
 import { QUAI } from "../constants"
@@ -14,8 +15,6 @@ import {
   MAX_KEYRING_IDLE_TIME,
   MAX_OUTSIDE_IDLE_TIME,
 } from "../services/keyring"
-import { QuaiNetworkGA } from "../constants/networks/networks"
-import { Zone } from "quais"
 
 const originalCrypto = global.crypto
 beforeEach(() => {
@@ -135,10 +134,7 @@ describe("KeyringService when uninitialized", () => {
 
     it("won't sign transactions", async () => {
       await expect(
-        service.signTransaction(
-          { address: "0x0", network: QuaiNetworkGA.chainID },
-          validTransactionRequests.simple
-        )
+        service.signTransaction(validTransactionRequests.simple)
       ).rejects.toThrow("KeyringService must be unlocked.")
     })
   })
@@ -272,10 +268,7 @@ describe("KeyringService when initialized", () => {
     }
 
     await expect(
-      service.signTransaction(
-        { address, network: QuaiNetworkGA.chainID },
-        transactionWithFrom
-      )
+      service.signTransaction(transactionWithFrom)
     ).resolves.toMatchObject({
       from: expect.stringMatching(new RegExp(address, "i")), // case insensitive match
       r: expect.anything(),
@@ -300,10 +293,7 @@ describe("KeyringService when initialized", () => {
     expect(goodUnlockResult).toEqual(true)
 
     await expect(
-      service.signTransaction(
-        { address, network: QuaiNetworkGA.chainID },
-        transactionWithFrom
-      )
+      service.signTransaction(transactionWithFrom)
     ).resolves.toBeDefined()
   })
 
@@ -509,10 +499,7 @@ describe("Keyring service when autolocking", () => {
           from: address,
         }
 
-        await service.signTransaction(
-          { address, network: QuaiNetworkGA.chainID },
-          transactionWithFrom
-        )
+        await service.signTransaction(transactionWithFrom)
       },
     },
     {

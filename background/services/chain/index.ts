@@ -592,6 +592,7 @@ export default class ChainService extends BaseService<Events> {
    * Returns the transaction request with a guaranteed-defined nonce, suitable
    * for signing by a signer.
    */
+  // TODO-MIGRATION MAYBE DELETE
   async populateEVMTransactionNonce(
     transactionRequest: TransactionRequest
   ): Promise<TransactionRequestWithNonce> {

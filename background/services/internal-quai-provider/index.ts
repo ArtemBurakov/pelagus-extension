@@ -246,7 +246,7 @@ export default class InternalQuaiProviderService extends BaseService<Events> {
             //  v: signedTransaction.v,
             //  }
             //  )
-            QuaiTransaction.from(signedTransaction).serialized
+            QuaiTransaction.from(signedTransaction)
           // ----------------------------------------------
         )
       case "quai_sign":
@@ -345,7 +345,7 @@ export default class InternalQuaiProviderService extends BaseService<Events> {
     if (!currentNetwork) {
       // If this is a new dapp or the dapp has not implemented wallet_switchEthereumChain
       // use the default network.
-      return await this.getCurrentInternalNetwork()
+      return this.getCurrentInternalNetwork()
     }
     return currentNetwork
   }
@@ -382,7 +382,6 @@ export default class InternalQuaiProviderService extends BaseService<Events> {
         data: transactionRequest.input,
         ...transactionRequest,
         gasLimit: transactionRequest.gas, // convert gas -> gasLimit
-        // Etherjs rejects Rootstock checksummed addresses so convert to lowercase
         from: transactionRequest.from,
         to: transactionRequest.to,
       })

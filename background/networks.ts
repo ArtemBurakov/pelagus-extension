@@ -1,16 +1,11 @@
 import { TransactionRequest as EthersTransactionRequest } from "@quais/abstract-provider"
 import { Transaction } from "@quais/transactions"
-import { Slip44CoinType } from "./constants"
+import { ChainData, Slip44CoinType } from "./constants"
 import { HexString, UNIXTime } from "./types"
 import type { FungibleAsset } from "./assets"
 import type {
-  EnrichedEIP1559TransactionRequest,
-  EnrichedEIP1559TransactionSignatureRequest,
-  EnrichedEVMTransactionRequest,
-  EnrichedEVMTransactionSignatureRequest,
   PartialTransactionRequestWithFrom,
 } from "./services/enrichment"
-import { ChainData } from "./constants"
 import { NetworkInterfaceGA } from "./constants/networks/networkTypes"
 
 /**
@@ -179,7 +174,7 @@ export type LegacyEVMTransactionRequest = Pick<
  * Transaction types attributes are expanded in the https://eips.ethereum.org/EIPS/eip-2718 standard which
  * is backward compatible. This means that it's enough for us to expand only the accepted tx types.
  * On the other hand we have yet to find other types from the range being used, so let's be restrictive,
- * and we can expand the range afterwards. Types we have encountered so far:
+ * and we can expand the range afterward. Types we have encountered so far:
  * 0 - plain jane
  * 1 - EIP-2930
  * 2 - EIP-1559 transactions
@@ -311,13 +306,6 @@ export type SignedTransaction =
   | SignedLegacyEVMTransaction
 
 /**
- * An EVM transaction that has all signature fields and has been included in a
- * block.
- */
-export type SignedConfirmedEVMTransaction = SignedEIP1559Transaction &
-  ConfirmedEVMTransaction
-
-/**
  * Any EVM transaction, confirmed or unconfirmed and signed or unsigned.
  */
 export type AnyEVMTransaction =
@@ -418,20 +406,3 @@ export const isEIP1559SignedTransaction = (
   "maxPriorityFeePerGas" in signedTransaction &&
   signedTransaction.maxFeePerGas !== null &&
   signedTransaction.maxPriorityFeePerGas !== null
-
-export const isEIP1559EnrichedTransactionSignatureRequest = (
-  transactionSignatureRequest: EnrichedEVMTransactionSignatureRequest
-): transactionSignatureRequest is EnrichedEIP1559TransactionSignatureRequest =>
-  "maxFeePerGas" in transactionSignatureRequest &&
-  "maxPriorityFeePerGas" in transactionSignatureRequest
-
-export const isEIP1559EnrichedTransactionRequest = (
-  enrichedTransactionRequest: EnrichedEVMTransactionRequest
-): enrichedTransactionRequest is EnrichedEIP1559TransactionRequest =>
-  "maxFeePerGas" in enrichedTransactionRequest &&
-  "maxPriorityFeePerGas" in enrichedTransactionRequest
-
-export const isEnrichedEVMTransactionRequest = (
-  transactionRequest: TransactionRequest
-): transactionRequest is EnrichedEVMTransactionRequest =>
-  "annotation" in transactionRequest
