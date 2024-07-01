@@ -10,6 +10,7 @@ import {
   toBigInt,
   TransactionReceipt,
   TransactionResponse,
+  WebSocketProvider,
 } from "quais"
 import { NetworksArray } from "../../constants/networks/networks"
 import ProviderFactory from "../provider-factory"
@@ -175,7 +176,10 @@ export type PriorityQueuedTxToRetrieve = {
 export default class ChainService extends BaseService<Events> {
   private providerFactory: ProviderFactory
 
-  private currentProvider: JsonRpcProvider
+  private currentProvider: {
+    jsonRpc: JsonRpcProvider
+    websocket: WebSocketProvider
+  }
 
   private currentNetwork: NetworkInterfaceGA
 
@@ -322,14 +326,15 @@ export default class ChainService extends BaseService<Events> {
     this.currentProvider = this.providerFactory.getProvider(
       networkFromPreferences
     )
-    this.assetData = new AssetDataHelper(this.currentProvider)
+    this.assetData = new AssetDataHelper(this.currentProvider.jsonRpc)
 
     const accounts = await this.getAccountsToTrack()
     const transactions = await this.db.getAllTransactions()
     this.emitter.emit("initializeActivities", { transactions, accounts })
 
-    this.subscribeOnNetworksAndAddresses(this.supportedNetworks, accounts)
-    this.subscribeOnAccountTransactions(this.supportedNetworks, accounts)
+    await this.subscribeOnAccountTransactions(this.supportedNetworks, accounts)
+
+    await this.subscribeOnNetworksAndAddresses(this.supportedNetworks, accounts)
   }
 
   private subscribeOnNetworksAndAddresses = async (
@@ -387,11 +392,10 @@ export default class ChainService extends BaseService<Events> {
     this.currentProvider = this.providerFactory.getProvider(network)
   }
 
-  /**
-   * Finds a provider for the given network, or returns undefined if no such
-   * provider exists.
-   */
-  providerForNetworkOrThrow(): JsonRpcProvider {
+  getCurrentProvider(): {
+    jsonRpc: JsonRpcProvider
+    websocket: WebSocketProvider
+  } {
     const provider = this.currentProvider
     if (!provider) {
       logger.error(
@@ -601,10 +605,11 @@ export default class ChainService extends BaseService<Events> {
     const normalizedAddress = normalizeEVMAddress(transactionRequest.from)
     const { currentProvider } = this
 
-    const chainTransactionCount = await currentProvider?.getTransactionCount(
-      transactionRequest.from,
-      "latest"
-    )
+    const chainTransactionCount =
+      await currentProvider.jsonRpc?.getTransactionCount(
+        transactionRequest.from,
+        "latest"
+      )
     let knownNextNonce
 
     if (!chainTransactionCount)
@@ -754,7 +759,9 @@ export default class ChainService extends BaseService<Events> {
     let err = false
     let balance: bigint | undefined = toBigInt(0)
     try {
-      balance = await this.currentProvider?.getBalance(normalizedAddress)
+      balance = await this.currentProvider.jsonRpc?.getBalance(
+        normalizedAddress
+      )
     } catch (error) {
       if (error instanceof Error) {
         console.error("Error getting balance for address", address, error)
@@ -769,7 +776,7 @@ export default class ChainService extends BaseService<Events> {
           `Global shard: ${
             globalThis.main.SelectedShard
           } Address shard: ${addrShard} Provider: ${
-            this.currentProvider?._getConnection().url
+            this.currentProvider.jsonRpc?._getConnection().url
           }`
         )
       }
@@ -855,7 +862,7 @@ export default class ChainService extends BaseService<Events> {
     const cachedBlock = await this.db.getLatestBlock(network)
     if (cachedBlock) return cachedBlock.blockHeight
 
-    const blockNumber = await this.currentProvider?.getBlockNumber()
+    const blockNumber = await this.currentProvider.jsonRpc?.getBlockNumber()
     if (!blockNumber) throw new Error("Failed get block number")
     return blockNumber
   }
@@ -883,7 +890,10 @@ export default class ChainService extends BaseService<Events> {
 
     if (!shard) throw new Error("Failed to get zone for shard")
 
-    const resultBlock = await this.currentProvider?.getBlock(shard, blockHash)
+    const resultBlock = await this.currentProvider.jsonRpc?.getBlock(
+      shard,
+      blockHash
+    )
     if (!resultBlock) throw new Error(`Failed to get block`)
 
     const block = blockFromEthersBlock(network, resultBlock)
@@ -912,7 +922,10 @@ export default class ChainService extends BaseService<Events> {
 
     const { currentProvider } = this
 
-    const resultBlock = await currentProvider?.getBlock(shard, blockHash)
+    const resultBlock = await currentProvider.jsonRpc?.getBlock(
+      shard,
+      blockHash
+    )
     if (!resultBlock) throw new Error(`Failed to get block`)
 
     const block = blockFromEthersBlock(network, resultBlock)
@@ -936,7 +949,7 @@ export default class ChainService extends BaseService<Events> {
     txHash: HexString
   ): Promise<AnyEVMTransaction | TransactionResponse | null> {
     const { currentProvider } = this
-    const gethResult = (await currentProvider?.getTransaction(
+    const gethResult = (await currentProvider.jsonRpc?.getTransaction(
       txHash
     )) as TransactionResponse & {
       from: string
@@ -996,7 +1009,7 @@ export default class ChainService extends BaseService<Events> {
     // Transaction hasn't confirmed in origin chain yet
     if (!cachedTx || !cachedTx.blockHash) {
       console.log("Transaction hasn't confirmed in origin chain yet")
-      const gethResult = (await originProvider?.getTransaction(
+      const gethResult = (await originProvider.jsonRpc?.getTransaction(
         txHash
       )) as TransactionResponse & {
         from: string
@@ -1030,7 +1043,7 @@ export default class ChainService extends BaseService<Events> {
       const etxHash = "etxs" in cachedTx ? cachedTx.etxs[0].hash : undefined
       if (!etxHash) return cachedTx
 
-      const gethResult = (await destinationProvider?.getTransaction(
+      const gethResult = (await destinationProvider.jsonRpc?.getTransaction(
         etxHash
       )) as TransactionResponse & {
         from: string
@@ -1064,7 +1077,7 @@ export default class ChainService extends BaseService<Events> {
     }
 
     // Transaction is not cached
-    const gethResult = (await this.currentProvider?.getTransaction(
+    const gethResult = (await this.currentProvider.jsonRpc?.getTransaction(
       txHash
     )) as TransactionResponse & {
       from: string
@@ -1173,7 +1186,7 @@ export default class ChainService extends BaseService<Events> {
   async estimateGasLimit(
     transactionRequest: TransactionRequest
   ): Promise<bigint> {
-    const estimate = await this.currentProvider?.estimateGas(
+    const estimate = await this.currentProvider.jsonRpc?.estimateGas(
       ethersTransactionFromTransactionRequest(transactionRequest)
     )
 
@@ -1189,7 +1202,7 @@ export default class ChainService extends BaseService<Events> {
    * the base estimate returned by the provider.
    */
   private async estimateGasPrice(tx: TransactionRequest): Promise<bigint> {
-    const estimate = await this.currentProvider?.estimateGas(tx)
+    const estimate = await this.currentProvider.jsonRpc?.estimateGas(tx)
 
     if (!estimate) throw new Error("Failed to estimate gas")
     // Add 10% more gas as a safety net
@@ -1220,7 +1233,7 @@ export default class ChainService extends BaseService<Events> {
       }
 
       await Promise.all([
-        this.currentProvider
+        this.currentProvider.jsonRpc
           ?.broadcastTransaction(zoneToBroadcast, serialized)
           .then((transactionResponse) => {
             this.emitter.emit("transactionSend", transactionResponse.hash)
@@ -1362,7 +1375,7 @@ export default class ChainService extends BaseService<Events> {
   }
 
   async send(method: string, params: unknown[]): Promise<unknown> {
-    return this.currentProvider?.send(method, params)
+    return this.currentProvider.jsonRpc?.send(method, params)
   }
 
   /**
@@ -1381,7 +1394,7 @@ export default class ChainService extends BaseService<Events> {
     hash: string
   ): Promise<TransactionResponse | null | undefined> {
     const provider = this.currentProvider
-    const result = await provider?.getTransaction(hash)
+    const result = await provider.jsonRpc?.getTransaction(hash)
 
     if (!result) {
       logger.warn(
@@ -1390,7 +1403,7 @@ export default class ChainService extends BaseService<Events> {
 
       this.removeTransactionHashFromQueue(network, hash)
       // Let's clean up the subscriptions
-      provider?.off(hash)
+      provider.jsonRpc?.off(hash)
 
       const savedTx = await this.db.getTransaction(network, hash)
       if (savedTx && !("status" in savedTx)) {
@@ -1793,7 +1806,7 @@ export default class ChainService extends BaseService<Events> {
   private async fetchLatestBlockForNetwork(
     network: NetworkInterfaceGA
   ): Promise<void> {
-    const provider = this.currentProvider
+    const provider = this.currentProvider.jsonRpc
     if (provider) {
       try {
         const blockNumber = await provider.getBlockNumber()
@@ -1822,14 +1835,15 @@ export default class ChainService extends BaseService<Events> {
   ): Promise<void> {
     const { currentProvider, subscribedNetworks } = this
 
-    if (!currentProvider) throw new Error("Failed to subscribe to new heads")
+    if (!currentProvider.jsonRpc)
+      throw new Error("Failed to subscribe to new heads")
 
     subscribedNetworks.push({
       network,
-      provider: currentProvider,
+      provider: currentProvider.jsonRpc,
     })
 
-    this.pollLatestBlock(network, currentProvider)
+    this.pollLatestBlock(network, currentProvider.jsonRpc)
     this.pollBlockPrices()
   }
 
@@ -1842,7 +1856,7 @@ export default class ChainService extends BaseService<Events> {
     address,
     network,
   }: AddressOnNetwork): Promise<void> {
-    const provider = this.currentProvider
+    const provider = this.currentProvider.jsonRpc
 
     if (!provider) throw new Error("Failed to get provider")
 
@@ -1924,7 +1938,7 @@ export default class ChainService extends BaseService<Events> {
     network: NetworkInterfaceGA,
     transaction: AnyEVMTransaction
   ): Promise<void> {
-    const provider = this.currentProvider
+    const provider = this.currentProvider.jsonRpc
     provider?.once(transaction.hash, (confirmedReceipt: TransactionReceipt) => {
       this.saveTransaction(
         enrichTransactionWithReceipt(transaction, confirmedReceipt),
@@ -1944,7 +1958,7 @@ export default class ChainService extends BaseService<Events> {
     itx: AnyEVMTransaction,
     etx: AnyEVMTransaction
   ): Promise<void> {
-    const provider = this.currentProvider
+    const provider = this.currentProvider.jsonRpc
     provider?.once(etx.hash, (confirmedReceipt: TransactionReceipt) => {
       this.saveTransaction(
         enrichTransactionWithReceipt(etx, confirmedReceipt),
@@ -1971,7 +1985,7 @@ export default class ChainService extends BaseService<Events> {
   private async retrieveTransactionReceipt(
     transaction: AnyEVMTransaction
   ): Promise<void> {
-    const provider = this.currentProvider
+    const provider = this.currentProvider.jsonRpc
     const receipt = await provider?.getTransactionReceipt(transaction.hash)
     if (receipt) {
       await this.saveTransaction(

@@ -1,4 +1,4 @@
-import { JsonRpcProvider } from "quais"
+import { JsonRpcProvider, WebSocketProvider } from "quais"
 
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
 
@@ -14,14 +14,22 @@ export default class ProviderFactory {
   // 2. we can use Map here if Map faster than just an array
   // + Map has build in methods like has()... need to think........
   // 3. once again, need to think how to
-  private providers: { [chainID: string]: JsonRpcProvider } = {}
+  private providers: {
+    [chainID: string]: {
+      jsonRpc: JsonRpcProvider
+      websocket: WebSocketProvider
+    }
+  } = {}
 
   public initializeNetworks(networks: NetworkInterfaceGA[]): void {
     networks.forEach((network) => {
       const { chainID, rpcUrls } = network
 
       if (!this.providers[chainID]) {
-        this.providers[chainID] = new JsonRpcProvider(rpcUrls)
+        this.providers[chainID] = {
+          jsonRpc: new JsonRpcProvider(rpcUrls),
+          websocket: new WebSocketProvider(rpcUrls),
+        }
 
         // after obtaining provider, we can perform health check
         // to make sure that everything is okay, especially for local node
@@ -34,7 +42,10 @@ export default class ProviderFactory {
 
   // 1. in this function is better to also check if provider exists, if not, try to create it
   // 2. it is better to receive network as a param here, need to think.......
-  public getProvider(network: NetworkInterfaceGA): JsonRpcProvider {
+  public getProvider(network: NetworkInterfaceGA): {
+    jsonRpc: JsonRpcProvider
+    websocket: WebSocketProvider
+  } {
     return this.providers[network.chainID]
   }
 

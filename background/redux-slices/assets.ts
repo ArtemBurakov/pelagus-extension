@@ -211,7 +211,8 @@ export const getAccountNonceAndGasPrice = createBackgroundAsyncThunk(
   }> => {
     const prevShard = globalThis.main.GetShard()
     globalThis.main.SetShard(getExtendedZoneForAddress(details.address))
-    const provider = globalThis.main.chainService.providerForNetworkOrThrow()
+    const { jsonRpc: provider } =
+      globalThis.main.chainService.getCurrentProvider()
     const normalizedAddress = normalizeEVMAddress(details.address)
     const nonce = await provider.getTransactionCount(
       normalizedAddress,
@@ -373,7 +374,8 @@ export const transferAsset = createBackgroundAsyncThunk(
       }
 
       let data = ""
-      const provider = globalThis.main.chainService.providerForNetworkOrThrow()
+      const { jsonRpc: provider } =
+        globalThis.main.chainService.getCurrentProvider()
       if (!nonce) {
         nonce = await provider.getTransactionCount(fromAddress)
       }

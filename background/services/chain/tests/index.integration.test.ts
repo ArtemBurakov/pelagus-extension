@@ -84,14 +84,14 @@ describe("ChainService", () => {
     const CHAIN_NONCE = 100
     // Return a fake provider
     const onceSpy = sandbox.spy()
-    const providerForNetworkOrThrow = sandbox
-      .stub(chainServiceExternalized, "providerForNetworkOrThrow")
+    const getCurrentProvider = sandbox
+      .stub(chainServiceExternalized, "getCurrentProvider")
       .callsFake(
         () =>
           ({
             getTransactionCount: async () => CHAIN_NONCE,
             once: onceSpy,
-          } as unknown as SerialFallbackProvider)
+          } as unknown as any)
       )
 
     const transactionRequestWithoutNonce = createLegacyTransactionRequest({
@@ -106,7 +106,7 @@ describe("ChainService", () => {
     )
 
     const { from, network } = transactionRequestWithoutNonce
-    expect(providerForNetworkOrThrow.called).toBe(true)
+    expect(getCurrentProvider.called).toBe(true)
 
     const validQuaiTransaction = createAnyEVMTransaction({
       nonce: CHAIN_NONCE + 1,
@@ -128,14 +128,14 @@ describe("ChainService", () => {
     const CHAIN_NONCE = 100
     // Return a fake provider
     const onceSpy = sandbox.spy()
-    const providerForNetworkOrThrow = sandbox
-      .stub(chainServiceExternalized, "providerForNetworkOrThrow")
+    const getCurrentProvider = sandbox
+      .stub(chainServiceExternalized, "getCurrentProvider")
       .callsFake(
         () =>
           ({
             getTransactionCount: async () => CHAIN_NONCE,
             once: onceSpy,
-          } as unknown as SerialFallbackProvider)
+          } as unknown as any)
       )
 
     const transactionRequestWithoutNonce = createLegacyTransactionRequest({
@@ -150,7 +150,7 @@ describe("ChainService", () => {
     )
 
     const { chainID, from, network } = transactionRequestWithoutNonce
-    expect(providerForNetworkOrThrow.called).toBe(true)
+    expect(getCurrentProvider.called).toBe(true)
 
     const validQuaiTransaction = createAnyEVMTransaction({
       nonce: CHAIN_NONCE + 1,
@@ -202,11 +202,11 @@ describe("ChainService", () => {
     const CHAIN_NONCE = TRANSACTION_COUNT
 
     beforeEach(() => {
-      chainService.providerForNetworkOrThrow = jest.fn(
+      chainService.getCurrentProvider = jest.fn(
         () =>
           ({
             getTransactionCount: async () => TRANSACTION_COUNT,
-          } as unknown as SerialFallbackProvider)
+          } as unknown as any)
       )
     })
 
