@@ -14,7 +14,7 @@ export async function resolveAddressAnnotation(
   const { address } = addressOnNetwork
   const prevShard = globalThis.main.GetShard()
   globalThis.main.SetShard(getExtendedZoneForAddress(address))
-  const provider = chainService.providerForNetworkOrThrow()
+  const { jsonRpc: provider } = chainService.getCurrentProvider()
   const codeHex = await provider.getCode(address)
   globalThis.main.SetShard(prevShard)
   const [balance, nameRecord] = await Promise.all([

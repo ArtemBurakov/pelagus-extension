@@ -5,7 +5,6 @@ import {
   createIndexingService,
   createNameService,
 } from "../../../tests/factories"
-import { makeSerialFallbackProvider } from "../../chain/serial-fallback-provider"
 import { annotationsFromLogs } from "../transactions"
 import { QuaiNetworkGA } from "../../../constants/networks/networks"
 
@@ -58,10 +57,6 @@ describe("Enrichment Service Transactions", () => {
         decimals: 18,
         homeNetwork: QuaiNetworkGA,
       })
-
-      sandbox
-        .stub(chainService, "providerForNetworkOrThrow")
-        .returns(makeSerialFallbackProvider("1", []))
 
       const subannotations = await annotationsFromLogs(
         chainService,
