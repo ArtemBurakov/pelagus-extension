@@ -1,18 +1,13 @@
+import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
 import KeyringService from "../keyring"
-import {
-  SignedTransaction,
-  TransactionRequest,
-  TransactionRequestWithNonce,
-} from "../../networks"
 import { EIP712TypedData, HexString } from "../../types"
 import BaseService from "../base"
 import { ServiceCreatorFunction, ServiceLifecycleEvents } from "../types"
 import ChainService from "../chain"
 import { AddressOnNetwork } from "../../accounts"
 import { assertUnreachable } from "../../lib/utils/type-guards"
-import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
 import { KeyringAccountSigner, PrivateKeyAccountSigner } from "../keyring/types"
-import { getAddress } from "quais"
+import { SignedTransaction } from "../../networks"
 
 type SigningErrorReason = "userRejected" | "genericError"
 type ErrorResponse = {
@@ -20,7 +15,7 @@ type ErrorResponse = {
   reason: SigningErrorReason
 }
 
-export type TXSignatureResponse =
+export type SignTransactionResponse =
   | {
       type: "success-tx"
       signedTx: SignedTransaction
@@ -35,7 +30,7 @@ export type SignatureResponse =
   | ErrorResponse
 
 type Events = ServiceLifecycleEvents & {
-  signingTxResponse: TXSignatureResponse
+  signTransactionResponse: SignTransactionResponse
   signingDataResponse: SignatureResponse
   personalSigningResponse: SignatureResponse
 }
@@ -50,7 +45,7 @@ export const ReadOnlyAccountSigner = { type: "read-only" } as const
  * An AccountSigner carries the appropriate information for a given signer to
  * act on a signing request. The `type` field always carries the signer type,
  * but the rest of the object is signer-specific and should be treated as
- * opaque outside of the specific signer's service.
+ * opaque outside the specific signer's service.
  */
 export type AccountSigner =
   | typeof ReadOnlyAccountSigner
@@ -105,28 +100,6 @@ export default class SigningService extends BaseService<Events> {
     throw new Error(`Unknown signerID: ${signer}`)
   }
 
-  private async signTransactionWithNonce(
-    transactionWithNonce: QuaiTransactionRequest,
-    accountSigner: AccountSigner
-  ): Promise<SignedTransaction> {
-    switch (accountSigner.type) {
-      case "private-key":
-      case "keyring":
-      // TODO-MIGRATION
-      // return this.keyringService.signTransaction(
-      //   {
-      //     address: transactionWithNonce.from,
-      //     network: "9000", // TODO-MIGRATION
-      //   },
-      //   transactionWithNonce
-      // )
-      case "read-only":
-        throw new Error("Read-only signers cannot sign.")
-      default:
-        return assertUnreachable(accountSigner)
-    }
-  }
-
   async removeAccount(
     address: HexString,
     signerType?: SignerType
@@ -138,7 +111,7 @@ export default class SigningService extends BaseService<Events> {
           await this.keyringService.hideAccount(address)
           break
         case "read-only":
-          break // no additional work here, just account removal below
+          break
         default:
           assertUnreachable(signerType)
       }
@@ -146,41 +119,43 @@ export default class SigningService extends BaseService<Events> {
     await this.chainService.removeAccountToTrack(address)
   }
 
-  /**
-   * Requests that signers prepare for a signing request. For hardware wallets
-   * in particular, this can include refreshing connection information so that
-   * the status is up to date. For remote wallets, e.g. WalletConnect, it can
-   * include connection setup.
-   *
-   * Currently this method does not take information about the request, but if
-   * the required setup is expensive enough, the `from` address can be passed
-   * in so that signers are only set up when the request applies to them.
-   */
-  // FIXME do nothing - remove this function
-  async prepareForSigningRequest(): Promise<void> {}
+  addTrackedAddress(address: string, handler: SignerType): void {
+    this.addressHandlers.push({ address, signer: handler })
+  }
 
+  /// /////////////////////////////////////////Sign Methods////////////////////////////////////////////
   async signTransaction(
     transactionRequest: QuaiTransactionRequest,
     accountSigner: AccountSigner
   ): Promise<string> {
-    // const transactionWithNonce =
-    //   await this.chainService.populateEVMTransactionNonce(transactionRequest)
-
     try {
-      const signedTx = await this.signTransactionWithNonce(
-        transactionRequest,
-        accountSigner
-      )
+      let signedTransactionString = ""
+      switch (accountSigner.type) {
+        case "private-key":
+        case "keyring": {
+          signedTransactionString = await this.keyringService.signTransaction(
+            transactionRequest
+          )
+          break
+        }
+        case "read-only":
+          throw new Error("Read-only signers cannot sign.")
+        default:
+          return assertUnreachable(accountSigner)
+      }
 
-      // this.emitter.emit("signingTxResponse", {
+      return signedTransactionString
+
+      // const signedTransaction = QuaiTransaction.from(signedTransactionString)
+      //
+      // await this.emitter.emit("signTransactionResponse", {
       //   type: "success-tx",
-      //   signedTx,
+      //   signedTx: signedTransaction,
       // })
-
-      // return signedTx
-      return ""
+      //
+      // return signedTransaction
     } catch (err) {
-      this.emitter.emit("signingTxResponse", {
+      await this.emitter.emit("signTransactionResponse", {
         type: "error",
         reason: getSigningErrorReason(err),
       })
@@ -189,10 +164,6 @@ export default class SigningService extends BaseService<Events> {
 
       throw err
     }
-  }
-
-  addTrackedAddress(address: string, handler: SignerType): void {
-    this.addressHandlers.push({ address, signer: handler })
   }
 
   async signTypedData({

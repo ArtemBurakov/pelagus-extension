@@ -664,14 +664,14 @@ export default class ChainService extends BaseService<Events> {
         maxPriorityFeePerGas = defaults.maxPriorityFeePerGas,
       } = partialRequest as EnrichedEIP1559TransactionSignatureRequest
 
-      return await this.populatePartialEIP1559TransactionRequest(network, {
+      return this.populatePartialEIP1559TransactionRequest(network, {
         ...(partialRequest as EnrichedEIP1559TransactionSignatureRequest),
         maxFeePerGas,
         maxPriorityFeePerGas,
       })
     }
     // Legacy Transaction
-    return await this.populatePartialLegacyEVMTransactionRequest(network, {
+    return this.populatePartialLegacyEVMTransactionRequest(network, {
       ...(partialRequest as EnrichedLegacyTransactionRequest),
     })
   }
@@ -686,6 +686,7 @@ export default class ChainService extends BaseService<Events> {
    * Returns the transaction request with a guaranteed-defined nonce, suitable
    * for signing by a signer.
    */
+  // TODO-MIGRATION MAYBE DELETE
   async populateEVMTransactionNonce(
     transactionRequest: TransactionRequest
   ): Promise<TransactionRequestWithNonce> {

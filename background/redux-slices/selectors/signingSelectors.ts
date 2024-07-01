@@ -1,4 +1,5 @@
 import { createSelector } from "@reduxjs/toolkit"
+import { getAddress, getZoneForAddress } from "quais"
 import { RootState } from ".."
 import { isDefined } from "../../lib/utils/type-guards"
 import {
@@ -12,8 +13,6 @@ import {
   selectPrivateKeyWalletsByAddress,
 } from "./keyringsSelectors"
 import { selectCurrentAccount } from "./uiSelectors"
-import { getExtendedZoneForAddress } from "../../services/chain/utils"
-import { getAddress, getZoneForAddress } from "quais"
 
 // FIXME: importing causes a dependency cycle
 const getAllAddresses = createSelector(
@@ -46,7 +45,7 @@ export const selectAccountSignersByAddress = createSelector(
             {
               type: "keyring",
               keyringID: keyring.id,
-              //@ts-ignore TODO-MIGRATION
+              // @ts-ignore TODO-MIGRATION
               zone,
             },
           ]
@@ -69,7 +68,7 @@ export const selectAccountSignersByAddress = createSelector(
             {
               type: "private-key",
               walletID: wallet.id,
-              //@ts-ignore TODO-MIGRATION
+              // @ts-ignore TODO-MIGRATION
               zone,
             },
           ]
@@ -95,5 +94,6 @@ export const selectAccountSignersByAddress = createSelector(
 export const selectCurrentAccountSigner = createSelector(
   selectAccountSignersByAddress,
   selectCurrentAccount,
-  (signingAccounts, selectedAccount) => signingAccounts[selectedAccount.address]
+  (signingAccounts, selectedAccount) =>
+    signingAccounts[getAddress(selectedAccount.address)]
 )
