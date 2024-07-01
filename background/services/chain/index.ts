@@ -11,7 +11,7 @@ import {
   TransactionReceipt,
   TransactionResponse,
 } from "quais"
-import { NetworksArray, QuaiNetworkGA } from "../../constants/networks/networks"
+import { NetworksArray } from "../../constants/networks/networks"
 import ProviderFactory from "../provider-factory"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
 
@@ -24,7 +24,6 @@ import {
   AnyEVMTransaction,
   BlockPrices,
   EIP1559TransactionRequest,
-  sameChainID,
   SignedTransaction,
   toHexChainID,
   TransactionRequest,
@@ -67,7 +66,6 @@ import AssetDataHelper from "./asset-data-helper"
 import KeyringService from "../keyring"
 import type { ValidatedAddEthereumChainParameter } from "../provider-bridge/utils"
 import { getRelevantTransactionAddresses } from "../enrichment/utils"
-import { setSelectedNetwork } from "../../redux-slices/ui"
 
 // The number of blocks to query at a time for historic asset transfers.
 // Unfortunately there's no "right" answer here that works well across different
@@ -330,54 +328,58 @@ export default class ChainService extends BaseService<Events> {
     const transactions = await this.db.getAllTransactions()
     this.emitter.emit("initializeActivities", { transactions, accounts })
 
-    // get the latest blocks and subscribe for all active networks
-    Promise.allSettled(
-      accounts
-        .flatMap((an) => [
-          this.subscribeToAccountTransactions(an).catch((e) => {
-            logger.error(e)
-          }),
-          this.getLatestBaseAccountBalance(an).catch((e) => {
-            logger.error(e)
-          }),
-        ])
-        .concat(
-          NetworksArray.map((network) =>
-            this.db
-              .getNetworkPendingTransactions(network)
-              .then((pendingTransactions) => {
-                pendingTransactions.forEach(({ hash, firstSeen }) => {
-                  logger.debug(
-                    `Queuing pending transaction ${hash} for status lookup.`
-                  )
-                  this.queueTransactionHashToRetrieve(network, hash, firstSeen)
-                })
-              })
-              .catch((e) => {
-                logger.error(e)
-              })
-          )
-        )
-    )
+    this.subscribeOnNetworksAndAddresses(this.supportedNetworks, accounts)
+    this.subscribeOnAccountTransactions(this.supportedNetworks, accounts)
+  }
 
-    // Optimized tracking networks and account to track
-    await Promise.allSettled(
-      NetworksArray.map(async (network) => {
-        await this.fetchLatestBlockForNetwork(network)
-        await this.subscribeToNewHeads(network)
-        await this.emitter.emit("networkSubscribed", network)
+  private subscribeOnNetworksAndAddresses = async (
+    networks: NetworkInterfaceGA[],
+    accounts: AddressOnNetwork[]
+  ): Promise<void> => {
+    networks.forEach((network) => {
+      Promise.allSettled([
+        this.fetchLatestBlockForNetwork(network),
+        this.subscribeToNewHeads(network),
+        this.emitter.emit("networkSubscribed", network),
+      ]).catch((e) => logger.error(e))
 
-        const addressesToTrack = new Set(
-          accounts.map((account) => account.address)
-        )
-        addressesToTrack.forEach((address) => {
+      accounts.forEach(async (account) => {
+        const { address } = account
+        Promise.allSettled([
           this.addAccountToTrack({
             address,
             network,
-          })
-        })
+          }),
+        ]).catch((e) => logger.error(e))
       })
-    )
+    })
+  }
+
+  private subscribeOnAccountTransactions = async (
+    networks: NetworkInterfaceGA[],
+    accounts: AddressOnNetwork[]
+  ): Promise<void> => {
+    networks.forEach((network) => {
+      Promise.allSettled([
+        this.db
+          .getNetworkPendingTransactions(network)
+          .then((pendingTransactions) => {
+            pendingTransactions.forEach(({ hash, firstSeen }) => {
+              logger.debug(
+                `Queuing pending transaction ${hash} for status lookup.`
+              )
+              this.queueTransactionHashToRetrieve(network, hash, firstSeen)
+            })
+          }),
+      ]).catch((e) => logger.error(e))
+
+      accounts.forEach(async (account) => {
+        Promise.allSettled([
+          this.subscribeToAccountTransactions(account),
+          this.getLatestBaseAccountBalance(account),
+        ]).catch((e) => logger.error(e))
+      })
+    })
   }
 
   public switchNetwork(network: NetworkInterfaceGA): void {
@@ -751,7 +753,6 @@ export default class ChainService extends BaseService<Events> {
     }
     let err = false
     let balance: bigint | undefined = toBigInt(0)
-
     try {
       balance = await this.currentProvider?.getBalance(normalizedAddress)
     } catch (error) {
