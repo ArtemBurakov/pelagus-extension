@@ -1,5 +1,6 @@
-import { Contract, getAddress, TransactionRequest } from "quais"
+import { Contract, getAddress } from "quais"
 import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
+import { createSelector, createSlice } from "@reduxjs/toolkit"
 import { QRC20_INTERFACE } from "../contracts/qrc-20"
 
 import {
@@ -18,7 +19,6 @@ import { isBuiltInNetworkBaseAsset, isSameAsset } from "./utils/asset-utils"
 import { getProvider } from "./utils/contract-utils"
 import {
   EIP1559TransactionRequest,
-  SignedTransaction,
   sameNetwork,
 } from "../networks"
 import logger from "../lib/logger"
@@ -34,7 +34,6 @@ import { setSnackbarMessage } from "./ui"
 import { getExtendedZoneForAddress } from "../services/chain/utils"
 import { NetworkInterfaceGA } from "../constants/networks/networkTypes"
 import { isQuaiHandle } from "../constants/networks/networkUtils"
-import { createSelector, createSlice } from "@reduxjs/toolkit"
 
 export type AssetWithRecentPrices<T extends AnyAsset = AnyAsset> = T & {
   recentPrices: {
@@ -293,16 +292,16 @@ export const sendAsset = createBackgroundAsyncThunk(
 
         toAddress = transactionDetails.to ? transactionDetails.to : ""
         transactionData = transactionDetails.data ? transactionDetails.data : ""
-        transactionValue = BigInt(0)
+        transactionValue = 0n
       }
 
       const request: QuaiTransactionRequest = {
         to: getAddress(toAddress),
         from: getAddress(fromAddress),
-        nonce: nonce,
-        gasLimit: gasLimit,
-        maxPriorityFeePerGas: maxPriorityFeePerGas,
-        maxFeePerGas: maxFeePerGas,
+        nonce,
+        gasLimit,
+        maxPriorityFeePerGas,
+        maxFeePerGas,
         data: transactionData,
         value: transactionValue,
       }

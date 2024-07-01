@@ -99,7 +99,7 @@ import { MessageSigningRequest, SignTypedDataRequest } from "./utils/signing"
 import {
   AccountSigner,
   SignatureResponse,
-  TXSignatureResponse,
+  SignTransactionResponse,
 } from "./services/signing"
 import {
   migrateReduxState,
@@ -932,7 +932,7 @@ export default class Main extends BaseService<never> {
     transactionConstructionSliceEmitter.on(
       "broadcastSignedTransaction",
       async (transaction: SignedTransaction) => {
-        this.chainService.broadcastSignedTransaction(transaction)
+        await this.chainService.broadcastSignedTransaction(transaction)
       }
     )
 
@@ -947,13 +947,13 @@ export default class Main extends BaseService<never> {
 
           // this.store.dispatch(transactionSigned(signedTransaction))
 
-          // TODO chainId
-          await this.analyticsService.sendAnalyticsEvent(
-            AnalyticsEvent.TRANSACTION_SIGNED,
-            {
-              chainId: request.chainId,
-            }
-          )
+          // // TODO chainId
+          // await this.analyticsService.sendAnalyticsEvent(
+          //   AnalyticsEvent.TRANSACTION_SIGNED,
+          //   {
+          //     chainId: request.chainId,
+          //   }
+          // )
         } catch (exception) {
           logger.error("Error signing transaction", exception)
           this.store.dispatch(
@@ -967,8 +967,8 @@ export default class Main extends BaseService<never> {
       "requestSignature",
       async ({ request, accountSigner }) => {
         try {
-          const signedTransactionResult =
-            await this.signingService.signTransaction(request, accountSigner)
+          // const signedTransactionResult =
+          //   await this.signingService.signTransaction(request, accountSigner)
 
           // this.store.dispatch(transactionSigned(signedTransactionResult))
 
@@ -1223,8 +1223,6 @@ export default class Main extends BaseService<never> {
     this.internalQuaiProviderService.emitter.on(
       "transactionSignatureRequest",
       async ({ payload, resolver, rejecter }) => {
-        await this.signingService.prepareForSigningRequest()
-
         this.store.dispatch(
           clearTransactionState(TransactionConstructionStatus.Pending)
         )
@@ -1233,7 +1231,10 @@ export default class Main extends BaseService<never> {
         const clear = () => {
           // Mutual dependency to handleAndClear.
           // eslint-disable-next-line @typescript-eslint/no-use-before-define
-          this.signingService.emitter.off("signingTxResponse", handleAndClear)
+          this.signingService.emitter.off(
+            "signTransactionResponse",
+            handleAndClear
+          )
 
           transactionConstructionSliceEmitter.off(
             "signatureRejected",
@@ -1243,7 +1244,7 @@ export default class Main extends BaseService<never> {
           )
         }
 
-        const handleAndClear = (response: TXSignatureResponse) => {
+        const handleAndClear = (response: SignTransactionResponse) => {
           clear()
           switch (response.type) {
             case "success-tx":
@@ -1260,7 +1261,10 @@ export default class Main extends BaseService<never> {
           rejecter()
         }
 
-        this.signingService.emitter.on("signingTxResponse", handleAndClear)
+        this.signingService.emitter.on(
+          "signTransactionResponse",
+          handleAndClear
+        )
 
         transactionConstructionSliceEmitter.on(
           "signatureRejected",
@@ -1281,7 +1285,6 @@ export default class Main extends BaseService<never> {
       }) => {
         // Run signer preparation and enrichment in parallel.
         const [, enrichedSignTypedDataRequest] = await Promise.all([
-          this.signingService.prepareForSigningRequest(),
           this.enrichmentService.enrichSignTypedDataRequest(payload),
         ])
 
@@ -1336,8 +1339,6 @@ export default class Main extends BaseService<never> {
         resolver: (result: string | PromiseLike<string>) => void
         rejecter: () => void
       }) => {
-        await this.signingService.prepareForSigningRequest()
-
         this.chainService.pollBlockPricesForNetwork(
           payload.account.network.chainID
         )

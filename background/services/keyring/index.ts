@@ -8,6 +8,7 @@ import {
   Zone,
 } from "quais"
 import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
+import { SerializedHDWallet } from "quais/lib/commonjs/wallet/hdwallet"
 
 import {
   decryptVault,
@@ -37,8 +38,8 @@ import { EIP712TypedData, HexString, KeyringTypes, UNIXTime } from "../../types"
 import logger from "../../lib/logger"
 import { generateRandomBytes, isPrivateKey } from "./utils"
 import { normalizeEVMAddress, sameEVMAddress } from "../../lib/utils"
-import { SerializedHDWallet } from "quais/lib/commonjs/wallet/hdwallet"
-import { getExtendedZoneForAddress } from "../chain/utils"
+
+const QUAI_HD_WALLET_ACCOUNT_INDEX = 0
 
 export const MAX_KEYRING_IDLE_TIME = 60 * MINUTE
 export const MAX_OUTSIDE_IDLE_TIME = 60 * MINUTE
@@ -317,13 +318,18 @@ export default class KeyringService extends BaseService<Events> {
       (quaiHDWallet) => quaiHDWallet.xPub === newQuaiHDWallet.xPub
     )
     if (existingQuaiHDWallet) {
-      const { address } = existingQuaiHDWallet.getAddressesForAccount(1)[0]
+      const { address } = existingQuaiHDWallet.getAddressesForAccount(
+        QUAI_HD_WALLET_ACCOUNT_INDEX
+      )[0]
       return address
     }
 
     this.quaiHDWallets.push(newQuaiHDWallet)
 
-    const { address } = newQuaiHDWallet.getNextAddress(1, Zone.Cyprus1)
+    const { address } = newQuaiHDWallet.getNextAddress(
+      QUAI_HD_WALLET_ACCOUNT_INDEX,
+      Zone.Cyprus1
+    )
     // If address was previously imported as a private key then remove it
     if (this.#findPrivateKey(address)) {
       this.#removePrivateKey(address)
@@ -355,7 +361,7 @@ export default class KeyringService extends BaseService<Events> {
   /**
    * Find a signer object associated with a given account address
    */
-  #findSigner(account: HexString): InternalSignerWithType | null {
+  #findSigner(account: AddressLike): InternalSignerWithType | null {
     const keyring = this.#findKeyringNew(account)
     if (keyring)
       return {
@@ -417,12 +423,12 @@ export default class KeyringService extends BaseService<Events> {
       type: KeyringTypes.mnemonicBIP39S256,
       addresses: [
         ...kr
-          .getAddressesForAccount(1)
+          .getAddressesForAccount(QUAI_HD_WALLET_ACCOUNT_INDEX)
           .filter((address) => !this.#hiddenAccounts[address.address])
           .map((address) => address.address),
       ],
       id: kr.xPub,
-      path: "", // TODO-MIGRATION
+      path: null, // TODO-MIGRATION
     }))
   }
 
@@ -459,7 +465,10 @@ export default class KeyringService extends BaseService<Events> {
       throw new Error("QuaiHDWallet not found.")
     }
 
-    const { address } = quaiHDWallet.getNextAddress(1, zone)
+    const { address } = quaiHDWallet.getNextAddress(
+      QUAI_HD_WALLET_ACCOUNT_INDEX,
+      zone
+    )
 
     await this.persistKeyrings()
     await this.emitter.emit("address", address)
@@ -471,7 +480,9 @@ export default class KeyringService extends BaseService<Events> {
   async hideAccount(address: HexString): Promise<void> {
     this.#hiddenAccounts[address] = true
     const keyring = await this.#findKeyring(address)
-    const keyringAddresses = keyring.getAddressesForAccount(1)
+    const keyringAddresses = keyring.getAddressesForAccount(
+      QUAI_HD_WALLET_ACCOUNT_INDEX
+    )
     if (
       keyringAddresses.every(
         (keyringAddress) => this.#hiddenAccounts[keyringAddress.address]
@@ -522,10 +533,10 @@ export default class KeyringService extends BaseService<Events> {
    * @param account - the account address desired to search the keyring for.
    * @returns HD keyring object
    */
-  #findKeyringNew(account: HexString): QuaiHDWallet | null {
+  #findKeyringNew(account: AddressLike): QuaiHDWallet | null {
     const keyring = this.quaiHDWallets.find((kr) =>
       kr
-        .getAddressesForAccount(1)
+        .getAddressesForAccount(QUAI_HD_WALLET_ACCOUNT_INDEX)
         .find((address) => address.address === account)
     )
 
@@ -538,10 +549,11 @@ export default class KeyringService extends BaseService<Events> {
    * @param account - the account desired to search the keyring for.
    */
   async #findKeyring(account: HexString): Promise<QuaiHDWallet> {
-    const keyring = this.quaiHDWallets.find((kr, index) => {
-      const { address } = kr.getAddressesForAccount(1)[index] // TODO-MIGRATION
-      return address === account
-    })
+    const keyring = this.quaiHDWallets.find(
+      (kr, index) =>
+        kr.getAddressesForAccount(QUAI_HD_WALLET_ACCOUNT_INDEX)[index]
+          .address === account
+    )
     if (!keyring) {
       throw new Error("Address keyring not found.")
     }
@@ -555,38 +567,26 @@ export default class KeyringService extends BaseService<Events> {
    * @param account - the account address desired to search the wallet for.
    * @returns Ether's Wallet object
    */
-  #findPrivateKey(account: HexString): Wallet | null {
-    const privateKey = this.wallets.find((item) =>
-      sameEVMAddress(item.address, account)
+  #findPrivateKey(account: AddressLike): Wallet | null {
+    const privateKey = this.wallets.find(
+      (item) => sameEVMAddress(item.address, account as string) // TODO-MIGRATION
     )
 
     return privateKey ?? null
   }
 
-  /**
-   * Sign a transaction.
-   *
-   * @param addressOnNetwork - the desired account address on network to sign the transaction
-   * @param txRequest -
-   */
-  async signTransaction(
-    addressOnNetwork: {
-      address: AddressLike
-      network: string
-    },
-    txRequest: QuaiTransactionRequest
-  ): Promise<string> {
+  async signTransaction(txRequest: QuaiTransactionRequest): Promise<string> {
     this.requireUnlocked()
 
-    const { address, network } = addressOnNetwork
-
-    const signerWithType = this.#findSigner(address as HexString)
-    if (!signerWithType)
+    const fromAddress = txRequest.from
+    const signerWithType = this.#findSigner(fromAddress)
+    if (!signerWithType) {
       throw new Error(
-        `Signing transaction failed. Signer for address ${address} was not found.`
+        `Signing transaction failed. Signer for address ${fromAddress} was not found.`
       )
+    }
 
-    return await signerWithType.signer.signTransaction(txRequest)
+    return signerWithType.signer.signTransaction(txRequest)
   }
 
   /**
@@ -682,7 +682,7 @@ export default class KeyringService extends BaseService<Events> {
     }
   }
 
-  ///////////////////////////////////////// Vaults methods /////////////////////////////////////////
+  /// ////////////////////////////////////// Vaults methods /////////////////////////////////////////
   private async loadKeyrings(password: string) {
     try {
       const { vaults } = await getEncryptedVaults()
@@ -726,7 +726,6 @@ export default class KeyringService extends BaseService<Events> {
       this.emitKeyrings()
     } catch (err) {
       logger.error("Error while loading vault", err)
-      return
     }
   }
 
@@ -738,14 +737,14 @@ export default class KeyringService extends BaseService<Events> {
 
     const serializedWallets: SerializedPrivateKey[] = this.wallets.map(
       (wallet) => {
-        const privateKey = wallet.privateKey
+        const { privateKey } = wallet
         const signingKey = new SigningKey(privateKey)
-        const publicKey = signingKey.publicKey
+        const { publicKey } = signingKey
 
         return {
           version: 1,
           id: publicKey,
-          privateKey: privateKey,
+          privateKey,
         }
       }
     )

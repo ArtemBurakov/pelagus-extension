@@ -7,7 +7,6 @@ import React, {
 } from "react"
 import { useTranslation } from "react-i18next"
 import {
-  getAssetsState,
   selectCurrentAccount,
   selectCurrentAccountBalances,
   selectCurrentAccountSigner,
@@ -26,7 +25,6 @@ import {
   getAccountNonceAndGasPrice,
   selectAssetPricePoint,
   sendAsset,
-  transferAsset,
 } from "@pelagus/pelagus-background/redux-slices/assets"
 import { CompleteAssetAmount } from "@pelagus/pelagus-background/redux-slices/accounts"
 import {
@@ -37,7 +35,7 @@ import { useHistory, useLocation } from "react-router-dom"
 import classNames from "classnames"
 import { setSnackbarMessage } from "@pelagus/pelagus-background/redux-slices/ui"
 import { sameEVMAddress } from "@pelagus/pelagus-background/lib/utils"
-import { QuaiTransaction, toBigInt, TransactionRequest } from "quais"
+import { toBigInt } from "quais"
 import SharedAssetInput from "../components/Shared/SharedAssetInput"
 import SharedBackButton from "../components/Shared/SharedBackButton"
 import SharedButton from "../components/Shared/SharedButton"
@@ -52,8 +50,6 @@ import ReadOnlyNotice from "../components/Shared/ReadOnlyNotice"
 import SharedIcon from "../components/Shared/SharedIcon"
 import SharedConfirmationModal from "../components/Shared/SharedConfirmationModal"
 import { getBlockExplorerURL } from "../utils/networks"
-
-import { QuaiHDWallet } from "quais"
 
 export default function Send(): ReactElement {
   const { t } = useTranslation()
@@ -187,7 +183,6 @@ export default function Send(): ReactElement {
 
     try {
       setIsSendingTransactionRequest(true)
-      getAssetsState
 
       const transferDetails = {
         fromAddressNetwork: currentAccount,
@@ -199,10 +194,9 @@ export default function Send(): ReactElement {
         accountSigner: currentAccountSigner,
         gasLimit: BigInt(gasLimit),
         nonce,
-        maxFeePerGas: maxFeePerGas,
-        maxPriorityFeePerGas: maxPriorityFeePerGas,
+        maxFeePerGas,
+        maxPriorityFeePerGas,
       }
-
       await dispatch(sendAsset(transferDetails)).then((data) =>
         setIsTransactionError(data?.success)
       )
