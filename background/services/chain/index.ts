@@ -1818,13 +1818,8 @@ export default class ChainService extends BaseService<Events> {
         const shard = getExtendedZoneForAddress(address, false) as Shard
 
         const blockNumber = await provider.getBlockNumber(shard)
-        console.log("BLOCK NUMBER", blockNumber)
-        console.log("ADDRESS", address)
-        console.log("SHARD", shard)
-        const result = await provider
-          .getBlock(shard, blockNumber)
-          .catch((e) => console.log("ERROR", e))
-        console.log("GET BLOCK", result)
+
+        const result = await provider.getBlock(shard, blockNumber)
         if (!result) throw new Error("Failed to get block")
 
         const block = blockFromEthersBlock(network, result)
