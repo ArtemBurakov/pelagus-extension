@@ -1,4 +1,4 @@
-import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
+import { QuaiTransaction } from "quais"
 import KeyringService from "../keyring"
 import { EIP712TypedData, HexString } from "../../types"
 import BaseService from "../base"
@@ -7,7 +7,7 @@ import ChainService from "../chain"
 import { AddressOnNetwork } from "../../accounts"
 import { assertUnreachable } from "../../lib/utils/type-guards"
 import { KeyringAccountSigner, PrivateKeyAccountSigner } from "../keyring/types"
-import { SignedTransaction } from "../../networks"
+import { SignedTransactionGA, TransactionRequestGA } from "../../networks"
 
 type SigningErrorReason = "userRejected" | "genericError"
 type ErrorResponse = {
@@ -18,7 +18,7 @@ type ErrorResponse = {
 export type SignTransactionResponse =
   | {
       type: "success-tx"
-      signedTx: SignedTransaction
+      signedTx: SignedTransactionGA
     }
   | ErrorResponse
 
@@ -125,9 +125,9 @@ export default class SigningService extends BaseService<Events> {
 
   /// /////////////////////////////////////////Sign Methods////////////////////////////////////////////
   async signTransaction(
-    transactionRequest: QuaiTransactionRequest,
+    transactionRequest: TransactionRequestGA,
     accountSigner: AccountSigner
-  ): Promise<string> {
+  ): Promise<SignedTransactionGA> {
     try {
       let signedTransactionString = ""
       switch (accountSigner.type) {
@@ -144,16 +144,14 @@ export default class SigningService extends BaseService<Events> {
           return assertUnreachable(accountSigner)
       }
 
-      return signedTransactionString
+      const signedTransaction = QuaiTransaction.from(signedTransactionString)
 
-      // const signedTransaction = QuaiTransaction.from(signedTransactionString)
-      //
-      // await this.emitter.emit("signTransactionResponse", {
-      //   type: "success-tx",
-      //   signedTx: signedTransaction,
-      // })
-      //
-      // return signedTransaction
+      await this.emitter.emit("signTransactionResponse", {
+        type: "success-tx",
+        signedTx: signedTransaction,
+      })
+
+      return signedTransaction
     } catch (err) {
       await this.emitter.emit("signTransactionResponse", {
         type: "error",

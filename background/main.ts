@@ -74,7 +74,6 @@ import {
   rejectTransactionSignature,
   TransactionConstructionStatus,
   transactionRequest,
-  transactionSigned,
   updateTransactionData,
 } from "./redux-slices/transaction-construction"
 import { selectDefaultNetworkFeeSettings } from "./redux-slices/selectors/transactionConstructionSelectors"
@@ -945,15 +944,14 @@ export default class Main extends BaseService<never> {
             accountSigner
           )
 
-          // this.store.dispatch(transactionSigned(signedTransaction))
+          // this.store.dispatch(transactionSigned(signedTransaction)) // TODO-MIGRATION
 
-          // // TODO chainId
-          // await this.analyticsService.sendAnalyticsEvent(
-          //   AnalyticsEvent.TRANSACTION_SIGNED,
-          //   {
-          //     chainId: request.chainId,
-          //   }
-          // )
+          await this.analyticsService.sendAnalyticsEvent(
+            AnalyticsEvent.TRANSACTION_SIGNED,
+            {
+              chainId: signedTransaction.chainId,
+            }
+          )
         } catch (exception) {
           logger.error("Error signing transaction", exception)
           this.store.dispatch(
@@ -1229,10 +1227,10 @@ export default class Main extends BaseService<never> {
         this.store.dispatch(updateTransactionData(payload))
 
         const clear = () => {
-          // Mutual dependency to handleAndClear.
-          // eslint-disable-next-line @typescript-eslint/no-use-before-define
           this.signingService.emitter.off(
             "signTransactionResponse",
+            // Mutual dependency to handleAndClear.
+            // eslint-disable-next-line @typescript-eslint/no-use-before-define
             handleAndClear
           )
 

@@ -1,5 +1,7 @@
 import { TransactionRequest as EthersTransactionRequest } from "@quais/abstract-provider"
 import { Transaction } from "@quais/transactions"
+import { QuaiTransaction } from "quais"
+import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
 import { ChainData, Slip44CoinType } from "./constants"
 import { HexString, UNIXTime } from "./types"
 import type { FungibleAsset } from "./assets"
@@ -230,6 +232,8 @@ export type EIP1559TransactionRequest = Pick<
   nonce?: number
 }
 
+export type TransactionRequestGA = QuaiTransactionRequest // TODO-MIGRATION
+
 export type TransactionRequest =
   | EIP1559TransactionRequest
   | LegacyEVMTransactionRequest
@@ -300,6 +304,8 @@ export type SignedLegacyEVMTransaction = LegacyEVMTransaction & {
   s: string
   v: number
 }
+
+export type SignedTransactionGA = QuaiTransaction // TODO-MIGRATION
 
 export type SignedTransaction =
   | SignedEIP1559Transaction

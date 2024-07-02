@@ -11,7 +11,7 @@ import logger from "../../lib/logger"
 import BaseService from "../base"
 import { ServiceCreatorFunction, ServiceLifecycleEvents } from "../types"
 import ChainService from "../chain"
-import { sameChainID, SignedTransaction, toHexChainID } from "../../networks"
+import { SignedTransactionGA, toHexChainID } from "../../networks"
 import { transactionRequestFromEthersTransactionRequest } from "../chain/utils"
 import PreferenceService from "../preferences"
 import { internalProviderPort } from "../../redux-slices/utils/contract-utils"
@@ -96,7 +96,7 @@ type Events = ServiceLifecycleEvents & {
       from: string
       network: NetworkInterfaceGA
     },
-    SignedTransaction
+    SignedTransactionGA // TODO-MIGRATION
   >
   signTypedDataRequest: DAppRequestEvent<SignTypedDataRequest, string>
   signDataRequest: DAppRequestEvent<MessageSigningRequest, string>
@@ -228,7 +228,7 @@ export default class InternalQuaiProviderService extends BaseService<Events> {
           },
           origin
         ).then(async (signed) => {
-          await this.chainService.broadcastSignedTransaction(signed)
+          // await this.chainService.broadcastSignedTransaction(signed) // TODO-MIGRATION
           return signed.hash
         })
       case "quai_signTransaction":
@@ -358,7 +358,7 @@ export default class InternalQuaiProviderService extends BaseService<Events> {
   private async signTransaction(
     transactionRequest: JsonRpcTransactionRequest,
     origin: string
-  ): Promise<SignedTransaction> {
+  ): Promise<SignedTransactionGA> {
     const annotation =
       origin === PELAGUS_INTERNAL_ORIGIN &&
       "annotation" in transactionRequest &&
@@ -391,7 +391,7 @@ export default class InternalQuaiProviderService extends BaseService<Events> {
       throw new Error("Transactions must have a from address for signing.")
     }
 
-    return new Promise<SignedTransaction>((resolve, reject) => {
+    return new Promise<SignedTransactionGA>((resolve, reject) => {
       this.emitter.emit("transactionSignatureRequest", {
         payload: {
           ...convertedRequest,
