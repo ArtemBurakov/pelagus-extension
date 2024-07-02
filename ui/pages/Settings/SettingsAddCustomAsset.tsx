@@ -1,8 +1,5 @@
 import React, { FormEventHandler, ReactElement, useRef, useState } from "react"
-import {
-  isProbablyEVMAddress,
-  normalizeEVMAddress,
-} from "@pelagus/pelagus-background/lib/utils"
+import { isProbablyEVMAddress } from "@pelagus/pelagus-background/lib/utils"
 import {
   checkTokenContractDetails,
   importCustomToken,
@@ -133,7 +130,7 @@ export default function SettingsAddCustomAsset(): ReactElement {
 
     const details = (await dispatch(
       checkTokenContractDetails({
-        contractAddress: normalizeEVMAddress(contractAddress),
+        contractAddress,
         network,
       })
     )) as unknown as AssetData

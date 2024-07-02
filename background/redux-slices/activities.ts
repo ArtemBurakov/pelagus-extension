@@ -3,11 +3,7 @@
 /* eslint-disable no-param-reassign */
 import { createSlice } from "@reduxjs/toolkit"
 import { AddressOnNetwork } from "../accounts"
-import {
-  normalizeAddressOnNetwork,
-  normalizeEVMAddress,
-  sameEVMAddress,
-} from "../lib/utils"
+import { sameEVMAddress } from "../lib/utils"
 import { Transaction } from "../services/chain/db"
 import { EnrichedEVMTransaction } from "../services/enrichment"
 import { HexString } from "../types"
@@ -65,7 +61,7 @@ const addActivityToState =
       return
 
     const activity = getActivity(transaction)
-    const normalizedAddress = normalizeEVMAddress(address)
+    const normalizedAddress = address
 
     activities[normalizedAddress] ??= {}
     activities[normalizedAddress][chainID] ??= []
@@ -96,17 +92,13 @@ const initializeActivitiesFromTransactions = ({
 
   const addActivity = addActivityToState(activities)
 
-  const normalizedAccounts = accounts.map((account) =>
-    normalizeAddressOnNetwork(account)
-  )
-
   transactions.forEach((transaction) => {
     const { to, from, network } = transaction
-    const isTrackedTo = normalizedAccounts.some(
+    const isTrackedTo = accounts.some(
       ({ address, network: activeNetwork }) =>
         network.chainID === activeNetwork.chainID && sameEVMAddress(to, address)
     )
-    const isTrackedFrom = normalizedAccounts.some(
+    const isTrackedFrom = accounts.some(
       ({ address, network: activeNetwork }) =>
         network.chainID === activeNetwork.chainID &&
         sameEVMAddress(from, address)
@@ -126,7 +118,7 @@ const initializeActivitiesFromTransactions = ({
     }
   })
 
-  normalizedAccounts.forEach(({ address, network }) =>
+  accounts.forEach(({ address, network }) =>
     cleanActivitiesArray(activities[address]?.[network.chainID])
   )
 
@@ -164,9 +156,7 @@ const activitiesSlice = createSlice({
       transactions.forEach((transaction) =>
         addActivityToState(immerState.activities)(address, chainID, transaction)
       )
-      cleanActivitiesArray(
-        immerState.activities[normalizeEVMAddress(address)]?.[chainID]
-      )
+      cleanActivitiesArray(immerState.activities[address]?.[chainID])
     },
     removeActivities: (
       immerState,
@@ -188,9 +178,7 @@ const activitiesSlice = createSlice({
       const { chainID } = transaction.network
       forAccounts.forEach((address) => {
         addActivityToState(immerState.activities)(address, chainID, transaction)
-        cleanActivitiesArray(
-          immerState.activities[normalizeEVMAddress(address)]?.[chainID]
-        )
+        cleanActivitiesArray(immerState.activities[address]?.[chainID])
       })
     },
   },
@@ -206,9 +194,7 @@ export const {
 export const removeAccountActivities = createBackgroundAsyncThunk(
   "activities/removeAccountActivities",
   async (payload: HexString, { extra: { main } }) => {
-    const address = payload
-    const normalizedAddress = normalizeEVMAddress(address)
-    await main.removeAccountActivity(normalizedAddress)
+    await main.removeAccountActivity(payload)
   }
 )
 

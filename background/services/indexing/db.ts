@@ -10,7 +10,6 @@ import {
 } from "../../assets"
 import { DeepWriteable } from "../../types"
 import { fixPolygonWETHIssue, polygonTokenListURL } from "./token-list-edit"
-import { normalizeEVMAddress } from "../../lib/utils"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
 
 /*
@@ -139,7 +138,7 @@ export class IndexingDatabase extends Dexie {
           address?: string
         }
       ) => {
-        const normalizedAddress = normalizeEVMAddress(record.contractAddress)
+        const normalizedAddress = record.contractAddress
         // These properties are not included after parsing
         // external token lists
         const isInvalidFungibleAssetForNetwork =
@@ -170,7 +169,7 @@ export class IndexingDatabase extends Dexie {
 
       const normalizeAssetAddress = (record: SmartContractFungibleAsset) => {
         Object.assign(record, {
-          contractAddress: normalizeEVMAddress(record.contractAddress),
+          contractAddress: record.contractAddress,
         })
       }
 

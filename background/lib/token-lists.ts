@@ -11,7 +11,6 @@ import {
   prioritizedAssetSimilarityKeys,
 } from "./asset-similarity"
 import { SECOND } from "../constants"
-import { normalizeEVMAddress } from "./utils"
 import { DeepWriteable } from "../types"
 import { NetworkInterfaceGA } from "../constants/networks/networkTypes"
 
@@ -78,7 +77,7 @@ function tokenListToFungibleAssetsForNetwork(
         symbol: tokenMetadata.symbol,
         decimals: tokenMetadata.decimals,
         homeNetwork: network,
-        contractAddress: normalizeEVMAddress(tokenMetadata.address),
+        contractAddress: tokenMetadata.address,
       }
     })
 }

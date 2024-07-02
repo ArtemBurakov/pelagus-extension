@@ -7,7 +7,6 @@ import React, {
 } from "react"
 import { useTranslation } from "react-i18next"
 import { AnyAsset, Asset } from "@pelagus/pelagus-background/assets"
-import { normalizeEVMAddress } from "@pelagus/pelagus-background/lib/utils"
 import {
   convertFixedPointNumber,
   fixedPointNumberToString,
@@ -121,8 +120,8 @@ function SelectAssetMenuContent<T extends AnyAsset>(
             ("contractAddress" in asset &&
               asset.contractAddress &&
               searchTerm.startsWith("0x") &&
-              normalizeEVMAddress(asset.contractAddress).includes(
-                normalizeEVMAddress(searchTerm).replace(/^0x0?/, "0x")
+              asset.contractAddress.includes(
+                searchTerm.replace(/^0x0?/, "0x")
               ) &&
               asset.contractAddress.length >= searchTerm.length)
           )

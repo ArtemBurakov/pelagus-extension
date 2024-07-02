@@ -23,13 +23,6 @@ export type DomainName = string
  */
 export type HexString = string
 
-declare const NormalizedEVMAddressSymbol: unique symbol
-
-export type NormalizedEVMAddress = Opaque<
-  string,
-  typeof NormalizedEVMAddressSymbol
->
-
 /*
  * Named type for a number measuring time in seconds since the Unix Epoch,
  * January 1st, 1970 UTC.

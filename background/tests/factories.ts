@@ -11,7 +11,6 @@ import {
   SmartContractFungibleAsset,
 } from "../assets"
 import { COIN_TYPES_BY_ASSET_SYMBOL, QUAI, USD } from "../constants"
-import { normalizeEVMAddress } from "../lib/utils"
 import {
   AnyEVMBlock,
   AnyEVMTransaction,
@@ -235,7 +234,7 @@ export const createAccountBalance = (
 export const createAddressOnNetwork = (
   overrides: Partial<AddressOnNetwork> = {}
 ): AddressOnNetwork => ({
-  address: normalizeEVMAddress(createRandom0xHash()),
+  address: createRandom0xHash(),
   network: QuaiNetworkGA,
   ...overrides,
 })
