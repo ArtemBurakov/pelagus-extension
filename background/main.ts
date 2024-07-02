@@ -434,7 +434,7 @@ export default class Main extends BaseService<never> {
       // Also refresh the transactions in the account
       this.enrichActivitiesForSelectedAccount()
 
-      const selectedAccount = this.store.getState().ui.selectedAccount
+      const { selectedAccount } = this.store.getState().ui
       const currentAccountState =
         this.store.getState().account.accountsData.evm[
           selectedAccount.network.chainID
@@ -924,7 +924,7 @@ export default class Main extends BaseService<never> {
     transactionConstructionSliceEmitter.on(
       "broadcastSignedTransaction",
       async (transaction: SignedTransactionGA) => {
-        // await this.chainService.broadcastSignedTransaction(transaction) //TODO-MIGRATION
+        await this.chainService.broadcastSignedTransaction(transaction) // TODO-MIGRATION
       }
     )
 
@@ -937,7 +937,7 @@ export default class Main extends BaseService<never> {
             accountSigner
           )
 
-          this.store.dispatch(transactionSigned(signedTransaction)) // TODO-MIGRATION
+          this.store.dispatch(transactionSigned(signedTransaction))
 
           await this.analyticsService.sendAnalyticsEvent(
             AnalyticsEvent.TRANSACTION_SIGNED,

@@ -5,15 +5,12 @@ import {
   TransactionReceipt,
   Block,
   TransactionResponse,
+  QuaiTransaction,
 } from "quais"
 import { TransactionRequest as EthersTransactionRequest } from "@quais/abstract-provider"
 
 // TODO-MIGRATION: Update TransactionTypes
-import {
-  BigNumber,
-  Transaction as EthersTransaction,
-  UnsignedTransaction,
-} from "quais-old"
+import { BigNumber, Transaction as EthersTransaction } from "quais-old"
 import {
   AnyEVMTransaction,
   AnyEVMBlock,
@@ -27,7 +24,6 @@ import {
   isKnownTxType,
   KnownTxTypes,
 } from "../../../networks"
-import type { PartialTransactionRequestWithFrom } from "../../enrichment"
 import { NetworkInterfaceGA } from "../../../constants/networks/networkTypes"
 /**
  * Parse a block as returned by a polling provider.
@@ -38,7 +34,7 @@ export function blockFromEthersBlock(
 ): AnyEVMBlock {
   if (!block) throw new Error("Failed get Block")
 
-  //TODO-MIGRATION: CHECK BLOCK (blockHeight and parentHash)
+  // TODO-MIGRATION: CHECK BLOCK (blockHeight and parentHash)
   return {
     hash: block.woBody.header.hash,
     blockHeight: Number(block.woBody.header.number[2]),
@@ -210,28 +206,6 @@ export function transactionRequestFromEthersTransactionRequest(
   )
 }
 
-export function unsignedTransactionFromEVMTransaction(
-  tx: AnyEVMTransaction | PartialTransactionRequestWithFrom
-): UnsignedTransaction {
-  const unsignedTransaction: UnsignedTransaction = {
-    to: tx.to,
-    nonce: tx.nonce,
-    gasLimit: toBigInt(tx.gasLimit!),
-    data: tx.input || "",
-    value: toBigInt(tx.value!),
-    chainId: parseInt(tx.network.chainID, 10),
-    type: tx.type,
-  }
-
-  if (isEIP1559TransactionRequest(tx)) {
-    unsignedTransaction.maxFeePerGas = toBigInt(tx.maxFeePerGas)
-    unsignedTransaction.maxPriorityFeePerGas = toBigInt(tx.maxPriorityFeePerGas)
-  } else if ("gasPrice" in tx) {
-    unsignedTransaction.gasPrice = toBigInt(tx?.gasPrice ?? 0)
-  }
-  return unsignedTransaction
-}
-
 export function ethersTransactionFromSignedTransaction(
   tx: SignedTransaction
 ): EthersTransaction {
@@ -271,7 +245,7 @@ export function ethersTransactionFromSignedTransaction(
  * Parse a transaction as returned by a websocket provider subscription.
  */
 export function enrichTransactionWithReceipt(
-  transaction: AnyEVMTransaction,
+  transaction: AnyEVMTransaction | QuaiTransaction,
   receipt: TransactionReceipt
 ): ConfirmedEVMTransaction {
   const { gasUsed } = receipt
