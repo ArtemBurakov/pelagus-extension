@@ -30,7 +30,7 @@ import {
   TelemetryService,
 } from "./services"
 import { HexString, KeyringTypes, NormalizedEVMAddress } from "./types"
-import { ChainIdWithError, SignedTransaction } from "./networks"
+import { ChainIdWithError, SignedTransactionGA } from "./networks"
 import { AccountBalance, AddressOnNetwork, NameOnNetwork } from "./accounts"
 import rootReducer from "./redux-slices"
 import {
@@ -74,7 +74,8 @@ import {
   rejectTransactionSignature,
   TransactionConstructionStatus,
   transactionRequest,
-  updateTransactionData,
+  transactionSigned,
+  updateTransactionData
 } from "./redux-slices/transaction-construction"
 import { selectDefaultNetworkFeeSettings } from "./redux-slices/selectors/transactionConstructionSelectors"
 import { allAliases } from "./redux-slices/utils"
@@ -930,8 +931,8 @@ export default class Main extends BaseService<never> {
 
     transactionConstructionSliceEmitter.on(
       "broadcastSignedTransaction",
-      async (transaction: SignedTransaction) => {
-        await this.chainService.broadcastSignedTransaction(transaction)
+      async (transaction: SignedTransactionGA) => {
+        // await this.chainService.broadcastSignedTransaction(transaction) //TODO-MIGRATION
       }
     )
 
@@ -944,7 +945,7 @@ export default class Main extends BaseService<never> {
             accountSigner
           )
 
-          // this.store.dispatch(transactionSigned(signedTransaction)) // TODO-MIGRATION
+          this.store.dispatch(transactionSigned(signedTransaction)) // TODO-MIGRATION
 
           await this.analyticsService.sendAnalyticsEvent(
             AnalyticsEvent.TRANSACTION_SIGNED,

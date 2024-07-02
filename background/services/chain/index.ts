@@ -11,6 +11,7 @@ import {
   TransactionReceipt,
   TransactionResponse,
   WebSocketProvider,
+  getAddress,
 } from "quais"
 import { NetworksArray } from "../../constants/networks/networks"
 import ProviderFactory from "../provider-factory"
@@ -751,7 +752,9 @@ export default class ChainService extends BaseService<Events> {
     address,
     network,
   }: AddressOnNetwork): Promise<AccountBalance> {
-    const normalizedAddress = normalizeEVMAddress(address)
+    // TODO-MIGRATION we will use getAddress() for now, because we dont know whether transaction is correct
+    // but in future we need properly set correct tx to redux/store and use it without getAddress()
+    const normalizedAddress = getAddress(address)
     const prevShard = globalThis.main.SelectedShard
     const addrShard = getExtendedZoneForAddress(address)
     if (globalThis.main.SelectedShard !== addrShard) {

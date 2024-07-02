@@ -8,6 +8,7 @@ import {
   isEIP1559TransactionRequest,
   LegacyEVMTransactionRequest,
   SignedTransaction,
+  SignedTransactionGA,
   TransactionRequest,
   TransactionRequestGA,
 } from "../networks"
@@ -47,7 +48,7 @@ export enum NetworkFeeTypeChosen {
 export type TransactionConstruction = {
   status: TransactionConstructionStatus
   transactionRequest?: EnrichedEVMTransactionRequest
-  signedTransaction?: SignedTransaction
+  signedTransaction?: SignedTransactionGA
   broadcastOnSign?: boolean
   transactionLikelyFails: boolean
   estimatedFeesPerGas: { [chainID: string]: EstimatedFeesPerGas | undefined }
@@ -84,7 +85,7 @@ export type Events = {
   signTransaction: SignOperation<TransactionRequestGA>
   requestSignature: SignOperation<TransactionRequest>
   signatureRejected: never
-  broadcastSignedTransaction: SignedTransaction
+  broadcastSignedTransaction: SignedTransactionGA
   signedTransactionResult: SignedTransaction
 }
 
@@ -238,7 +239,7 @@ const transactionSlice = createSlice({
     ) => {
       immerState.feeTypeSelected = payload
     },
-    signed: (state, { payload }: { payload: SignedTransaction }) => ({
+    signed: (state, { payload }: { payload: SignedTransactionGA }) => ({
       ...state,
       status: TransactionConstructionStatus.Signed,
       signedTransaction: payload,
@@ -329,7 +330,7 @@ export default transactionSlice.reducer
 
 export const transactionSigned = createBackgroundAsyncThunk(
   "transaction-construction/transaction-signed",
-  async (transaction: SignedTransaction, { dispatch, getState }) => {
+  async (transaction: SignedTransactionGA, { dispatch, getState }) => {
     dispatch(signed(transaction))
 
     const { transactionConstruction } = getState() as {
