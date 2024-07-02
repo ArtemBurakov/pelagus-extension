@@ -5,12 +5,12 @@
 import {
   getZoneForAddress,
   JsonRpcProvider,
-  QuaiTransaction,
   Shard,
   toBigInt,
   TransactionReceipt,
   TransactionResponse,
   WebSocketProvider,
+  QuaiTransaction,
 } from "quais"
 import { NetworksArray } from "../../constants/networks/networks"
 import ProviderFactory from "../provider-factory"
@@ -26,6 +26,7 @@ import {
   BlockPrices,
   EIP1559TransactionRequest,
   SignedTransaction,
+  SignedTransactionGA,
   toHexChainID,
   TransactionRequest,
   TransactionRequestWithNonce,
@@ -1212,11 +1213,9 @@ export default class ChainService extends BaseService<Events> {
    *        it needs to include all gas limit and price params.
    */
   async broadcastSignedTransaction(
-    transaction: SignedTransaction
+    transaction: SignedTransactionGA
   ): Promise<void> {
     try {
-      const { serialized } = QuaiTransaction.from(transaction)
-
       if (!transaction.to) {
         throw new Error("Transaction 'to' field is not specified.")
       }
@@ -1228,9 +1227,11 @@ export default class ChainService extends BaseService<Events> {
         )
       }
 
+      const { serialized: signedTransaction } = transaction
+
       await Promise.all([
         this.currentProvider.jsonRpc
-          ?.broadcastTransaction(zoneToBroadcast, serialized)
+          ?.broadcastTransaction(zoneToBroadcast, signedTransaction)
           .then((transactionResponse) => {
             this.emitter.emit("transactionSend", transactionResponse.hash)
           })
@@ -1240,22 +1241,21 @@ export default class ChainService extends BaseService<Events> {
               transaction,
               error
             )
-            // Failure to broadcast needs to be registered.
-            this.saveTransaction(
-              { ...transaction, status: 0, error: error.toString() },
-              "local"
-            )
-            // the reject here will release the nonce in the following catch
+
+            // TODO - MIGRATION
+            // this.saveTransaction(
+            //   { ...transaction, status: 0, error: error.toString() },
+            //   "local"
+            // )
             return Promise.reject(error)
           }),
-        this.subscribeToTransactionConfirmation(
-          transaction.network,
-          transaction
-        ),
-        this.saveTransaction(transaction, "local"),
+        this.subscribeToTransactionConfirmationGA(transaction),
+        // TODO-MIGRATION
+        // this.saveTransaction(transaction, "local"),
       ])
     } catch (error) {
-      this.releaseEVMTransactionNonce(transaction)
+      // TODO-MIGRATION
+      // this.releaseEVMTransactionNonce(transaction)
       this.emitter.emit("transactionSendFailure")
       logger.error("Error broadcasting transaction", transaction, error)
 
@@ -1948,6 +1948,21 @@ export default class ChainService extends BaseService<Events> {
     // Let's add the transaction to the queued lookup. If the transaction is dropped
     // because of wrong nonce on chain the event will never arrive.
     this.queueTransactionHashToRetrieve(network, transaction.hash, Date.now())
+  }
+
+  // TODO-MIGRATION temp fix
+  private async subscribeToTransactionConfirmationGA(
+    transaction: QuaiTransaction
+  ): Promise<void> {
+    if (!transaction.hash) return
+
+    const provider = this.currentProvider.jsonRpc
+    provider?.once(transaction.hash, (confirmedReceipt: TransactionReceipt) => {
+      this.saveTransaction(
+        enrichTransactionWithReceipt(transaction, confirmedReceipt),
+        "local"
+      )
+    })
   }
 
   private async subscribeToETXConfirmation(
