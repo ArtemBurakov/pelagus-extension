@@ -331,7 +331,7 @@ export default class ChainService extends BaseService<Events> {
 
     const accounts = await this.getAccountsToTrack()
     const transactions = await this.db.getAllTransactions()
-    this.emitter.emit("initializeActivities", { transactions, accounts })
+    await this.emitter.emit("initializeActivities", { transactions, accounts })
 
     await this.subscribeOnAccountTransactions(this.supportedNetworks, accounts)
 
@@ -1813,11 +1813,18 @@ export default class ChainService extends BaseService<Events> {
     const provider = this.currentProvider.jsonRpc
     if (provider) {
       try {
-        const blockNumber = await provider.getBlockNumber()
         const { address } = await this.preferenceService.getSelectedAccount()
-        const shard = getExtendedZoneForAddress(address, false) as Shard
-        const result = await provider.getBlock(shard, blockNumber)
 
+        const shard = getExtendedZoneForAddress(address, false) as Shard
+
+        const blockNumber = await provider.getBlockNumber(shard)
+        console.log("BLOCK NUMBER", blockNumber)
+        console.log("ADDRESS", address)
+        console.log("SHARD", shard)
+        const result = await provider
+          .getBlock(shard, blockNumber)
+          .catch((e) => console.log("ERROR", e))
+        console.log("GET BLOCK", result)
         if (!result) throw new Error("Failed to get block")
 
         const block = blockFromEthersBlock(network, result)
