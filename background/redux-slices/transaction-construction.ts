@@ -9,6 +9,7 @@ import {
   LegacyEVMTransactionRequest,
   SignedTransaction,
   TransactionRequest,
+  TransactionRequestGA,
 } from "../networks"
 import {
   EnrichedEVMTransactionSignatureRequest,
@@ -17,8 +18,6 @@ import {
 import { createBackgroundAsyncThunk } from "./utils"
 import { SignOperation } from "./signing"
 import { NetworkInterfaceGA } from "../constants/networks/networkTypes"
-import { TransactionRequest as NewTransactionRequest } from "quais"
-import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
 
 export const enum TransactionConstructionStatus {
   Idle = "idle",
@@ -82,7 +81,7 @@ export const initialState: TransactionConstruction = {
 
 export type Events = {
   updateTransaction: EnrichedEVMTransactionSignatureRequest
-  signTransaction: SignOperation<QuaiTransactionRequest>
+  signTransaction: SignOperation<TransactionRequestGA>
   requestSignature: SignOperation<TransactionRequest>
   signatureRejected: never
   broadcastSignedTransaction: SignedTransaction

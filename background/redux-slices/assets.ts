@@ -17,12 +17,7 @@ import { AddressOnNetwork } from "../accounts"
 import { createBackgroundAsyncThunk } from "./utils"
 import { isBuiltInNetworkBaseAsset, isSameAsset } from "./utils/asset-utils"
 import { getProvider } from "./utils/contract-utils"
-import {
-  EIP1559TransactionRequest,
-  sameNetwork,
-} from "../networks"
-import logger from "../lib/logger"
-import { QUAI } from "../constants"
+import { sameNetwork } from "../networks"
 import { convertFixedPoint } from "../lib/fixed-point"
 import { removeAssetReferences, updateAssetReferences } from "./accounts"
 import { NormalizedEVMAddress } from "../types"
@@ -33,7 +28,6 @@ import { normalizeEVMAddress } from "../lib/utils"
 import { setSnackbarMessage } from "./ui"
 import { getExtendedZoneForAddress } from "../services/chain/utils"
 import { NetworkInterfaceGA } from "../constants/networks/networkTypes"
-import { isQuaiHandle } from "../constants/networks/networkUtils"
 
 export type AssetWithRecentPrices<T extends AnyAsset = AnyAsset> = T & {
   recentPrices: {
@@ -240,6 +234,13 @@ export const getAccountNonceAndGasPrice = createBackgroundAsyncThunk(
   }
 )
 
+/**
+ * Executes an asset transfer between two addresses, for a set amount. Supports
+ * an optional fixed gas limit.
+ *
+ * If the from address is not a writeable address in the wallet, this signature
+ * will not be possible.
+ */
 export const sendAsset = createBackgroundAsyncThunk(
   "assets/sendAsset",
   async (transferDetails: {
@@ -271,7 +272,7 @@ export const sendAsset = createBackgroundAsyncThunk(
         }
       }
 
-      let transactionData = ""
+      let transactionData = "0x"
       let transactionValue = assetAmount.amount
 
       if (isSmartContractFungibleAsset(assetAmount.asset)) {
@@ -305,122 +306,11 @@ export const sendAsset = createBackgroundAsyncThunk(
         data: transactionData,
         value: transactionValue,
       }
-      await signTransaction({ request, accountSigner })
-
-      return { success: true }
-    } catch (error) {
-      return {
-        success: false,
-        errorMessage: `Transfer failed: ${error}`,
-      }
-    }
-  }
-)
-
-/**
- * Executes an asset transfer between two addresses, for a set amount. Supports
- * an optional fixed gas limit.
- *
- * If the from address is not a writeable address in the wallet, this signature
- * will not be possible.
- */
-export const transferAsset = createBackgroundAsyncThunk(
-  "assets/transferAsset",
-  async (transferDetails: {
-    fromAddressNetwork: AddressOnNetwork
-    toAddressNetwork: AddressOnNetwork
-    assetAmount: AnyAssetAmount
-    gasLimit?: bigint
-    nonce?: number
-    maxPriorityFeePerGas?: bigint & BigInt
-    maxFeePerGas?: bigint & BigInt
-    accountSigner: AccountSigner
-  }): Promise<{ success: boolean; errorMessage?: string }> => {
-    try {
-      let {
-        fromAddressNetwork: { address: fromAddress, network: fromNetwork },
-        toAddressNetwork: { address: toAddress, network: toNetwork },
-        assetAmount,
-        gasLimit,
-        nonce,
-        maxPriorityFeePerGas,
-        maxFeePerGas,
+      await transactionConstructionSliceEmitter.emit("signTransaction", {
+        request,
         accountSigner,
-      } = transferDetails
+      })
 
-      if (!isQuaiHandle(fromNetwork)) {
-        return {
-          success: false,
-          errorMessage:
-            "Only base and fungible smart contract asset transfers are supported for now.",
-        }
-      }
-
-      if (!sameNetwork(fromNetwork, toNetwork)) {
-        return {
-          success: false,
-          errorMessage: "Only same-network transfers are supported for now.",
-        }
-      }
-
-      const toShard = getExtendedZoneForAddress(toAddress)
-      const fromShard = getExtendedZoneForAddress(fromAddress)
-      if (fromShard !== toShard) {
-        return {
-          success: false,
-          errorMessage: "Only same-shard transfers are supported for now.",
-        }
-      }
-
-      let data = ""
-      const { jsonRpc: provider } =
-        globalThis.main.chainService.getCurrentProvider()
-      if (!nonce) {
-        nonce = await provider.getTransactionCount(fromAddress)
-      }
-
-      if (isSmartContractFungibleAsset(assetAmount.asset)) {
-        logger.debug(
-          `Sending ${assetAmount.amount} ${assetAmount.asset.symbol} from ` +
-            `${fromAddress} to ${toAddress} as an ERC20 transfer.`
-        )
-
-        const provider = getProvider()
-        const signer = await provider.getSigner(fromAddress)
-
-        const tokenContract = new Contract(
-          assetAmount.asset.contractAddress,
-          QRC20_INTERFACE,
-          signer
-        )
-
-        const transactionDetails =
-          await tokenContract.transfer.populateTransaction(
-            toAddress,
-            assetAmount.amount
-          )
-
-        toAddress = transactionDetails.to ? transactionDetails.to : ""
-        data = transactionDetails.data ? transactionDetails.data : ""
-        assetAmount = {
-          asset: QUAI,
-          amount: BigInt(0),
-        }
-      }
-
-      const tx = genQuaiRawTransaction(
-        fromNetwork,
-        fromAddress,
-        toAddress,
-        assetAmount,
-        nonce,
-        fromNetwork.chainID,
-        data,
-        gasLimit ?? BigInt(200000),
-        maxFeePerGas ?? BigInt(2000000000),
-        maxPriorityFeePerGas ?? BigInt(1000000000)
-      )
-      signData({ transaction: tx, accountSigner })
       return { success: true }
     } catch (error) {
       return {
@@ -430,33 +320,6 @@ export const transferAsset = createBackgroundAsyncThunk(
     }
   }
 )
-
-function genQuaiRawTransaction(
-  network: NetworkInterfaceGA,
-  fromAddress: string,
-  toAddress: string,
-  assetAmount: AnyAssetAmount,
-  nonce: number,
-  chainId: string,
-  data: string,
-  gasLimit: bigint,
-  maxFeePerGas: bigint & BigInt,
-  maxPriorityFeePerGas: bigint & BigInt
-): EIP1559TransactionRequest {
-  return {
-    to: toAddress,
-    from: fromAddress,
-    value: assetAmount.amount,
-    nonce,
-    gasLimit: gasLimit ?? BigInt(200000),
-    maxFeePerGas,
-    maxPriorityFeePerGas,
-    type: 0,
-    chainID: chainId,
-    input: data,
-    network,
-  }
-}
 
 /**
  * Selects a particular asset price point given the asset symbol and the paired
@@ -579,29 +442,3 @@ export const checkTokenContractDetails = createBackgroundAsyncThunk(
     }
   }
 )
-
-const signTransaction = async ({
-  request,
-  accountSigner,
-}: {
-  request: QuaiTransactionRequest
-  accountSigner: AccountSigner
-}) => {
-  await transactionConstructionSliceEmitter.emit("signTransaction", {
-    request,
-    accountSigner,
-  })
-}
-
-const signData = async function ({
-  transaction,
-  accountSigner,
-}: {
-  transaction: EIP1559TransactionRequest
-  accountSigner: AccountSigner
-}) {
-  transactionConstructionSliceEmitter.emit("requestSignature", {
-    request: transaction,
-    accountSigner,
-  })
-}
