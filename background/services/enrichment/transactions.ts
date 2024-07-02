@@ -10,7 +10,7 @@ import {
   AnyAsset,
 } from "../../assets"
 import { enrichAssetAmountWithDecimalValues } from "../../redux-slices/utils/asset-utils"
-import { normalizeEVMAddress, sameEVMAddress } from "../../lib/utils"
+import { sameEVMAddress } from "../../lib/utils"
 import ChainService from "../chain"
 import IndexingService from "../indexing"
 import NameService from "../name"
@@ -70,15 +70,13 @@ async function buildSubannotations(
 
           // Try to find a resolved annotation for the recipient and sender and otherwise fetch them
           const recipient =
-            addressEnrichmentsByAddress[
-              normalizeEVMAddress(recipientAddress)
-            ] ??
+            addressEnrichmentsByAddress[recipientAddress] ??
             (await enrichAddressOnNetwork(chainService, nameService, {
               address: recipientAddress,
               network,
             }))
           const sender =
-            addressEnrichmentsByAddress[normalizeEVMAddress(senderAddress)] ??
+            addressEnrichmentsByAddress[senderAddress] ??
             (await enrichAddressOnNetwork(chainService, nameService, {
               address: senderAddress,
               network,
@@ -140,9 +138,7 @@ export async function annotationsFromLogs(
   )
 
   const relevantAddresses =
-    getDistinctRecipentAddressesFromERC20Logs(relevantTransferLogs).map(
-      normalizeEVMAddress
-    )
+    getDistinctRecipentAddressesFromERC20Logs(relevantTransferLogs)
 
   // Look up transfer log names, then flatten to an address -> name map.
   const addressEnrichmentsByAddress = Object.fromEntries(

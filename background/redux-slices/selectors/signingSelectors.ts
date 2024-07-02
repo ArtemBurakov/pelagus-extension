@@ -1,5 +1,5 @@
 import { createSelector } from "@reduxjs/toolkit"
-import { getAddress, getZoneForAddress } from "quais"
+import { getZoneForAddress } from "quais"
 import { RootState } from ".."
 import { isDefined } from "../../lib/utils/type-guards"
 import {
@@ -78,8 +78,8 @@ export const selectAccountSignersByAddress = createSelector(
 
     const readOnlyEntries: [string, typeof ReadOnlyAccountSigner][] =
       allAddresses
-        .filter((address) => !allAccountsSeen.has(getAddress(address))) // TODO-MIGRATION temp fix
-        .map((address) => [getAddress(address), ReadOnlyAccountSigner])
+        .filter((address) => !allAccountsSeen.has(address))
+        .map((address) => [address, ReadOnlyAccountSigner])
 
     const entriesByPriority: [string, AccountSigner][] = [
       ...readOnlyEntries,
@@ -94,6 +94,5 @@ export const selectAccountSignersByAddress = createSelector(
 export const selectCurrentAccountSigner = createSelector(
   selectAccountSignersByAddress,
   selectCurrentAccount,
-  (signingAccounts, selectedAccount) =>
-    signingAccounts[getAddress(selectedAccount.address)]
+  (signingAccounts, selectedAccount) => signingAccounts[selectedAccount.address]
 )

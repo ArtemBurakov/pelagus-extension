@@ -2,7 +2,6 @@ import { assetAmountToDesiredDecimals } from "../../assets"
 import {
   convertToEth,
   isMaxUint256,
-  normalizeEVMAddress,
   sameEVMAddress,
   weiToGwei,
 } from "../../lib/utils"
@@ -141,8 +140,8 @@ export const getActivity = (
 
   let activity: Activity = {
     status: "status" in transaction ? transaction.status : undefined,
-    to: to && normalizeEVMAddress(to),
-    from: normalizeEVMAddress(from),
+    to: to && to,
+    from: from,
     recipient: { address: to },
     sender: { address: from },
     blockHeight,

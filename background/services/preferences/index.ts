@@ -8,7 +8,6 @@ import {
 } from "./types"
 import { getOrCreateDB, PreferenceDatabase } from "./db"
 import BaseService from "../base"
-import { normalizeEVMAddress } from "../../lib/utils"
 import { sameNetwork } from "../../networks"
 import { HexString } from "../../types"
 import { AccountSignerSettings } from "../../ui"
@@ -24,8 +23,7 @@ type AddressBookEntry = {
 type InMemoryAddressBook = AddressBookEntry[]
 
 const sameAddressBookEntry = (a: AddressOnNetwork, b: AddressOnNetwork) =>
-  normalizeEVMAddress(a.address) === normalizeEVMAddress(b.address) &&
-  sameNetwork(a.network, b.network)
+  a.address === b.address && sameNetwork(a.network, b.network)
 
 interface Events extends ServiceLifecycleEvents {
   preferencesChanges: Preferences
@@ -88,7 +86,7 @@ export default class PreferenceService extends BaseService<Events> {
       this.addressBook.push({
         network: newEntry.network,
         name: newEntry.name,
-        address: normalizeEVMAddress(newEntry.address),
+        address: newEntry.address,
       })
     }
     this.emitter.emit("addressBookEntryModified", newEntry)

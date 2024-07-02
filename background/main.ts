@@ -6,14 +6,8 @@ import { devToolsEnhancer } from "@redux-devtools/remote"
 import { PermissionRequest } from "@pelagus-provider/provider-bridge-shared"
 import { debounce } from "lodash"
 import { utils } from "ethers"
-import { JsonRpcProvider, Shard, WebSocketProvider } from "quais"
-import {
-  decodeJSON,
-  encodeJSON,
-  normalizeEVMAddress,
-  sameEVMAddress,
-  wait,
-} from "./lib/utils"
+import { JsonRpcProvider, WebSocketProvider } from "quais"
+import { decodeJSON, encodeJSON, sameEVMAddress, wait } from "./lib/utils"
 import {
   AnalyticsService,
   BaseService,
@@ -29,7 +23,7 @@ import {
   SigningService,
   TelemetryService,
 } from "./services"
-import { HexString, KeyringTypes, NormalizedEVMAddress } from "./types"
+import { HexString, KeyringTypes } from "./types"
 import { ChainIdWithError, SignedTransactionGA } from "./networks"
 import { AccountBalance, AddressOnNetwork, NameOnNetwork } from "./accounts"
 import rootReducer from "./redux-slices"
@@ -75,7 +69,7 @@ import {
   TransactionConstructionStatus,
   transactionRequest,
   transactionSigned,
-  updateTransactionData
+  updateTransactionData,
 } from "./redux-slices/transaction-construction"
 import { selectDefaultNetworkFeeSettings } from "./redux-slices/selectors/transactionConstructionSelectors"
 import { allAliases } from "./redux-slices/utils"
@@ -444,7 +438,7 @@ export default class Main extends BaseService<never> {
       const currentAccountState =
         this.store.getState().account.accountsData.evm[
           selectedAccount.network.chainID
-        ]?.[normalizeEVMAddress(selectedAccount.address)]
+        ]?.[selectedAccount.address]
       if (
         currentAccountState === undefined ||
         currentAccountState === "loading"
@@ -511,9 +505,7 @@ export default class Main extends BaseService<never> {
   async manuallyCheckBalances(): Promise<void> {
     const selectedAccount = await this.store.getState().ui.selectedAccount
     const currentAccountState = await this.store.getState().account.accountsData
-      .evm[selectedAccount.network.chainID]?.[
-      normalizeEVMAddress(selectedAccount.address)
-    ]
+      .evm[selectedAccount.network.chainID]?.[selectedAccount.address]
     if (currentAccountState === undefined || currentAccountState === "loading")
       return
 
@@ -1102,8 +1094,8 @@ export default class Main extends BaseService<never> {
             (tracked) =>
               tracked.symbol === balance.assetAmount.asset.symbol &&
               isSmartContractFungibleAsset(balance.assetAmount.asset) &&
-              normalizeEVMAddress(tracked.contractAddress) ===
-                normalizeEVMAddress(balance.assetAmount.asset.contractAddress)
+              tracked.contractAddress ===
+                balance.assetAmount.asset.contractAddress
           )
 
           if (
@@ -1760,7 +1752,7 @@ export default class Main extends BaseService<never> {
   }
 
   async queryCustomTokenDetails(
-    contractAddress: NormalizedEVMAddress,
+    contractAddress: string,
     addressOnNetwork: AddressOnNetwork
   ): Promise<{
     asset: SmartContractFungibleAsset
