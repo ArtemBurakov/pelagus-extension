@@ -1,5 +1,4 @@
 import { HexString, UNIXTime } from "../../types"
-import { normalizeAddressOnNetwork } from "../../lib/utils"
 import { ServiceCreatorFunction, ServiceLifecycleEvents } from "../types"
 import BaseService from "../base"
 import ChainService from "../chain"
@@ -130,13 +129,9 @@ export default class NameService extends BaseService<Events> {
     const { type: resolverType, resolved: addressOnNetwork } =
       firstMatchingResolution
 
-    // TODO cache name resolution and TTL
-    const normalizedAddressOnNetwork =
-      normalizeAddressOnNetwork(addressOnNetwork)
-
     const resolvedRecord = {
       from: nameOnNetwork,
-      resolved: { addressOnNetwork: normalizedAddressOnNetwork },
+      resolved: { addressOnNetwork },
       system: resolverType,
     }
     this.emitter.emit("resolvedAddress", resolvedRecord)
@@ -148,7 +143,7 @@ export default class NameService extends BaseService<Events> {
     addressOnNetwork: AddressOnNetwork,
     checkCache = true
   ): Promise<ResolvedNameRecord | undefined> {
-    const { address, network } = normalizeAddressOnNetwork(addressOnNetwork)
+    const { address, network } = addressOnNetwork
 
     if (!this.cachedResolvedNames[network.chainID]) {
       this.cachedResolvedNames[network.chainID] = {}

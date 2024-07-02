@@ -20,11 +20,9 @@ import { getProvider } from "./utils/contract-utils"
 import { sameNetwork } from "../networks"
 import { convertFixedPoint } from "../lib/fixed-point"
 import { removeAssetReferences, updateAssetReferences } from "./accounts"
-import { NormalizedEVMAddress } from "../types"
 import type { RootState } from "."
 import { emitter as transactionConstructionSliceEmitter } from "./transaction-construction"
 import { AccountSigner } from "../services/signing"
-import { normalizeEVMAddress } from "../lib/utils"
 import { setSnackbarMessage } from "./ui"
 import { getExtendedZoneForAddress } from "../services/chain/utils"
 import { NetworkInterfaceGA } from "../constants/networks/networkTypes"
@@ -206,11 +204,7 @@ export const getAccountNonceAndGasPrice = createBackgroundAsyncThunk(
     globalThis.main.SetShard(getExtendedZoneForAddress(details.address))
     const { jsonRpc: provider } =
       globalThis.main.chainService.getCurrentProvider()
-    const normalizedAddress = normalizeEVMAddress(details.address)
-    const nonce = await provider.getTransactionCount(
-      normalizedAddress,
-      "pending"
-    )
+    const nonce = await provider.getTransactionCount(details.address, "pending")
     const feeData = await provider.getFeeData()
     globalThis.main.SetShard(prevShard)
     if (
@@ -298,7 +292,7 @@ export const sendAsset = createBackgroundAsyncThunk(
 
       const request: QuaiTransactionRequest = {
         to: getAddress(toAddress),
-        from: getAddress(fromAddress),
+        from: fromAddress,
         nonce,
         gasLimit,
         maxPriorityFeePerGas,
@@ -425,7 +419,7 @@ export const checkTokenContractDetails = createBackgroundAsyncThunk(
     {
       contractAddress,
       network,
-    }: { contractAddress: NormalizedEVMAddress; network: NetworkInterfaceGA },
+    }: { contractAddress: string; network: NetworkInterfaceGA },
     { getState, extra: { main } }
   ) => {
     const state = getState() as RootState

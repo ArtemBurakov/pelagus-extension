@@ -37,7 +37,7 @@ import { EIP712TypedData, HexString, KeyringTypes, UNIXTime } from "../../types"
 
 import logger from "../../lib/logger"
 import { generateRandomBytes, isPrivateKey } from "./utils"
-import { normalizeEVMAddress, sameEVMAddress } from "../../lib/utils"
+import { sameEVMAddress } from "../../lib/utils"
 
 const QUAI_HD_WALLET_ACCOUNT_INDEX = 0
 
@@ -347,7 +347,7 @@ export default class KeyringService extends BaseService<Events> {
    */
   #importPrivateKey(privateKey: string): string {
     const newWallet = new Wallet(privateKey)
-    const normalizedAddress = normalizeEVMAddress(newWallet.address)
+    const normalizedAddress = newWallet.address
 
     if (this.#findSigner(normalizedAddress)) return normalizedAddress
 
@@ -522,7 +522,7 @@ export default class KeyringService extends BaseService<Events> {
     }
 
     this.wallets = filteredPrivateKeys
-    delete this.#keyringMetadata[normalizeEVMAddress(address)]
+    delete this.#keyringMetadata[address]
 
     return filteredPrivateKeys
   }

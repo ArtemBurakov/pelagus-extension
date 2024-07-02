@@ -28,10 +28,7 @@ import {
 } from "@pelagus/pelagus-background/redux-slices/selectors"
 import { useHistory } from "react-router-dom"
 import { AccountType } from "@pelagus/pelagus-background/redux-slices/accounts"
-import {
-  normalizeEVMAddress,
-  sameEVMAddress,
-} from "@pelagus/pelagus-background/lib/utils"
+import { sameEVMAddress } from "@pelagus/pelagus-background/lib/utils"
 import { useTranslation } from "react-i18next"
 import { AccountSigner } from "@pelagus/pelagus-background/services/signing"
 import { isSameAccountSignerWithId } from "@pelagus/pelagus-background/utils/signing"
@@ -765,18 +762,14 @@ export default function AccountsNotificationPanelAccounts({
                     />
                     <ul>
                       {accountTotalsBySignerId.map((accountTotal, idx) => {
-                        const normalizedAddress = normalizeEVMAddress(
-                          accountTotal.address
-                        )
-
                         const isSelected = sameEVMAddress(
-                          normalizedAddress,
+                          accountTotal.address,
                           selectedAccountAddress
                         )
 
                         return (
                           <li
-                            key={`${idx}-${normalizedAddress}`}
+                            key={`${idx}-${accountTotal.address}`}
                             // We use these event handlers in leiu of :hover so that we can prevent child hovering
                             // from affecting the hover state of this li.
                             onMouseOver={(e) => {
@@ -800,20 +793,20 @@ export default function AccountsNotificationPanelAccounts({
                               onKeyDown={(e) => {
                                 if (e.key === "Enter") {
                                   updateCurrentAccount(
-                                    normalizedAddress,
+                                    accountTotal.address,
                                     accountTotal.signerId ?? ""
                                   )
                                 }
                               }}
                               onClick={() => {
                                 updateCurrentAccount(
-                                  normalizedAddress,
+                                  accountTotal.address,
                                   accountTotal.signerId ?? ""
                                 )
                               }}
                             >
                               <SelectAccountListItem
-                                key={normalizedAddress}
+                                key={accountTotal.address}
                                 account={accountTotal}
                                 isSelected={isSelected}
                               >

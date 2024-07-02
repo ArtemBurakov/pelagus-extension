@@ -11,7 +11,6 @@ import {
   TransactionReceipt,
   TransactionResponse,
   WebSocketProvider,
-  getAddress,
 } from "quais"
 import { NetworksArray } from "../../constants/networks/networks"
 import ProviderFactory from "../provider-factory"
@@ -19,7 +18,7 @@ import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
 
 import logger from "../../lib/logger"
 import getBlockPrices from "../../lib/gas"
-import { HexString, NormalizedEVMAddress, UNIXTime } from "../../types"
+import { HexString, UNIXTime } from "../../types"
 import { AccountBalance, AddressOnNetwork } from "../../accounts"
 import {
   AnyEVMBlock,
@@ -55,7 +54,7 @@ import {
   getExtendedZoneForAddress,
   transactionFromEthersTransaction,
 } from "./utils"
-import { normalizeEVMAddress, sameEVMAddress } from "../../lib/utils"
+import { sameEVMAddress } from "../../lib/utils"
 import type {
   EnrichedEIP1559TransactionRequest,
   EnrichedEIP1559TransactionSignatureRequest,
@@ -604,7 +603,6 @@ export default class ChainService extends BaseService<Events> {
     }
 
     const { chainID } = transactionRequest
-    const normalizedAddress = normalizeEVMAddress(transactionRequest.from)
     const { currentProvider } = this
 
     const chainTransactionCount =
@@ -628,7 +626,7 @@ export default class ChainService extends BaseService<Events> {
 
       const existingNonce =
         this.evmChainLastSeenNoncesByNormalizedAddress[chainID]?.[
-          normalizedAddress
+          transactionRequest.from
         ] ?? chainNonce
 
       this.evmChainLastSeenNoncesByNormalizedAddress[chainID] ??= {}
@@ -638,16 +636,16 @@ export default class ChainService extends BaseService<Events> {
       // is not an increase by one over previous transactions, this approach will
       // allocate more nonce's that won't mine.
       this.evmChainLastSeenNoncesByNormalizedAddress[chainID][
-        normalizedAddress
+        transactionRequest.from
       ] = Math.max(existingNonce, chainNonce)
 
       // Allocate a new nonce by incrementing the last seen one.
       this.evmChainLastSeenNoncesByNormalizedAddress[chainID][
-        normalizedAddress
+        transactionRequest.from
       ] += 1
       knownNextNonce =
         this.evmChainLastSeenNoncesByNormalizedAddress[chainID][
-          normalizedAddress
+          transactionRequest.from
         ]
 
       logger.debug(
@@ -684,18 +682,17 @@ export default class ChainService extends BaseService<Events> {
         : transactionRequest.network.chainID
     if (CHAINS_WITH_MEMPOOL.has(chainID)) {
       const { nonce } = transactionRequest
-      const normalizedAddress = normalizeEVMAddress(transactionRequest.from)
 
       if (
         !this.evmChainLastSeenNoncesByNormalizedAddress[chainID]?.[
-          normalizedAddress
+          transactionRequest.from
         ]
       )
         return
 
       const lastSeenNonce =
         this.evmChainLastSeenNoncesByNormalizedAddress[chainID][
-          normalizedAddress
+          transactionRequest.from
         ]
 
       // TODO Currently this assumes that the only place this nonce could have
@@ -705,7 +702,7 @@ export default class ChainService extends BaseService<Events> {
       // TODO relatively rare edge case, but we should handle it at some point.
       if (nonce === lastSeenNonce) {
         this.evmChainLastSeenNoncesByNormalizedAddress[chainID][
-          normalizedAddress
+          transactionRequest.from
         ] -= 1
       } else if (nonce < lastSeenNonce) {
         // If the nonce we're releasing is below the latest allocated nonce,
@@ -714,7 +711,7 @@ export default class ChainService extends BaseService<Events> {
         // never mine (because they will all be higher than the
         // now-released-and-therefore-never-broadcast nonce).
         this.evmChainLastSeenNoncesByNormalizedAddress[chainID][
-          normalizedAddress
+          transactionRequest.from
         ] = nonce - 1
       }
     }
@@ -752,9 +749,6 @@ export default class ChainService extends BaseService<Events> {
     address,
     network,
   }: AddressOnNetwork): Promise<AccountBalance> {
-    // TODO-MIGRATION we will use getAddress() for now, because we dont know whether transaction is correct
-    // but in future we need properly set correct tx to redux/store and use it without getAddress()
-    const normalizedAddress = getAddress(address)
     const prevShard = globalThis.main.SelectedShard
     const addrShard = getExtendedZoneForAddress(address)
     if (globalThis.main.SelectedShard !== addrShard) {
@@ -763,9 +757,7 @@ export default class ChainService extends BaseService<Events> {
     let err = false
     let balance: bigint | undefined = toBigInt(0)
     try {
-      balance = await this.currentProvider.jsonRpc?.getBalance(
-        normalizedAddress
-      )
+      balance = await this.currentProvider.jsonRpc?.getBalance(address)
     } catch (error) {
       if (error instanceof Error) {
         console.error("Error getting balance for address", address, error)
@@ -799,7 +791,7 @@ export default class ChainService extends BaseService<Events> {
     )
 
     const accountBalance: AccountBalance = {
-      address: normalizedAddress,
+      address,
       network,
       assetAmount: {
         asset: await this.db.getBaseAssetForNetwork(network.chainID),
@@ -810,11 +802,11 @@ export default class ChainService extends BaseService<Events> {
     }
 
     // Don't emit or save if the account isn't tracked
-    if (allTrackedAddresses.has(normalizedAddress)) {
+    if (allTrackedAddresses.has(address)) {
       this.emitter.emit("accountsWithBalances", {
         balances: [accountBalance],
         addressOnNetwork: {
-          address: normalizedAddress,
+          address: address,
           network,
         },
       })
@@ -1904,7 +1896,6 @@ export default class ChainService extends BaseService<Events> {
   ): Promise<void> {
     try {
       const { network } = transaction
-      const normalizedFromAddress = normalizeEVMAddress(transaction.from)
 
       // If this is an EVM chain, we're tracking the from address's
       // nonce, and the pending transaction has a higher nonce, update our
@@ -1915,13 +1906,13 @@ export default class ChainService extends BaseService<Events> {
         typeof network.chainID !== "undefined" &&
         typeof this.evmChainLastSeenNoncesByNormalizedAddress[
           network.chainID
-        ]?.[normalizedFromAddress] !== "undefined" &&
+        ]?.[transaction.from] !== "undefined" &&
         this.evmChainLastSeenNoncesByNormalizedAddress[network.chainID]?.[
-          normalizedFromAddress
+          transaction.from
         ] <= transaction.nonce
       ) {
         this.evmChainLastSeenNoncesByNormalizedAddress[network.chainID][
-          normalizedFromAddress
+          transaction.from
         ] = transaction.nonce
       }
       await this.saveTransaction(transaction, "local")
@@ -2002,7 +1993,7 @@ export default class ChainService extends BaseService<Events> {
   }
 
   async queryAccountTokenDetails(
-    contractAddress: NormalizedEVMAddress,
+    contractAddress: string,
     addressOnNetwork: AddressOnNetwork,
     existingAsset?: SmartContractFungibleAsset
   ): Promise<AnyAssetAmount<SmartContractFungibleAsset>> {

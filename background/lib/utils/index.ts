@@ -1,23 +1,5 @@
-import { toBigInt, MaxUint256, parseUnits, formatUnits } from "quais"
 import { normalizeHexAddress } from "@pelagus/hd-keyring"
-import { NormalizedEVMAddress } from "../../types"
-import { AddressOnNetwork } from "../../accounts"
-
-export function normalizeEVMAddress(
-  address: string | Buffer
-): NormalizedEVMAddress {
-  return normalizeHexAddress(address) as NormalizedEVMAddress
-}
-
-export function normalizeAddressOnNetwork({
-  address,
-  network,
-}: AddressOnNetwork): AddressOnNetwork {
-  return {
-    address: normalizeEVMAddress(address),
-    network,
-  }
-}
+import { toBigInt, MaxUint256, parseUnits, formatUnits } from "quais"
 
 /**
  * Manually truncate number, try to cut as close to `decimalLength` as possible.

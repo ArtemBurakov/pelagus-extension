@@ -23,11 +23,7 @@ import { ServiceCreatorFunction, ServiceLifecycleEvents } from "../types"
 import { CustomAsset, getOrCreateDb, IndexingDatabase } from "./db"
 import BaseService from "../base"
 import { EnrichedEVMTransaction } from "../enrichment"
-import {
-  normalizeAddressOnNetwork,
-  normalizeEVMAddress,
-  sameEVMAddress,
-} from "../../lib/utils"
+import { sameEVMAddress } from "../../lib/utils"
 import { getExtendedZoneForAddress } from "../chain/utils"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
 import { isQuaiHandle } from "../../constants/networks/networkUtils"
@@ -240,8 +236,7 @@ export default class IndexingService extends BaseService<Events> {
       (asset): asset is SmartContractFungibleAsset =>
         isSmartContractFungibleAsset(asset) &&
         asset.homeNetwork.baseAsset.name === network.baseAsset.name &&
-        normalizeEVMAddress(asset.contractAddress) ===
-          normalizeEVMAddress(contractAddress)
+        asset.contractAddress === contractAddress
     )
 
     return searchResult
@@ -308,7 +303,7 @@ export default class IndexingService extends BaseService<Events> {
           (
             await this.chainService.filterTrackedAddressesOnNetworks([
               {
-                address: normalizeEVMAddress(enrichedEVMTransaction.from),
+                address: enrichedEVMTransaction.from,
                 network: enrichedEVMTransaction.network,
               },
             ])
@@ -448,14 +443,12 @@ export default class IndexingService extends BaseService<Events> {
    * to the list of assets to track.
    *
    * @param addressNetwork
-   * @param contractAddresses
+   * @param smartContractAssets
    */
   async retrieveTokenBalances(
-    unsafeAddressNetwork: AddressOnNetwork,
+    addressNetwork: AddressOnNetwork,
     smartContractAssets?: SmartContractFungibleAsset[]
   ): Promise<SmartContractAmount[]> {
-    const addressNetwork = normalizeAddressOnNetwork(unsafeAddressNetwork)
-
     const filteredSmartContractAssets = (smartContractAssets ?? []).filter(
       ({ contractAddress }) =>
         getExtendedZoneForAddress(contractAddress, false) ===
@@ -475,7 +468,7 @@ export default class IndexingService extends BaseService<Events> {
     const listedAssetByAddress = (smartContractAssets ?? []).reduce<{
       [contractAddress: string]: SmartContractFungibleAsset
     }>((acc, asset) => {
-      acc[normalizeEVMAddress(asset.contractAddress)] = asset
+      acc[asset.contractAddress] = asset
       return acc
     }, {})
 
@@ -483,7 +476,7 @@ export default class IndexingService extends BaseService<Events> {
     const unfilteredAccountBalances = await Promise.allSettled(
       balances.map(async ({ smartContract: { contractAddress }, amount }) => {
         const knownAsset =
-          listedAssetByAddress[normalizeEVMAddress(contractAddress)] ??
+          listedAssetByAddress[contractAddress] ??
           this.getKnownSmartContractAsset(
             addressNetwork.network,
             contractAddress
@@ -620,12 +613,7 @@ export default class IndexingService extends BaseService<Events> {
     contractAddress: string,
     metadata: { discoveryTxHash?: HexString; verified?: boolean } = {}
   ): Promise<SmartContractFungibleAsset | undefined> {
-    const normalizedAddress = normalizeEVMAddress(contractAddress)
-
-    const knownAsset = this.getKnownSmartContractAsset(
-      network,
-      normalizedAddress
-    )
+    const knownAsset = this.getKnownSmartContractAsset(network, contractAddress)
     if (knownAsset) {
       await this.addAssetToTrack(knownAsset)
       return knownAsset
@@ -636,10 +624,10 @@ export default class IndexingService extends BaseService<Events> {
     const customAsset: CustomAsset | undefined =
       (await this.db.getCustomAssetByAddressAndNetwork(
         network,
-        normalizedAddress
+        contractAddress
       )) ||
       (await this.chainService.assetData.getTokenMetadata({
-        contractAddress: normalizedAddress,
+        contractAddress: contractAddress,
         homeNetwork: network,
       }))
     if (!customAsset) return undefined
