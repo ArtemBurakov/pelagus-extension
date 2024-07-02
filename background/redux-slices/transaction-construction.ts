@@ -1,5 +1,6 @@
 import { createSlice } from "@reduxjs/toolkit"
 import Emittery from "emittery"
+import { QuaiTransactionLike } from "quais/lib/commonjs/transaction"
 import { EXPRESS, INSTANT, MAX_FEE_MULTIPLIER, REGULAR } from "../constants"
 import {
   BlockEstimate,
@@ -48,7 +49,7 @@ export enum NetworkFeeTypeChosen {
 export type TransactionConstruction = {
   status: TransactionConstructionStatus
   transactionRequest?: EnrichedEVMTransactionRequest
-  signedTransaction?: SignedTransactionGA
+  signedTransaction?: QuaiTransactionLike // TODO-MIGRATION
   broadcastOnSign?: boolean
   transactionLikelyFails: boolean
   estimatedFeesPerGas: { [chainID: string]: EstimatedFeesPerGas | undefined }
@@ -239,10 +240,10 @@ const transactionSlice = createSlice({
     ) => {
       immerState.feeTypeSelected = payload
     },
-    signed: (state, { payload }: { payload: SignedTransactionGA }) => ({
+    signed: (state, { payload }: { payload: string }) => ({
       ...state,
       status: TransactionConstructionStatus.Signed,
-      signedTransaction: payload,
+      signedTransaction: JSON.parse(payload), // TODO-MIGRATION
     }),
     broadcastOnSign: (state, { payload }: { payload: boolean }) => ({
       ...state,
@@ -331,7 +332,7 @@ export default transactionSlice.reducer
 export const transactionSigned = createBackgroundAsyncThunk(
   "transaction-construction/transaction-signed",
   async (transaction: SignedTransactionGA, { dispatch, getState }) => {
-    dispatch(signed(transaction))
+    dispatch(signed(JSON.stringify(transaction)))
 
     const { transactionConstruction } = getState() as {
       transactionConstruction: TransactionConstruction

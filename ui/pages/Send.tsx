@@ -36,6 +36,7 @@ import classNames from "classnames"
 import { setSnackbarMessage } from "@pelagus/pelagus-background/redux-slices/ui"
 import { sameEVMAddress } from "@pelagus/pelagus-background/lib/utils"
 import { toBigInt } from "quais"
+import { ReadOnlyAccountSigner } from "@pelagus/pelagus-background/services/signing"
 import SharedAssetInput from "../components/Shared/SharedAssetInput"
 import SharedBackButton from "../components/Shared/SharedBackButton"
 import SharedButton from "../components/Shared/SharedButton"
@@ -432,12 +433,12 @@ export default function Send(): ReactElement {
             <SharedButton
               type="primary"
               size="large"
-              // isDisabled={
-              //   currentAccountSigner === ReadOnlyAccountSigner ||
-              //   (assetType === "token" && Number(amount) === 0) ||
-              //   destinationAddress === undefined ||
-              //   hasError
-              // }
+              isDisabled={
+                currentAccountSigner === ReadOnlyAccountSigner ||
+                (assetType === "token" && Number(amount) === 0) ||
+                destinationAddress === undefined ||
+                hasError
+              }
               onClick={sendTransactionRequest}
               isFormSubmit
               isLoading={isSendingTransactionRequest}
