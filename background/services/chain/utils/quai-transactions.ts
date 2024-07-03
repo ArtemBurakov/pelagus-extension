@@ -1,6 +1,6 @@
 import { TransactionReceiptParams } from "quais"
+import { QuaiTransactionResponse } from "quais/lib/commonjs/providers"
 import { QuaiTransactionLike } from "quais/lib/commonjs/transaction/quai-transaction"
-import { QuaiTransactionResponseParams } from "quais/lib/commonjs/providers/formatting"
 
 import {
   ConfirmedQuaiTransactionLike,
@@ -52,11 +52,9 @@ export const createConfirmedQuaiTransaction = (
 }
 
 export const createPendingQuaiTransaction = (
-  transaction: QuaiTransactionLike,
-  responseParams: QuaiTransactionResponseParams
+  responseParams: QuaiTransactionResponse
 ): PendingQuaiTransactionLike => {
   return {
-    ...transaction,
     ...responseParams,
     status: QuaiTransactionStatus.PENDING,
   }
