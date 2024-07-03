@@ -68,6 +68,7 @@ import AssetDataHelper from "./asset-data-helper"
 import KeyringService from "../keyring"
 import type { ValidatedAddEthereumChainParameter } from "../provider-bridge/utils"
 import { getRelevantTransactionAddresses } from "../enrichment/utils"
+import { createConfirmedQuaiTransaction } from "./utils/quai-transactions"
 
 // The number of blocks to query at a time for historic asset transfers.
 // Unfortunately there's no "right" answer here that works well across different
@@ -1249,7 +1250,7 @@ export default class ChainService extends BaseService<Events> {
             // )
             return Promise.reject(error)
           }),
-        this.subscribeToTransactionConfirmationGA(transaction),
+        this.subscribeToQuaiTransactionConfirmation(transaction),
         // TODO-MIGRATION
         // this.saveTransaction(transaction, "local"),
       ])
@@ -1951,17 +1952,18 @@ export default class ChainService extends BaseService<Events> {
   }
 
   // TODO-MIGRATION temp fix
-  private async subscribeToTransactionConfirmationGA(
+  private async subscribeToQuaiTransactionConfirmation(
     transaction: QuaiTransaction
   ): Promise<void> {
     if (!transaction.hash) return
 
     const provider = this.currentProvider.jsonRpc
-    provider?.once(transaction.hash, (confirmedReceipt: TransactionReceipt) => {
-      this.saveTransaction(
-        enrichTransactionWithReceipt(transaction, confirmedReceipt),
-        "local"
-      )
+    await provider.once(transaction.hash, (receipt: TransactionReceipt) => {
+      // const confirmedTransaction = createConfirmedQuaiTransaction(
+      //   transaction,
+      //   receipt
+      // )
+      // this.saveTransaction(extendedQuaiTransaction, "local")
     })
   }
 
