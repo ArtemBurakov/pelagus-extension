@@ -426,6 +426,86 @@ export default class ChainService extends BaseService<Events> {
     })
   }
 
+  /**
+   * Populates the provided partial legacy transaction request with all fields
+   * except the nonce. This leaves the transaction ready for user review, and
+   * the nonce ready to be filled in immediately prior to signing to minimize the
+   * likelihood for nonce reuse.
+   *
+   * Note that if the partial request already has a defined nonce, it is not
+   * cleared.
+   */
+  private async populatePartialLegacyEVMTransactionRequest(
+    network: NetworkInterfaceGA,
+    partialRequest: EnrichedLegacyTransactionSignatureRequest
+  ): Promise<{
+    transactionRequest: EnrichedLegacyTransactionRequest
+    gasEstimationError: string | undefined
+  }> {
+    const { from, to, value, gasLimit, input, gasPrice, nonce, annotation } =
+      partialRequest
+    // Basic transaction construction based on the provided options, with extra data from the chain service
+    const transactionRequest: EnrichedLegacyTransactionRequest = {
+      from,
+      to,
+      value: value ?? 0n,
+      gasLimit: gasLimit ?? 0n,
+      input: input ?? null,
+      // TODO-MIGRATION: need a transaction request
+      gasPrice:
+        gasPrice ||
+        (await this.estimateGasPrice(partialRequest as TransactionRequest)),
+      type: 0 as const,
+      network,
+      chainID: network.chainID,
+      nonce,
+      annotation,
+      estimatedRollupGwei: 0n,
+      estimatedRollupFee: 0n,
+    }
+
+    // Always estimate gas to decide whether the transaction will likely fail.
+    let estimatedGasLimit: bigint | undefined
+    let gasEstimationError: string | undefined
+    try {
+      estimatedGasLimit = await this.estimateGasLimit(transactionRequest)
+    } catch (error) {
+      logger.error("Error estimating gas limit: ", error)
+      // Try to identify unpredictable gas errors to bubble that information
+      // out.
+      if (error instanceof Error) {
+        // Ethers does some heavily loose typing around errors to carry
+        // arbitrary info without subclassing Error, so an any cast is needed.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const anyError: any = error
+
+        if ("code" in anyError && anyError.code === UNPREDICTABLE_GAS_LIMIT) {
+          gasEstimationError = anyError.error ?? "Unknown transaction error."
+        }
+      }
+    }
+
+    // We use the estimate as the actual limit only if user did not specify the
+    // gas explicitly or if it was set below the minimum network-allowed value.
+    if (
+      typeof estimatedGasLimit !== "undefined" &&
+      (typeof gasLimit === "undefined" || gasLimit < 21000n)
+    ) {
+      transactionRequest.gasLimit = estimatedGasLimit
+    }
+
+    return { transactionRequest, gasEstimationError }
+  }
+
+  /**
+   * Populates the provided partial EIP1559 transaction request with all fields
+   * except the nonce. This leaves the transaction ready for user review, and
+   * the nonce ready to be filled in immediately prior to signing to minimize the
+   * likelihood for nonce reuse.
+   *
+   * Note that if the partial request already has a defined nonce, it is not
+   * cleared.
+   */
   private async populatePartialEIP1559TransactionRequest(
     network: NetworkInterfaceGA,
     partialRequest: EnrichedEIP1559TransactionSignatureRequest
