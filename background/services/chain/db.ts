@@ -14,8 +14,9 @@ import {
 } from "../../constants"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
 import { NetworksArray } from "../../constants/networks/networks"
+import { ExtendedQuaiTransactionInterface } from "./types"
 
-export type Transaction = AnyEVMTransaction & {
+export type Transaction = ExtendedQuaiTransactionInterface & {
   dataSource: "local"
   firstSeen: UNIXTime
 }
@@ -80,7 +81,7 @@ export class ChainDatabase extends Dexie {
   constructor(options?: DexieOptions) {
     super("tally/chain", options)
     this.version(1).stores({
-      migrations: "++id,appliedAt",
+      migrations: null,
       accountsToTrack:
         "&[address+network.baseAsset.name+network.chainID],address,network.family,network.chainID,network.baseAsset.name",
       accountAssetTransferLookups:
@@ -91,10 +92,9 @@ export class ChainDatabase extends Dexie {
         "&[hash+network.baseAsset.name],hash,from,[from+network.baseAsset.name],to,[to+network.baseAsset.name],nonce,[nonce+from+network.baseAsset.name],blockHash,blockNumber,network.baseAsset.name,firstSeen,dataSource",
       blocks:
         "&[hash+network.baseAsset.name],[network.baseAsset.name+timestamp],hash,network.baseAsset.name,timestamp,parentHash,blockHeight,[blockHeight+network.baseAsset.name]",
-    })
-
-    this.version(2).stores({
-      migrations: null,
+      networks: "&chainID,baseAsset.name,family",
+      baseAssets: "&chainID,symbol,name",
+      rpcUrls: "&chainID, rpcUrls",
     })
 
     this.chainTransactions.hook(
@@ -126,18 +126,6 @@ export class ChainDatabase extends Dexie {
         return filteredModifications
       }
     )
-
-    this.version(5).stores({
-      networks: "&chainID,name,family",
-    })
-
-    this.version(6).stores({
-      baseAssets: "&chainID,symbol,name",
-    })
-
-    this.version(7).stores({
-      rpcUrls: "&chainID, rpcUrls",
-    })
 
     // Updates saved accounts stored networks for old installs
     this.version(8).upgrade((tx) => {
