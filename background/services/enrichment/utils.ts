@@ -7,6 +7,11 @@ import { AddressOnNetwork } from "../../accounts"
 import dayjs from "dayjs"
 import { SmartContractFungibleAsset } from "../../assets"
 import { getExtendedZoneForAddress } from "../chain/utils"
+import {
+  ConfirmedQuaiTransactionLike,
+  FailedQuaiTransactionLike,
+  PendingQuaiTransactionLike,
+} from "../chain/types"
 
 export function isEIP2612TypedData(
   typedData: EIP712TypedData
@@ -126,7 +131,10 @@ export function getSender(transaction: EnrichedEVMTransaction): {
 }
 
 export function getRelevantTransactionAddresses(
-  transaction: EnrichedEVMTransaction,
+  transaction:
+    | ConfirmedQuaiTransactionLike
+    | PendingQuaiTransactionLike
+    | FailedQuaiTransactionLike,
   trackedAccounts: AddressOnNetwork[]
 ): string[] {
   const { address: recipientAddress } = getRecipient(transaction)
