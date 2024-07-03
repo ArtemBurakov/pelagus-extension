@@ -924,7 +924,7 @@ export default class Main extends BaseService<never> {
     transactionConstructionSliceEmitter.on(
       "broadcastSignedTransaction",
       async (transaction: SignedTransactionGA) => {
-        await this.chainService.broadcastSignedTransaction(transaction) // TODO-MIGRATION
+        await this.chainService.broadcastQuaiTransaction(transaction)
       }
     )
 

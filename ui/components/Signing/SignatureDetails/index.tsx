@@ -101,7 +101,7 @@ export function resolveSignatureDetails<T extends SignOperationType>({
   if ("typedData" in request) {
     return resolveTypedDataSignatureDetails({ request, accountSigner })
   }
-  //@ts-ignore TODO
+  // @ts-ignore TODO
   return resolveTransactionSignatureDetails({ request, accountSigner })
 }
 
