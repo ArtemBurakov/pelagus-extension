@@ -12,6 +12,7 @@ import {
   FailedQuaiTransactionLike,
   QuaiTransactionStatus,
 } from "./types"
+import { BigNumberish } from "quais"
 
 type AdditionalTransactionFieldsForDB = {
   dataSource: "local"
