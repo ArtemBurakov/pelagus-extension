@@ -14,9 +14,8 @@ import {
 } from "../../constants"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
 import { NetworksArray } from "../../constants/networks/networks"
-import { ExtendedQuaiTransactionInterface } from "./types"
 
-export type Transaction = ExtendedQuaiTransactionInterface & {
+export type Transaction = AnyEVMTransaction & {
   dataSource: "local"
   firstSeen: UNIXTime
 }
