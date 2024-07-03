@@ -64,7 +64,7 @@ import type {
   EnrichedLegacyTransactionRequest,
   EnrichedLegacyTransactionSignatureRequest,
 } from "../enrichment"
-import AssetDataHelper from "./asset-data-helper"
+import AssetDataHelper from "./utils/asset-data-helper"
 import KeyringService from "../keyring"
 import type { ValidatedAddEthereumChainParameter } from "../provider-bridge/utils"
 import { getRelevantTransactionAddresses } from "../enrichment/utils"
@@ -338,6 +338,29 @@ export default class ChainService extends BaseService<Events> {
     await this.subscribeOnNetworksAndAddresses(this.supportedNetworks, accounts)
   }
 
+  public switchNetwork(network: NetworkInterfaceGA): void {
+    this.currentNetwork = network
+    this.currentProvider = this.providerFactory.getProvider(network)
+  }
+
+  public getCurrentProvider(): {
+    jsonRpc: JsonRpcProvider
+    websocket: WebSocketProvider
+  } {
+    const provider = this.currentProvider
+    if (!provider) {
+      logger.error(
+        "Request received for operation on an inactive network",
+        "expected",
+        this.trackedNetworks
+      )
+      throw new Error(`Unexpected network`)
+    }
+    return provider
+  }
+
+  // --------------------------------------------------------------------------------------------------
+
   private subscribeOnNetworksAndAddresses = async (
     networks: NetworkInterfaceGA[],
     accounts: AddressOnNetwork[]
@@ -386,27 +409,6 @@ export default class ChainService extends BaseService<Events> {
         ]).catch((e) => logger.error(e))
       })
     })
-  }
-
-  public switchNetwork(network: NetworkInterfaceGA): void {
-    this.currentNetwork = network
-    this.currentProvider = this.providerFactory.getProvider(network)
-  }
-
-  getCurrentProvider(): {
-    jsonRpc: JsonRpcProvider
-    websocket: WebSocketProvider
-  } {
-    const provider = this.currentProvider
-    if (!provider) {
-      logger.error(
-        "Request received for operation on an inactive network",
-        "expected",
-        this.trackedNetworks
-      )
-      throw new Error(`Unexpected network`)
-    }
-    return provider
   }
 
   /**
@@ -855,6 +857,7 @@ export default class ChainService extends BaseService<Events> {
     }
   }
 
+  // ----------------------------------------- BLOCKS -------------------------------------------------
   async getBlockHeight(network: NetworkInterfaceGA): Promise<number> {
     const cachedBlock = await this.db.getLatestBlock(network)
     if (cachedBlock) return cachedBlock.blockHeight
@@ -930,6 +933,7 @@ export default class ChainService extends BaseService<Events> {
     this.emitter.emit("block", block)
     return block
   }
+  // ------------------------------------------------------------------------------------------------
 
   /**
    * Return cached information on a transaction, if it's both confirmed and
