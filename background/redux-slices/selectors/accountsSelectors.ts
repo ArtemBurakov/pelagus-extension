@@ -372,9 +372,7 @@ function getNetworkAccountTotalsByCategory(
 
   return Object.entries(accounts.accountsData.evm[network.chainID] ?? {})
     .filter(([, accountData]) => typeof accountData !== "undefined")
-    .map(([add, accountData]): AccountTotal => {
-      const address = add
-
+    .map(([address, accountData]): AccountTotal => {
       const shortenedAddress = truncateAddress(address)
       const accountSigner = accountSignersByAddress[address]
       const signerId = signerIdFor(accountSigner)
