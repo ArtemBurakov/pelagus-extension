@@ -12,6 +12,7 @@ import {
   FailedQuaiTransactionLike,
   QuaiTransactionStatus,
 } from "./types"
+import { BigNumberish } from "quais"
 
 type AdditionalTransactionFieldsForDB = {
   dataSource: "local"
@@ -341,17 +342,25 @@ export class ChainDatabase extends Dexie {
   }
 
   async getQuaiTransactionByHash(
-    network: NetworkInterfaceGA,
-    txHash: string
+    txHash: string | null | undefined
   ): Promise<QuaiTransaction | null> {
+    if (!txHash) return null
+
     return (
       (
-        await this.quaiTransactions
-          .where("[hash+network.chainID]")
-          .equals([txHash, network.chainID])
-          .toArray()
+        await this.quaiTransactions.where("[hash]").equals([txHash]).toArray()
       )[0] || null
     )
+  }
+
+  async getQuaiTransactionsByNetwork(
+    network: NetworkInterfaceGA
+  ): Promise<QuaiTransaction[]> {
+    const transactions = this.quaiTransactions
+      .where("[network.chainID]")
+      .equals([network.chainID])
+
+    return transactions.toArray()
   }
 
   async getQuaiTransactionsByStatus(
@@ -372,9 +381,18 @@ export class ChainDatabase extends Dexie {
       | FailedQuaiTransactionLike,
     dataSource: QuaiTransaction["dataSource"]
   ): Promise<void> {
+    const existingTx = await this.getQuaiTransactionByHash(tx.hash)
+    const updatedTx = { ...tx, ...existingTx } as
+      | ConfirmedQuaiTransactionLike
+      | PendingQuaiTransactionLike
+      | FailedQuaiTransactionLike
+
+    if (!existingTx || !updatedTx)
+      throw new Error("Failed get quai transaction by hash from DB")
+
     await this.transaction("rw", this.quaiTransactions, () => {
       return this.quaiTransactions.put({
-        ...tx,
+        ...updatedTx,
         firstSeen: Date.now(),
         dataSource,
       })
