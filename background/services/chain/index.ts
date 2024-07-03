@@ -12,6 +12,7 @@ import {
   WebSocketProvider,
   QuaiTransaction,
 } from "quais"
+import { QuaiTransactionResponse } from "quais/lib/commonjs/providers"
 import { NetworksArray } from "../../constants/networks/networks"
 import ProviderFactory from "../provider-factory"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
@@ -68,7 +69,11 @@ import AssetDataHelper from "./asset-data-helper"
 import KeyringService from "../keyring"
 import type { ValidatedAddEthereumChainParameter } from "../provider-bridge/utils"
 import { getRelevantTransactionAddresses } from "../enrichment/utils"
-import { createConfirmedQuaiTransaction } from "./utils/quai-transactions"
+import {
+  createConfirmedQuaiTransaction,
+  createFailedQuaiTransaction,
+  createPendingQuaiTransaction,
+} from "./utils/quai-transactions"
 
 // The number of blocks to query at a time for historic asset transfers.
 // Unfortunately there's no "right" answer here that works well across different
@@ -594,7 +599,7 @@ export default class ChainService extends BaseService<Events> {
    * Returns the transaction request with a guaranteed-defined nonce, suitable
    * for signing by a signer.
    */
-  // TODO-MIGRATION MAYBE DELETE
+  // TODO-MIGRATION DELETE
   async populateEVMTransactionNonce(
     transactionRequest: TransactionRequest
   ): Promise<TransactionRequestWithNonce> {
@@ -1235,6 +1240,11 @@ export default class ChainService extends BaseService<Events> {
           ?.broadcastTransaction(zoneToBroadcast, signedTransaction)
           .then((transactionResponse) => {
             this.emitter.emit("transactionSend", transactionResponse.hash)
+
+            // const pendingQuaiTransaction = createPendingQuaiTransaction(
+            //   transactionResponse as QuaiTransactionResponse
+            // )
+            // this.saveTransaction(pendingQuaiTransaction, "local")
           })
           .catch((error) => {
             logger.debug(
@@ -1244,15 +1254,17 @@ export default class ChainService extends BaseService<Events> {
             )
 
             // TODO - MIGRATION
+            // const failedTransaction = createFailedQuaiTransaction(
+            //   transaction,
+            //   error.toString()
+            // )
             // this.saveTransaction(
-            //   { ...transaction, status: 0, error: error.toString() },
+            //   failedTransaction,
             //   "local"
             // )
             return Promise.reject(error)
           }),
         this.subscribeToQuaiTransactionConfirmation(transaction),
-        // TODO-MIGRATION
-        // this.saveTransaction(transaction, "local"),
       ])
     } catch (error) {
       // TODO-MIGRATION
@@ -1404,18 +1416,12 @@ export default class ChainService extends BaseService<Events> {
 
       const savedTx = await this.db.getTransaction(network, hash)
       if (savedTx && !("status" in savedTx)) {
-        // Let's see if we have the tx in the db, and if yes let's mark it as dropped.
-        this.saveTransaction(
-          {
-            ...savedTx,
-            status: 0, // dropped status
-            error:
-              "Transaction was in our local db but was not found on chain.",
-            blockHash: null,
-            blockHeight: null,
-          },
-          "local"
-        )
+        // const failedTransaction = createFailedQuaiTransaction(
+        //   savedTx,
+        //   "Transaction was in our local db but was not found on chain."
+        // )
+        // // Let's see if we have the tx in the db, and if yes let's mark it as dropped.
+        // this.saveTransaction(failedTransaction, "local")
 
         // Let's also release the nonce from our bookkeeping.
         await this.releaseEVMTransactionNonce(savedTx)
@@ -1680,13 +1686,10 @@ export default class ChainService extends BaseService<Events> {
               "Found existing transaction for expired lookup; marking as " +
                 "failed if no other status exists."
             )
-            this.saveTransaction(
-              // Don't override an already-persisted successful status with
-              // an expiration-based failed status, but do set status to
-              // failure if no transaction was seen.
-              { status: 0, ...existingTransaction },
-              "local"
-            )
+            // const failedTransaction =
+            //   createFailedQuaiTransaction(existingTransaction)
+            //
+            // this.saveTransaction(failedTransaction, "local")
           }
         })
       }
