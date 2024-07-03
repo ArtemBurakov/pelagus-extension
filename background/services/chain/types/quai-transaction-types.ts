@@ -1,4 +1,6 @@
-import { QuaiTransaction } from "quais"
+import { TransactionReceiptParams } from "quais"
+import { QuaiTransactionLike } from "quais/lib/commonjs/transaction/quai-transaction"
+import { QuaiTransactionResponseParams } from "quais/lib/commonjs/providers/formatting"
 
 export enum QuaiTransactionStatus {
   FAILED = 0,
@@ -6,51 +8,19 @@ export enum QuaiTransactionStatus {
   CONFIRMED = 2,
 }
 
-// /**
-//  * A confirmed Quai transaction that has been included in a block. Includes
-//  * information about the gas actually used to execute the transaction, as well
-//  * as the block hash and block height at which the transaction was included.
-//  */
-// export interface QuaiLogs {
-//   contractAddress: HexString
-//   data: HexString
-//   topics: HexString[]
-// }
-
-export interface ExtendedQuaiTransactionInterface extends QuaiTransaction {
-  // shared field
-  status: QuaiTransactionStatus
-
-  // in case of fail
+export type FailedQuaiTransactionLike = QuaiTransactionLike & {
+  status: QuaiTransactionStatus.FAILED
   error?: string
-
-  // in case of confirmation
-  blockHash?: string
-  blockHeight?: number
-
-  // gasUsed: bigint
-  // etxs: {
-  //   hash?: string
-  //   to?: string
-  //   from?: string
-  //   nonce: number
-  //   gasLimit: bigint
-  //   gasPrice?: bigint
-  //   maxPriorityFeePerGas?: bigint
-  //   maxFeePerGas?: bigint
-  //   data: string
-  //   value: bigint
-  //   chainId: number
-  //   r?: string
-  //   s?: string
-  //   v?: number
-  //   type?: number | null
-  //   accessList?: { address: string; storageKeys: string[] }[]
-  //   externalGasLimit?: bigint
-  //   externalGasPrice?: bigint
-  //   externalGasTip?: bigint
-  //   externalData?: string
-  //   externalAccessList?: { address: string; storageKeys: string[] }[]
-  // }[]
-  // logs: QuaiLogs[] | undefined
+  blockHash: null
+  blockHeight: null
 }
+
+export type ConfirmedQuaiTransactionLike = QuaiTransactionLike &
+  TransactionReceiptParams & {
+    status: QuaiTransactionStatus.CONFIRMED
+  }
+
+export type PendingQuaiTransactionLike = QuaiTransactionLike &
+  QuaiTransactionResponseParams & {
+    status: QuaiTransactionStatus.PENDING
+  }
