@@ -1,24 +1,27 @@
-import Dexie, { Collection, DexieOptions, IndexableTypeArray } from "dexie"
+import Dexie, { DexieOptions, IndexableTypeArray } from "dexie"
 import { UNIXTime } from "../../types"
 import { AccountBalance, AddressOnNetwork } from "../../accounts"
-import {
-  AnyEVMBlock,
-  AnyEVMTransaction,
-  NetworkBaseAsset,
-} from "../../networks"
+import { AnyEVMBlock, NetworkBaseAsset } from "../../networks"
 import { FungibleAsset } from "../../assets"
-import {
-  BASE_ASSETS,
-  CHAIN_ID_TO_RPC_URLS,
-  NETWORK_BY_CHAIN_ID,
-} from "../../constants"
+import { BASE_ASSETS } from "../../constants"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
 import { NetworksArray } from "../../constants/networks/networks"
+import {
+  PendingQuaiTransactionLike,
+  ConfirmedQuaiTransactionLike,
+  FailedQuaiTransactionLike,
+  QuaiTransactionStatus,
+} from "./types"
 
-export type Transaction = AnyEVMTransaction & {
+type AdditionalTransactionFieldsForDB = {
   dataSource: "local"
   firstSeen: UNIXTime
 }
+
+export type QuaiTransaction =
+  | (PendingQuaiTransactionLike & AdditionalTransactionFieldsForDB)
+  | (ConfirmedQuaiTransactionLike & AdditionalTransactionFieldsForDB)
+  | (FailedQuaiTransactionLike & AdditionalTransactionFieldsForDB)
 
 type AccountAssetTransferLookup = {
   addressNetwork: AddressOnNetwork
@@ -58,13 +61,11 @@ export class ChainDatabase extends Dexie {
   private blocks!: Dexie.Table<AnyEVMBlock, [string, string]>
 
   /*
-   * Historic and pending chain transactions relevant to tracked accounts.
-   * chainTransaction is used in this context to distinguish from database
-   * transactions.
+   * Quai transactions relevant to tracked accounts.
    *
-   * Keyed by the [transaction hash, network name] pair.
+   * Keyed by the [transaction hash, network chainID] pair.
    */
-  private chainTransactions!: Dexie.Table<Transaction, [string, string]>
+  private quaiTransactions!: Dexie.Table<QuaiTransaction, [string, string]>
 
   /*
    * Historic account balances.
@@ -74,8 +75,6 @@ export class ChainDatabase extends Dexie {
   private networks!: Dexie.Table<NetworkInterfaceGA, string>
 
   private baseAssets!: Dexie.Table<NetworkBaseAsset, string>
-
-  private rpcUrls!: Dexie.Table<{ chainID: string; rpcUrls: string[] }, string>
 
   constructor(options?: DexieOptions) {
     super("tally/chain", options)
@@ -87,16 +86,15 @@ export class ChainDatabase extends Dexie {
         "++id,[addressNetwork.address+addressNetwork.network.baseAsset.name+addressNetwork.network.chainID],[addressNetwork.address+addressNetwork.network.baseAsset.name+addressNetwork.network.chainID+startBlock],[addressNetwork.address+addressNetwork.network.baseAsset.name+addressNetwork.network.chainID+endBlock],addressNetwork.address,addressNetwork.network.chainID,addressNetwork.network.baseAsset.name,startBlock,endBlock",
       balances:
         "++id,address,assetAmount.amount,assetAmount.asset.symbol,network.baseAsset.name,blockHeight,retrievedAt",
-      chainTransactions:
-        "&[hash+network.baseAsset.name],hash,from,[from+network.baseAsset.name],to,[to+network.baseAsset.name],nonce,[nonce+from+network.baseAsset.name],blockHash,blockNumber,network.baseAsset.name,firstSeen,dataSource",
+      quaiTransactions:
+        "&[hash+network.chainID],hash,from,[from+network.chainID],to,[to+network.chainID],nonce,[nonce+from+network.chainID],blockHash,blockNumber,network.chainId,firstSeen,dataSource",
       blocks:
         "&[hash+network.baseAsset.name],[network.baseAsset.name+timestamp],hash,network.baseAsset.name,timestamp,parentHash,blockHeight,[blockHeight+network.baseAsset.name]",
       networks: "&chainID,baseAsset.name,family",
       baseAssets: "&chainID,symbol,name",
-      rpcUrls: "&chainID, rpcUrls",
     })
 
-    this.chainTransactions.hook(
+    this.quaiTransactions.hook(
       "updating",
       (modifications, _, chainTransaction) => {
         // Only these properties can be updated on a stored transaction.
@@ -125,24 +123,46 @@ export class ChainDatabase extends Dexie {
         return filteredModifications
       }
     )
-
-    // Updates saved accounts stored networks for old installs
-    this.version(8).upgrade((tx) => {
-      tx.table("accountsToTrack")
-        .toCollection()
-        .modify((account: AddressOnNetwork) => {
-          Object.assign(account, {
-            network: NETWORK_BY_CHAIN_ID[account.network.chainID],
-          })
-        })
-    })
   }
 
   async initialize(): Promise<void> {
     await this.initializeBaseAssets()
-    await this.initializeRPCs()
-    await this.initializeEVMNetworks()
+    await this.initializeNetworks()
   }
+
+  /** NETWORKS */
+
+  async initializeNetworks(): Promise<void> {
+    const existingQuaiNetworks = await this.getAllQuaiNetworks()
+    await Promise.all(
+      NetworksArray.map(async (defaultNetwork) => {
+        if (
+          !existingQuaiNetworks.some(
+            (network) => network.chainID === defaultNetwork.chainID
+          )
+        ) {
+          await this.networks.put(defaultNetwork)
+        }
+      })
+    )
+  }
+
+  async getAllQuaiNetworks(): Promise<NetworkInterfaceGA[]> {
+    return this.networks.where("family").equals("EVM").toArray()
+  }
+
+  async getChainIDsToTrack(): Promise<Set<string>> {
+    const chainIDs = await this.accountsToTrack
+      .orderBy("network.chainID")
+      .keys()
+    return new Set(
+      chainIDs.filter(
+        (chainID): chainID is string => typeof chainID === "string"
+      )
+    )
+  }
+
+  /** BLOCKS */
 
   async getLatestBlock(
     network: NetworkInterfaceGA
@@ -162,132 +182,6 @@ export class ChainDatabase extends Dexie {
     )
   }
 
-  async getTransaction(
-    network: NetworkInterfaceGA,
-    txHash: string
-  ): Promise<AnyEVMTransaction | null> {
-    return (
-      (
-        await this.chainTransactions
-          .where("[hash+network.baseAsset.name]")
-          .equals([txHash, network.baseAsset.name])
-          .toArray()
-      )[0] || null
-    )
-  }
-
-  async getAllEVMNetworks(): Promise<NetworkInterfaceGA[]> {
-    return this.networks.where("family").equals("EVM").toArray()
-  }
-
-  async getEVMNetworkByChainID(
-    chainID: string
-  ): Promise<NetworkInterfaceGA | undefined> {
-    return (await this.networks.where("family").equals("EVM").toArray()).find(
-      (network) => network.chainID === chainID
-    )
-  }
-
-  async getBaseAssetForNetwork(chainID: string): Promise<NetworkBaseAsset> {
-    const baseAsset = await this.baseAssets.get(chainID)
-    if (!baseAsset) {
-      throw new Error(`No Base Asset Found For Network ${chainID}`)
-    }
-    return baseAsset
-  }
-
-  async initializeRPCs(): Promise<void> {
-    await Promise.all(
-      Object.entries(CHAIN_ID_TO_RPC_URLS).map(async ([chainId, rpcUrls]) => {
-        if (rpcUrls) {
-          await this.addRpcUrls(chainId, rpcUrls)
-        }
-      })
-    )
-  }
-
-  async initializeBaseAssets(): Promise<void> {
-    await this.updateBaseAssets(BASE_ASSETS)
-  }
-
-  async initializeEVMNetworks(): Promise<void> {
-    const existingNetworks = await this.getAllEVMNetworks()
-    await Promise.all(
-      NetworksArray.map(async (defaultNetwork) => {
-        if (
-          !existingNetworks.some(
-            (network) => network.chainID === defaultNetwork.chainID
-          )
-        ) {
-          await this.networks.put(defaultNetwork)
-        }
-      })
-    )
-  }
-
-  async getRpcUrlsByChainId(chainId: string): Promise<string[]> {
-    const rpcUrls = await this.rpcUrls.where({ chainId }).first()
-    if (rpcUrls) {
-      return rpcUrls.rpcUrls
-    }
-    throw new Error(`No RPC Found for ${chainId}`)
-  }
-
-  private async addRpcUrls(chainID: string, rpcUrls: string[]): Promise<void> {
-    const existingRpcUrlsForChain = await this.rpcUrls.get(chainID)
-    if (existingRpcUrlsForChain) {
-      existingRpcUrlsForChain.rpcUrls.push(...rpcUrls)
-      existingRpcUrlsForChain.rpcUrls = [
-        ...new Set(existingRpcUrlsForChain.rpcUrls),
-      ]
-      await this.rpcUrls.put(existingRpcUrlsForChain)
-    } else {
-      await this.rpcUrls.put({ chainID, rpcUrls })
-    }
-  }
-
-  async getAllRpcUrls(): Promise<{ chainID: string; rpcUrls: string[] }[]> {
-    return this.rpcUrls.toArray()
-  }
-
-  async getAllSavedTransactionHashes(): Promise<IndexableTypeArray> {
-    return this.chainTransactions.orderBy("hash").keys()
-  }
-
-  async getAllTransactions(): Promise<Transaction[]> {
-    return this.chainTransactions.toArray()
-  }
-
-  async getTransactionsForNetworkQuery(
-    network: NetworkInterfaceGA
-  ): Promise<Collection<Transaction, [string, string]>> {
-    return this.chainTransactions
-      .where("network.baseAsset.name")
-      .equals(network.baseAsset.name)
-  }
-
-  async getTransactionsForNetwork(
-    network: NetworkInterfaceGA
-  ): Promise<Transaction[]> {
-    return (await this.getTransactionsForNetworkQuery(network)).toArray()
-  }
-
-  /**
-   * Looks up and returns all pending transactions for the given network.
-   */
-  async getNetworkPendingTransactions(
-    network: NetworkInterfaceGA
-  ): Promise<(AnyEVMTransaction & { firstSeen: UNIXTime })[]> {
-    const transactions = await this.getTransactionsForNetworkQuery(network)
-    return transactions
-      .filter(
-        (transaction) =>
-          !("status" in transaction) &&
-          (transaction.blockHash === null || transaction.blockHeight === null)
-      )
-      .toArray()
-  }
-
   async getBlock(
     network: NetworkInterfaceGA,
     blockHash: string
@@ -302,18 +196,48 @@ export class ChainDatabase extends Dexie {
     )
   }
 
-  async addOrUpdateTransaction(
-    tx: AnyEVMTransaction,
-    dataSource: Transaction["dataSource"]
-  ): Promise<void> {
-    await this.transaction("rw", this.chainTransactions, () => {
-      return this.chainTransactions.put({
-        ...tx,
-        firstSeen: Date.now(),
-        dataSource,
-      })
-    })
+  async addBlock(block: AnyEVMBlock): Promise<void> {
+    // TODO Consider exposing whether the block was added or updated.
+    // TODO Consider tracking history of block changes, e.g. in case of reorg.
+    await this.blocks.put(block)
   }
+
+  /** ASSETS */
+
+  async getBaseAssetForNetwork(chainID: string): Promise<NetworkBaseAsset> {
+    const baseAsset = await this.baseAssets.get(chainID)
+    if (!baseAsset) {
+      throw new Error(`No Base Asset Found For Network ${chainID}`)
+    }
+    return baseAsset
+  }
+
+  async initializeBaseAssets(): Promise<void> {
+    await this.updateBaseAssets(BASE_ASSETS)
+  }
+
+  async getOldestAccountAssetTransferLookup(
+    addressNetwork: AddressOnNetwork
+  ): Promise<bigint | null> {
+    // TODO this is inefficient, make proper use of indexing
+    const lookups = await this.accountAssetTransferLookups
+      .where("[addressNetwork.address+addressNetwork.network.baseAsset.name]")
+      .equals([addressNetwork.address, addressNetwork.network.baseAsset.name])
+      .toArray()
+    return lookups.reduce(
+      (oldestBlock: bigint | null, lookup) =>
+        oldestBlock === null || lookup.startBlock < oldestBlock
+          ? lookup.startBlock
+          : oldestBlock,
+      null
+    )
+  }
+
+  async updateBaseAssets(baseAssets: NetworkBaseAsset[]): Promise<void> {
+    await this.baseAssets.bulkPut(baseAssets)
+  }
+
+  /** ACCOUNTS */
 
   async getLatestAccountBalance(
     address: string,
@@ -342,48 +266,6 @@ export class ChainDatabase extends Dexie {
   async removeAccountToTrack(address: string): Promise<void> {
     // @TODO Network Specific deletion when we support it.
     await this.accountsToTrack.where("address").equals(address).delete()
-  }
-
-  async removeActivities(address: string): Promise<void> {
-    // Get all transactions
-    const txs = await this.getAllTransactions()
-
-    // Filter transactions that include the specified address in the `from` or `to` fields
-    const txsToRemove = txs.filter(
-      (tx) =>
-        tx.from?.toLowerCase().trim() === address.toLowerCase().trim() ||
-        tx.to?.toLowerCase().trim() === address.toLowerCase().trim()
-    )
-    // Delete each transaction by their `hash` and `network.baseAsset.name`
-    for (let i = 0; i < txsToRemove.length; i + 1) {
-      const tx = txsToRemove[i]
-      const { hash, network } = tx
-
-      const deleteChainTransactionsHandle = async () => {
-        await this.chainTransactions
-          .where(["hash", "network.baseAsset.name"])
-          .equals([hash, network.baseAsset.name])
-          .delete()
-      }
-      deleteChainTransactionsHandle()
-    }
-  }
-
-  async getOldestAccountAssetTransferLookup(
-    addressNetwork: AddressOnNetwork
-  ): Promise<bigint | null> {
-    // TODO this is inefficient, make proper use of indexing
-    const lookups = await this.accountAssetTransferLookups
-      .where("[addressNetwork.address+addressNetwork.network.baseAsset.name]")
-      .equals([addressNetwork.address, addressNetwork.network.baseAsset.name])
-      .toArray()
-    return lookups.reduce(
-      (oldestBlock: bigint | null, lookup) =>
-        oldestBlock === null || lookup.startBlock < oldestBlock
-          ? lookup.startBlock
-          : oldestBlock,
-      null
-    )
   }
 
   async getNewestAccountAssetTransferLookup(
@@ -417,18 +299,8 @@ export class ChainDatabase extends Dexie {
     })
   }
 
-  async addBlock(block: AnyEVMBlock): Promise<void> {
-    // TODO Consider exposing whether the block was added or updated.
-    // TODO Consider tracking history of block changes, e.g. in case of reorg.
-    await this.blocks.put(block)
-  }
-
   async addBalance(accountBalance: AccountBalance): Promise<void> {
     await this.balances.add(accountBalance)
-  }
-
-  async updateBaseAssets(baseAssets: NetworkBaseAsset[]): Promise<void> {
-    await this.baseAssets.bulkPut(baseAssets)
   }
 
   async getAccountsToTrack(): Promise<AddressOnNetwork[]> {
@@ -458,15 +330,67 @@ export class ChainDatabase extends Dexie {
     )
   }
 
-  async getChainIDsToTrack(): Promise<Set<string>> {
-    const chainIDs = await this.accountsToTrack
-      .orderBy("network.chainID")
-      .keys()
-    return new Set(
-      chainIDs.filter(
-        (chainID): chainID is string => typeof chainID === "string"
-      )
+  /** TRANSACTIONS */
+
+  async getAllQuaiTransactions(): Promise<QuaiTransaction[]> {
+    return this.quaiTransactions.toArray()
+  }
+
+  async getAllQuaiTransactionHashes(): Promise<IndexableTypeArray> {
+    return this.quaiTransactions.orderBy("hash").keys()
+  }
+
+  async getQuaiTransactionByHash(
+    network: NetworkInterfaceGA,
+    txHash: string
+  ): Promise<QuaiTransaction | null> {
+    return (
+      (
+        await this.quaiTransactions
+          .where("[hash+network.chainID]")
+          .equals([txHash, network.chainID])
+          .toArray()
+      )[0] || null
     )
+  }
+
+  async getQuaiTransactionsByStatus(
+    network: NetworkInterfaceGA,
+    status: QuaiTransactionStatus
+  ): Promise<QuaiTransaction[]> {
+    const transactions = this.quaiTransactions
+      .where("[network.chainID+status]")
+      .equals([network.chainID, status])
+
+    return transactions.toArray()
+  }
+
+  async addOrUpdateQuaiTransaction(
+    tx:
+      | ConfirmedQuaiTransactionLike
+      | PendingQuaiTransactionLike
+      | FailedQuaiTransactionLike,
+    dataSource: QuaiTransaction["dataSource"]
+  ): Promise<void> {
+    await this.transaction("rw", this.quaiTransactions, () => {
+      return this.quaiTransactions.put({
+        ...tx,
+        firstSeen: Date.now(),
+        dataSource,
+      })
+    })
+  }
+
+  async deleteQuaiTransactionsByAddress(address: string): Promise<void> {
+    const txs = await this.getAllQuaiTransactions()
+
+    const deletePromises = txs.map(async () => {
+      await this.quaiTransactions.where("from").equals(address).delete()
+
+      await this.quaiTransactions.where("to").equals(address).delete()
+    })
+
+    await Promise.all(deletePromises)
   }
 }
 
