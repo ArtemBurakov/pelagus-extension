@@ -1212,13 +1212,7 @@ export default class ChainService extends BaseService<Events> {
     return (estimate * 11n) / 10n
   }
 
-  /**
-   * Broadcast a signed EVM transaction.
-   *
-   * @param transaction A signed EVM transaction to broadcast. Since the tx is signed,
-   *        it needs to include all gas limit and price params.
-   */
-  async broadcastSignedTransaction(
+  async broadcastQuaiTransaction(
     transaction: SignedTransactionGA
   ): Promise<void> {
     try {
@@ -1226,18 +1220,18 @@ export default class ChainService extends BaseService<Events> {
         throw new Error("Transaction 'to' field is not specified.")
       }
 
-      const zoneToBroadcast = getZoneForAddress(transaction.to)
-      if (!zoneToBroadcast) {
+      const zone = getZoneForAddress(transaction.to)
+      if (!zone) {
         throw new Error(
           "Invalid address shard: Unable to determine the zone for the given 'to' address."
         )
       }
 
-      const { serialized: signedTransaction } = transaction
+      const { serialized: signedTx } = transaction
 
       await Promise.all([
         this.currentProvider.jsonRpc
-          ?.broadcastTransaction(zoneToBroadcast, signedTransaction)
+          ?.broadcastTransaction(zone, signedTx)
           .then((transactionResponse) => {
             this.emitter.emit("transactionSend", transactionResponse.hash)
 
