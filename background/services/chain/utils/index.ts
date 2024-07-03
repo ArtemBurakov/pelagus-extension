@@ -25,6 +25,11 @@ import {
   KnownTxTypes,
 } from "../../../networks"
 import { NetworkInterfaceGA } from "../../../constants/networks/networkTypes"
+import {
+  ConfirmedQuaiTransactionLike,
+  FailedQuaiTransactionLike,
+  PendingQuaiTransactionLike,
+} from "../types"
 /**
  * Parse a block as returned by a polling provider.
  */
@@ -286,69 +291,72 @@ export function enrichTransactionWithReceipt(
   }
 }
 
-/**
- * Parse a transaction as returned by a polling provider.
- */
-export function transactionFromEthersTransaction(
-  tx: TransactionResponse | EthersTransaction,
-  network: NetworkInterfaceGA
-): AnyEVMTransaction {
-  if (!tx || tx.hash === undefined) {
-    throw new Error("Malformed transaction")
-  }
-  if (!isKnownTxType(tx.type)) {
-    throw new Error(`Unknown transaction type ${tx.type}`)
-  }
-
-  // TODO-MIGRATION: Remove this (currently using only for type)
-  const temporaryTx = tx as EthersTransaction & {
-    from: string
-    blockHash?: string
-    blockNumber?: number
-    type?: number | null
-  }
-
-  const newTx = {
-    hash: temporaryTx.hash,
-    from: temporaryTx.from,
-    to: temporaryTx.to ?? undefined,
-    nonce: parseInt(temporaryTx.nonce.toString(), 10),
-    // TODO-MIGRATION: Update with gasLimit: toBigInt(tx.gasLimit)
-    gasLimit: temporaryTx.gasLimit,
-    // TODO-MIGRATION: Update with gasPrice: tx.gasPrice ? toBigInt(tx.gasPrice) : null
-    gasPrice: temporaryTx.gasPrice ? temporaryTx.gasPrice : null,
-    // TODO-MIGRATION: Update with maxFeePerGas: tx.maxFeePerGas ? toBigInt(tx.maxFeePerGas) : null
-    maxFeePerGas: temporaryTx.maxFeePerGas ? temporaryTx.maxFeePerGas : null,
-    // TODO-MIGRATION: Update with maxPriorityFeePerGas: tx.maxPriorityFeePerGas
-    //       ? toBigInt(tx.maxPriorityFeePerGas)
-    //       : null
-    maxPriorityFeePerGas: temporaryTx.maxPriorityFeePerGas
-      ? temporaryTx.maxPriorityFeePerGas
-      : null,
-    // TODO-MIGRATION: Update with value: toBigInt(tx.value)
-    value: temporaryTx.value,
-    input: temporaryTx.data,
-    type: temporaryTx.type,
-    blockHash: temporaryTx.blockHash || null,
-    blockHeight: temporaryTx.blockNumber || null,
-    network,
-    asset: network.baseAsset,
-  } as const // narrow types for compatiblity with our internal ones
-
-  if (temporaryTx.r && temporaryTx.s && temporaryTx.v) {
-    // TODO-MIGARTION: Update any type with signedTx
-    const signedTx: any = {
-      ...newTx,
-      r: temporaryTx.r,
-      s: temporaryTx.s,
-      v: temporaryTx.v,
-    }
-    return signedTx
-  }
-
-  // TODO-MIGARTION: Remove any type
-  return newTx as any
-}
+// /**
+//  * Parse a transaction as returned by a polling provider.
+//  */
+// export function transactionFromEthersTransaction(
+//   tx: TransactionResponse | EthersTransaction,
+//   network: NetworkInterfaceGA
+// ):
+//   | ConfirmedQuaiTransactionLike
+//   | PendingQuaiTransactionLike
+//   | FailedQuaiTransactionLike {
+//   if (!tx || tx.hash === undefined) {
+//     throw new Error("Malformed transaction")
+//   }
+//   if (!isKnownTxType(tx.type)) {
+//     throw new Error(`Unknown transaction type ${tx.type}`)
+//   }
+//
+//   // TODO-MIGRATION: Remove this (currently using only for type)
+//   const temporaryTx = tx as EthersTransaction & {
+//     from: string
+//     blockHash?: string
+//     blockNumber?: number
+//     type?: number | null
+//   }
+//
+//   const newTx = {
+//     hash: temporaryTx.hash,
+//     from: temporaryTx.from,
+//     to: temporaryTx.to ?? undefined,
+//     nonce: parseInt(temporaryTx.nonce.toString(), 10),
+//     // TODO-MIGRATION: Update with gasLimit: toBigInt(tx.gasLimit)
+//     gasLimit: temporaryTx.gasLimit,
+//     // TODO-MIGRATION: Update with gasPrice: tx.gasPrice ? toBigInt(tx.gasPrice) : null
+//     gasPrice: temporaryTx.gasPrice ? temporaryTx.gasPrice : null,
+//     // TODO-MIGRATION: Update with maxFeePerGas: tx.maxFeePerGas ? toBigInt(tx.maxFeePerGas) : null
+//     maxFeePerGas: temporaryTx.maxFeePerGas ? temporaryTx.maxFeePerGas : null,
+//     // TODO-MIGRATION: Update with maxPriorityFeePerGas: tx.maxPriorityFeePerGas
+//     //       ? toBigInt(tx.maxPriorityFeePerGas)
+//     //       : null
+//     maxPriorityFeePerGas: temporaryTx.maxPriorityFeePerGas
+//       ? temporaryTx.maxPriorityFeePerGas
+//       : null,
+//     // TODO-MIGRATION: Update with value: toBigInt(tx.value)
+//     value: temporaryTx.value,
+//     input: temporaryTx.data,
+//     type: temporaryTx.type,
+//     blockHash: temporaryTx.blockHash || null,
+//     blockHeight: temporaryTx.blockNumber || null,
+//     network,
+//     asset: network.baseAsset,
+//   } as const // narrow types for compatiblity with our internal ones
+//
+//   if (temporaryTx.r && temporaryTx.s && temporaryTx.v) {
+//     // TODO-MIGARTION: Update any type with signedTx
+//     const signedTx: any = {
+//       ...newTx,
+//       r: temporaryTx.r,
+//       s: temporaryTx.s,
+//       v: temporaryTx.v,
+//     }
+//     return signedTx
+//   }
+//
+//   // TODO-MIGARTION: Remove any type
+//   return newTx as any
+// }
 
 export const getExtendedZoneForAddress = (
   address: string,
