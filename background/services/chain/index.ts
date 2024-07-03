@@ -426,315 +426,6 @@ export default class ChainService extends BaseService<Events> {
     })
   }
 
-  /**
-   * Populates the provided partial legacy transaction request with all fields
-   * except the nonce. This leaves the transaction ready for user review, and
-   * the nonce ready to be filled in immediately prior to signing to minimize the
-   * likelihood for nonce reuse.
-   *
-   * Note that if the partial request already has a defined nonce, it is not
-   * cleared.
-   */
-  private async populatePartialLegacyEVMTransactionRequest(
-    network: NetworkInterfaceGA,
-    partialRequest: EnrichedLegacyTransactionSignatureRequest
-  ): Promise<{
-    transactionRequest: EnrichedLegacyTransactionRequest
-    gasEstimationError: string | undefined
-  }> {
-    const { from, to, value, gasLimit, input, gasPrice, nonce, annotation } =
-      partialRequest
-    // Basic transaction construction based on the provided options, with extra data from the chain service
-    const transactionRequest: EnrichedLegacyTransactionRequest = {
-      from,
-      to,
-      value: value ?? 0n,
-      gasLimit: gasLimit ?? 0n,
-      input: input ?? null,
-      // TODO-MIGRATION: need a transaction request
-      gasPrice:
-        gasPrice ||
-        (await this.estimateGasPrice(partialRequest as TransactionRequest)),
-      type: 0 as const,
-      network,
-      chainID: network.chainID,
-      nonce,
-      annotation,
-      estimatedRollupGwei: 0n,
-      estimatedRollupFee: 0n,
-    }
-
-    // Always estimate gas to decide whether the transaction will likely fail.
-    let estimatedGasLimit: bigint | undefined
-    let gasEstimationError: string | undefined
-    try {
-      estimatedGasLimit = await this.estimateGasLimit(transactionRequest)
-    } catch (error) {
-      logger.error("Error estimating gas limit: ", error)
-      // Try to identify unpredictable gas errors to bubble that information
-      // out.
-      if (error instanceof Error) {
-        // Ethers does some heavily loose typing around errors to carry
-        // arbitrary info without subclassing Error, so an any cast is needed.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const anyError: any = error
-
-        if ("code" in anyError && anyError.code === UNPREDICTABLE_GAS_LIMIT) {
-          gasEstimationError = anyError.error ?? "Unknown transaction error."
-        }
-      }
-    }
-
-    // We use the estimate as the actual limit only if user did not specify the
-    // gas explicitly or if it was set below the minimum network-allowed value.
-    if (
-      typeof estimatedGasLimit !== "undefined" &&
-      (typeof gasLimit === "undefined" || gasLimit < 21000n)
-    ) {
-      transactionRequest.gasLimit = estimatedGasLimit
-    }
-
-    return { transactionRequest, gasEstimationError }
-  }
-
-  /**
-   * Populates the provided partial EIP1559 transaction request with all fields
-   * except the nonce. This leaves the transaction ready for user review, and
-   * the nonce ready to be filled in immediately prior to signing to minimize the
-   * likelihood for nonce reuse.
-   *
-   * Note that if the partial request already has a defined nonce, it is not
-   * cleared.
-   */
-  private async populatePartialEIP1559TransactionRequest(
-    network: NetworkInterfaceGA,
-    partialRequest: EnrichedEIP1559TransactionSignatureRequest
-  ): Promise<{
-    transactionRequest: EnrichedEIP1559TransactionRequest
-    gasEstimationError: string | undefined
-  }> {
-    const {
-      from,
-      to,
-      value,
-      gasLimit,
-      input,
-      maxFeePerGas,
-      maxPriorityFeePerGas,
-      nonce,
-      annotation,
-    } = partialRequest
-
-    // Basic transaction construction based on the provided options, with extra data from the chain service
-    const transactionRequest: EnrichedEIP1559TransactionRequest = {
-      from,
-      to,
-      value: value ?? 0n,
-      gasLimit: gasLimit ?? 0n,
-      maxFeePerGas: maxFeePerGas ?? 0n,
-      maxPriorityFeePerGas: maxPriorityFeePerGas ?? 0n,
-      input: input ?? null,
-      type: network.baseAsset.symbol === "QUAI" ? (0 as const) : (2 as const),
-      network,
-      chainID: network.chainID,
-      nonce,
-      annotation,
-    }
-
-    // Always estimate gas to decide whether the transaction will likely fail.
-    let estimatedGasLimit: bigint | undefined
-    let gasEstimationError: string | undefined
-    try {
-      estimatedGasLimit = await this.estimateGasLimit(transactionRequest)
-    } catch (error) {
-      // Try to identify unpredictable gas errors to bubble that information
-      // out.
-      if (error instanceof Error) {
-        // Ethers does some heavily loose typing around errors to carry
-        // arbitrary info without subclassing Error, so an any cast is needed.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const anyError: any = error
-
-        if ("code" in anyError && anyError.code === UNPREDICTABLE_GAS_LIMIT) {
-          gasEstimationError = anyError.error ?? "Unknown transaction error."
-        }
-      }
-    }
-
-    // We use the estimate as the actual limit only if user did not specify the
-    // gas explicitly or if it was set below the minimum network-allowed value.
-    if (
-      typeof estimatedGasLimit !== "undefined" &&
-      (typeof partialRequest.gasLimit === "undefined" ||
-        partialRequest.gasLimit < 21000n)
-    ) {
-      transactionRequest.gasLimit = estimatedGasLimit
-    }
-
-    return { transactionRequest, gasEstimationError }
-  }
-
-  async populatePartialTransactionRequest(
-    network: NetworkInterfaceGA,
-    partialRequest: EnrichedEVMTransactionSignatureRequest,
-    defaults: { maxFeePerGas: bigint; maxPriorityFeePerGas: bigint }
-  ): Promise<{
-    transactionRequest: EnrichedEVMTransactionRequest
-    gasEstimationError: string | undefined
-  }> {
-    if (EIP_1559_COMPLIANT_CHAIN_IDS.has(network.chainID)) {
-      const {
-        maxFeePerGas = defaults.maxFeePerGas,
-        maxPriorityFeePerGas = defaults.maxPriorityFeePerGas,
-      } = partialRequest as EnrichedEIP1559TransactionSignatureRequest
-
-      return this.populatePartialEIP1559TransactionRequest(network, {
-        ...(partialRequest as EnrichedEIP1559TransactionSignatureRequest),
-        maxFeePerGas,
-        maxPriorityFeePerGas,
-      })
-    }
-    // Legacy Transaction
-    return this.populatePartialLegacyEVMTransactionRequest(network, {
-      ...(partialRequest as EnrichedLegacyTransactionRequest),
-    } as EnrichedLegacyTransactionSignatureRequest)
-  }
-
-  /**
-   * Populates the nonce for the passed EIP1559TransactionRequest, provided
-   * that it is not yet populated. This process generates a new nonce based on
-   * the known on-chain nonce state of the service, attempting to ensure that
-   * the nonce will be unique and an increase by 1 over any other confirmed or
-   * pending nonce's in the mempool.
-   *
-   * Returns the transaction request with a guaranteed-defined nonce, suitable
-   * for signing by a signer.
-   */
-  // TODO-MIGRATION DELETE
-  async populateEVMTransactionNonce(
-    transactionRequest: TransactionRequest
-  ): Promise<TransactionRequestWithNonce> {
-    if (typeof transactionRequest.nonce !== "undefined") {
-      // TS undefined checks don't narrow the containing object's type, so we
-      // have to cast `as` here.
-      return transactionRequest as EIP1559TransactionRequest & { nonce: number }
-    }
-
-    const { chainID } = transactionRequest
-    const { currentProvider } = this
-
-    const chainTransactionCount =
-      await currentProvider.jsonRpc?.getTransactionCount(
-        transactionRequest.from,
-        "latest"
-      )
-    let knownNextNonce
-
-    if (!chainTransactionCount)
-      throw new Error("Failed to get chain transaction count")
-
-    // existingNonce handling only needed when there is a chance for it to
-    // be different from the on chain nonce. This can happen when a chain has
-    // mempool. Note: This does not necessarily mean that the chain is EIP-1559
-    // compliant.
-    if (CHAINS_WITH_MEMPOOL.has(chainID)) {
-      // @TODO: Update this implementation to handle pending txs and also be more
-      //        resilient against missing nonce in the mempool.
-      const chainNonce = chainTransactionCount - 1
-
-      const existingNonce =
-        this.evmChainLastSeenNoncesByNormalizedAddress[chainID]?.[
-          transactionRequest.from
-        ] ?? chainNonce
-
-      this.evmChainLastSeenNoncesByNormalizedAddress[chainID] ??= {}
-      // Use the network count, if needed. Note that the assumption here is that
-      // all nonce's for this address are increasing linearly and continuously; if
-      // the address has a pending transaction floating around with a nonce that
-      // is not an increase by one over previous transactions, this approach will
-      // allocate more nonce's that won't mine.
-      this.evmChainLastSeenNoncesByNormalizedAddress[chainID][
-        transactionRequest.from
-      ] = Math.max(existingNonce, chainNonce)
-
-      // Allocate a new nonce by incrementing the last seen one.
-      this.evmChainLastSeenNoncesByNormalizedAddress[chainID][
-        transactionRequest.from
-      ] += 1
-      knownNextNonce =
-        this.evmChainLastSeenNoncesByNormalizedAddress[chainID][
-          transactionRequest.from
-        ]
-
-      logger.debug(
-        "Got chain nonce",
-        chainNonce,
-        "existing nonce",
-        existingNonce,
-        "using",
-        knownNextNonce
-      )
-    }
-
-    return {
-      ...transactionRequest,
-      nonce: knownNextNonce ?? chainTransactionCount,
-    }
-  }
-
-  /**
-   * Releases the specified nonce for the given network and address. This
-   * updates internal service state to allow that nonce to be reused. In cases
-   * where multiple nonce's were seen in a row, this will make internally
-   * available for reuse all intervening nonce's.
-   */
-  releaseEVMTransactionNonce(
-    transactionRequest:
-      | ConfirmedQuaiTransactionLike
-      | FailedQuaiTransactionLike
-      | PendingQuaiTransactionLike
-  ): void {
-    const network = this.supportedNetworks.find(
-      (net) =>
-        toBigInt(net.chainID) === toBigInt(transactionRequest.chainId ?? 0)
-    )
-    if (network?.chainID && transactionRequest.from) {
-      const { nonce } = transactionRequest
-
-      if (
-        !this.evmChainLastSeenNoncesByNormalizedAddress[network.chainID]?.[
-          transactionRequest.from
-        ]
-      )
-        return
-
-      const lastSeenNonce =
-        this.evmChainLastSeenNoncesByNormalizedAddress[network.chainID][
-          transactionRequest.from
-        ]
-
-      // TODO Currently this assumes that the only place this nonce could have
-      // TODO been used is this service; however, another wallet or service
-      // TODO could have broadcast a transaction with this same nonce, in which
-      // TODO case the nonce release shouldn't take effect! This should be a
-      // TODO relatively rare edge case, but we should handle it at some point.
-      if (nonce === lastSeenNonce) {
-        this.evmChainLastSeenNoncesByNormalizedAddress[network.chainID][
-          transactionRequest.from
-        ] -= 1
-      } else if (nonce && nonce < lastSeenNonce) {
-        // If the nonce we're releasing is below the latest allocated nonce,
-        // release all intervening nonce's. This risks transaction replacement
-        // issues, but ensures that we don't start allocating nonce's that will
-        // never mine (because they will all be higher than the
-        // now-released-and-therefore-never-broadcast nonce).
-        this.evmChainLastSeenNoncesByNormalizedAddress[network.chainID][
-          transactionRequest.from
-        ] = nonce - 1
-      }
-    }
-  }
-
   async getAccountsToTrack(
     onlyActiveAccounts = false
   ): Promise<AddressOnNetwork[]> {
@@ -979,28 +670,30 @@ export default class ChainService extends BaseService<Events> {
       throw new Error("Failed get transaction")
     }
 
+    const isMined = transactionResponse.isMined()
     const receipt = await currentProvider.jsonRpc.getTransactionReceipt(txHash)
 
-    if (!receipt) {
-      const failedTx = createFailedQuaiTransaction(transactionResponse)
-
-      this.saveTransaction(failedTx, "local")
-      return failedTx
+    if (isMined && receipt) {
+      const confirmedQuaiTransaction = createConfirmedQuaiTransaction(
+        transactionResponse,
+        receipt
+      )
+      this.saveTransaction(confirmedQuaiTransaction, "local")
+      return confirmedQuaiTransaction
     }
 
-    const pendingTx = createPendingQuaiTransaction(transactionResponse)
-    const successTx = createConfirmedQuaiTransaction(
-      transactionResponse,
-      receipt
-    )
-
-    if (!transactionResponse.blockHash && !transactionResponse?.blockNumber) {
-      this.subscribeToTransactionConfirmation(network, pendingTx)
-      return pendingTx
+    if (!isMined && receipt) {
+      const pendingQuaiTransaction =
+        createPendingQuaiTransaction(transactionResponse)
+      this.saveTransaction(pendingQuaiTransaction, "local")
+      return pendingQuaiTransaction
     }
 
-    this.saveTransaction(successTx, "local")
-    return createConfirmedQuaiTransaction(successTx, receipt)
+    const failedQuaiTransaction =
+      createFailedQuaiTransaction(transactionResponse)
+    this.saveTransaction(failedQuaiTransaction, "local")
+
+    return failedQuaiTransaction
   }
 
   /**
@@ -1162,10 +855,9 @@ export default class ChainService extends BaseService<Events> {
             this.saveTransaction(failedTransaction, "local")
             return Promise.reject(error)
           }),
-        this.subscribeToQuaiTransactionConfirmation(transaction),
+        this.subscribeToTransactionConfirmation(transaction),
       ])
     } catch (error) {
-      this.releaseEVMTransactionNonce(createFailedQuaiTransaction(transaction))
       this.emitter.emit("transactionSendFailure")
       logger.error("Error broadcasting transaction", transaction, error)
 
@@ -1319,9 +1011,6 @@ export default class ChainService extends BaseService<Events> {
         )
         // Let's see if we have the tx in the db, and if yes let's mark it as dropped.
         this.saveTransaction(failedTransaction, "local")
-
-        // Let's also release the nonce from our bookkeeping.
-        this.releaseEVMTransactionNonce(savedTx)
       }
     }
 
@@ -1532,41 +1221,41 @@ export default class ChainService extends BaseService<Events> {
     firstSeen,
   }: QueuedTxToRetrieve): Promise<void> {
     try {
-      const result = (await this.getOrCancelTransaction(
+      const transactionResponse = (await this.getOrCancelTransaction(
         network,
         hash
-      )) as TransactionResponse & {
-        from: string
-        blockHash?: string
-        blockNumber?: number
-        type?: number | null
+      )) as QuaiTransactionResponse | null
+
+      if (!transactionResponse)
+        throw new Error(`Failed to get or cancel transaction`)
+
+      const isMined = transactionResponse.isMined()
+      const receipt = await this.currentProvider.jsonRpc.getTransactionReceipt(
+        hash
+      )
+
+      if (isMined && receipt) {
+        const confirmedQuaiTransaction = createConfirmedQuaiTransaction(
+          transactionResponse,
+          receipt
+        )
+        this.retrieveTransactionReceipt(confirmedQuaiTransaction)
+        this.saveTransaction(confirmedQuaiTransaction, "local")
+        return
       }
 
-      if (!result) throw new Error(`Failed to get or cancel transaction`)
-
-      const transaction = transactionFromEthersTransaction(result, network)
-
-      // TODO make this provider type specific
-      await this.saveTransaction(transaction, "local")
-
-      if (
-        !("status" in transaction) && // if status field is present then it's not a pending tx anymore.
-        !transaction.blockHash &&
-        !transaction.blockHeight
-      ) {
-        // It's a pending tx, let's subscribe to events.
-        this.subscribeToTransactionConfirmation(
-          transaction.network,
-          transaction
-        )
-      } else if (transaction.blockHash) {
-        await this.getBlockData(
-          transaction.network,
-          transaction.blockHash,
-          transaction.from
-        )
-        this.retrieveTransactionReceipt(transaction)
+      if (!isMined && receipt) {
+        const pendingQuaiTransaction =
+          createPendingQuaiTransaction(transactionResponse)
+        this.subscribeToTransactionConfirmation(network, pendingQuaiTransaction)
+        this.saveTransaction(pendingQuaiTransaction, "local")
+        return
       }
+
+      this.saveTransaction(
+        createFailedQuaiTransaction(transactionResponse),
+        "local"
+      )
     } catch (error) {
       logger.error(`Error retrieving transaction ${hash}`, error)
       if (Date.now() <= firstSeen + TRANSACTION_CHECK_LIFETIME_MS) {
@@ -1751,10 +1440,10 @@ export default class ChainService extends BaseService<Events> {
           const tx = await this.getTransaction(network, transactionHash)
 
           if (!tx) throw new Error("getTransaction return null")
+          if (tx.status !== QuaiTransactionStatus.PENDING)
+            throw new Error("tx status is not pending")
 
-          const transaction = transactionFromEthersTransaction(tx, network)
-
-          this.handlePendingTransaction(transaction)
+          this.handlePendingTransaction(tx)
         }
       } catch (innerError) {
         logger.error(
@@ -1840,44 +1529,6 @@ export default class ChainService extends BaseService<Events> {
     // Let's add the transaction to the queued lookup. If the transaction is dropped
     // because of wrong nonce on chain the event will never arrive.
     this.queueTransactionHashToRetrieve(network, transaction.hash, Date.now())
-  }
-
-  // TODO-MIGRATION temp fix
-  private async subscribeToQuaiTransactionConfirmation(
-    transaction: QuaiTransaction
-  ): Promise<void> {
-    if (!transaction.hash) return
-
-    const provider = this.currentProvider.jsonRpc
-    await provider.once(transaction.hash, (receipt: TransactionReceipt) => {
-      const confirmedTransaction = createConfirmedQuaiTransaction(
-        transaction,
-        receipt
-      )
-      this.saveTransaction(confirmedTransaction, "local")
-    })
-  }
-
-  private async subscribeToETXConfirmation(
-    network: NetworkInterfaceGA,
-    itx: PendingQuaiTransactionLike,
-    etx: PendingQuaiTransactionLike
-  ): Promise<void> {
-    const provider = this.currentProvider.jsonRpc
-    provider?.once(etx.hash, (confirmedReceipt: TransactionReceipt) => {
-      this.saveTransaction(
-        createConfirmedQuaiTransaction(etx, confirmedReceipt),
-        "local"
-      )
-
-      this.saveTransaction(
-        createConfirmedQuaiTransaction(itx, confirmedReceipt),
-
-        "local"
-      )
-
-      this.removeTransactionHashFromQueue(network, etx.hash)
-    })
   }
 
   /**
