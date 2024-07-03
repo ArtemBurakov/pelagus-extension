@@ -1758,44 +1758,6 @@ export default class ChainService extends BaseService<Events> {
     this.queueTransactionHashToRetrieve(network, transaction.hash, Date.now())
   }
 
-  // TODO-MIGRATION temp fix
-  private async subscribeToQuaiTransactionConfirmation(
-    transaction: QuaiTransaction
-  ): Promise<void> {
-    if (!transaction.hash) return
-
-    const provider = this.currentProvider.jsonRpc
-    await provider.once(transaction.hash, (receipt: TransactionReceipt) => {
-      const confirmedTransaction = createConfirmedQuaiTransaction(
-        transaction,
-        receipt
-      )
-      this.saveTransaction(confirmedTransaction, "local")
-    })
-  }
-
-  private async subscribeToETXConfirmation(
-    network: NetworkInterfaceGA,
-    itx: PendingQuaiTransactionLike,
-    etx: PendingQuaiTransactionLike
-  ): Promise<void> {
-    const provider = this.currentProvider.jsonRpc
-    provider?.once(etx.hash, (confirmedReceipt: TransactionReceipt) => {
-      this.saveTransaction(
-        createConfirmedQuaiTransaction(etx, confirmedReceipt),
-        "local"
-      )
-
-      this.saveTransaction(
-        createConfirmedQuaiTransaction(itx, confirmedReceipt),
-
-        "local"
-      )
-
-      this.removeTransactionHashFromQueue(network, etx.hash)
-    })
-  }
-
   /**
    * Retrieve a confirmed transaction's transaction receipt, saving the results.
    *
