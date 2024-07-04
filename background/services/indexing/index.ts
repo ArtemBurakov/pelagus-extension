@@ -28,6 +28,7 @@ import { getExtendedZoneForAddress } from "../chain/utils"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
 import { isQuaiHandle } from "../../constants/networks/networkUtils"
 import { NetworksArray } from "../../constants/networks/networks"
+import { toBigInt } from "quais"
 
 // Transactions seen within this many blocks of the chain tip will schedule a
 // token refresh sooner than the standard rate.
@@ -260,6 +261,13 @@ export default class IndexingService extends BaseService<Events> {
   notifyEnrichedTransaction(
     enrichedEVMTransaction: EnrichedEVMTransaction
   ): void {
+    const network = globalThis.main.chainService.supportedNetworks.find(
+      (net) =>
+        toBigInt(net.chainID) === toBigInt(enrichedEVMTransaction.chainId ?? 0)
+    )
+
+    if (!network)
+      throw new Error("Failed find a network in notifyEnrichedTransaction")
     const jointAnnotations =
       typeof enrichedEVMTransaction.annotation === "undefined"
         ? []
@@ -283,7 +291,7 @@ export default class IndexingService extends BaseService<Events> {
           annotation.recipient.address,
         ].map((address) => ({
           address,
-          network: enrichedEVMTransaction.network,
+          network,
         }))
 
         const trackedAddresesOnNetworks =
@@ -296,18 +304,19 @@ export default class IndexingService extends BaseService<Events> {
         // list) OR the sender is a tracked address.
         const baselineTrustedAsset =
           typeof this.getKnownSmartContractAsset(
-            enrichedEVMTransaction.network,
+            network,
             asset.contractAddress
           ) !== "undefined" ||
           (await this.db.isTrackingAsset(asset)) ||
-          (
-            await this.chainService.filterTrackedAddressesOnNetworks([
-              {
-                address: enrichedEVMTransaction.from,
-                network: enrichedEVMTransaction.network,
-              },
-            ])
-          ).length > 0
+          (enrichedEVMTransaction.from &&
+            (
+              await this.chainService.filterTrackedAddressesOnNetworks([
+                {
+                  address: enrichedEVMTransaction.from,
+                  network,
+                },
+              ])
+            ).length > 0)
 
         if (baselineTrustedAsset) {
           const assetLookups = trackedAddresesOnNetworks.map(
@@ -627,7 +636,7 @@ export default class IndexingService extends BaseService<Events> {
         contractAddress
       )) ||
       (await this.chainService.assetData.getTokenMetadata({
-        contractAddress: contractAddress,
+        contractAddress,
         homeNetwork: network,
       }))
     if (!customAsset) return undefined

@@ -13,13 +13,15 @@ import {
   TransactionRequest,
   TransactionRequestGA,
 } from "../networks"
-import {
-  EnrichedEVMTransactionSignatureRequest,
-  EnrichedEVMTransactionRequest,
-} from "../services/enrichment"
+import { EnrichedEVMTransactionRequest } from "../services/enrichment"
 import { createBackgroundAsyncThunk } from "./utils"
 import { SignOperation } from "./signing"
 import { NetworkInterfaceGA } from "../constants/networks/networkTypes"
+import {
+  ConfirmedQuaiTransactionLike,
+  FailedQuaiTransactionLike,
+  PendingQuaiTransactionLike,
+} from "../services/chain/types"
 
 export const enum TransactionConstructionStatus {
   Idle = "idle",
@@ -82,7 +84,10 @@ export const initialState: TransactionConstruction = {
 }
 
 export type Events = {
-  updateTransaction: EnrichedEVMTransactionSignatureRequest
+  updateTransaction:
+    | ConfirmedQuaiTransactionLike
+    | PendingQuaiTransactionLike
+    | FailedQuaiTransactionLike
   signTransaction: SignOperation<TransactionRequestGA>
   requestSignature: SignOperation<TransactionRequest>
   signatureRejected: never
@@ -139,7 +144,12 @@ const makeBlockEstimate = (
 // Async thunk to pass transaction options from the store to the background via an event
 export const updateTransactionData = createBackgroundAsyncThunk(
   "transaction-construction/update-transaction",
-  async (payload: EnrichedEVMTransactionSignatureRequest) => {
+  async (
+    payload:
+      | ConfirmedQuaiTransactionLike
+      | PendingQuaiTransactionLike
+      | FailedQuaiTransactionLike
+  ) => {
     await emitter.emit("updateTransaction", payload)
   }
 )

@@ -10,6 +10,11 @@ import { UNIXTime } from "../../types"
 import { SignTypedDataRequest } from "../../utils/signing"
 import { ResolvedNameRecord } from "../name"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
+import {
+  ConfirmedQuaiTransactionLike,
+  FailedQuaiTransactionLike,
+  PendingQuaiTransactionLike,
+} from "../chain/types"
 
 export type BaseTransactionAnnotation = {
   /**
@@ -79,9 +84,16 @@ export type TransactionAnnotation =
   | AssetTransfer
   | ExternalTransfer
 
-export type EnrichedEVMTransaction = AnyEVMTransaction & {
-  annotation?: TransactionAnnotation
-}
+export type EnrichedEVMTransaction =
+  | (ConfirmedQuaiTransactionLike & {
+      annotation?: TransactionAnnotation
+    })
+  | (PendingQuaiTransactionLike & {
+      annotation?: TransactionAnnotation
+    })
+  | (FailedQuaiTransactionLike & {
+      annotation?: TransactionAnnotation
+    })
 
 export type EnrichedEVMTransactionSignatureRequest =
   | EnrichedEIP1559TransactionSignatureRequest
