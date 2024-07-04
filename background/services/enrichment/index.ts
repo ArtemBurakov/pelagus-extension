@@ -20,6 +20,11 @@ import {
 import resolveTransactionAnnotation from "./transactions"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
 import { TransactionResponse } from "quais"
+import {
+  ConfirmedQuaiTransactionLike,
+  FailedQuaiTransactionLike,
+  PendingQuaiTransactionLike,
+} from "../chain/types"
 
 export * from "./types"
 
@@ -145,13 +150,18 @@ export default class EnrichmentService extends BaseService<Events> {
   }
 
   async enrichTransaction(
-    transaction: AnyEVMTransaction | TransactionResponse,
+    transaction:
+      | ConfirmedQuaiTransactionLike
+      | PendingQuaiTransactionLike
+      | FailedQuaiTransactionLike,
     desiredDecimals: number
-  ): Promise<EnrichedEVMTransaction> {
-    // TODO-MIGRATION: Remove const temporaryTransaction
-    const temporaryTransaction = transaction as AnyEVMTransaction
+  ): Promise<
+    | ConfirmedQuaiTransactionLike
+    | PendingQuaiTransactionLike
+    | FailedQuaiTransactionLike
+  > {
     return {
-      ...temporaryTransaction,
+      ...transaction,
       annotation: await resolveTransactionAnnotation(
         this.chainService,
         this.indexingService,

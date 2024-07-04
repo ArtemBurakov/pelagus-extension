@@ -426,6 +426,147 @@ export default class ChainService extends BaseService<Events> {
     })
   }
 
+  private async populatePartialEIP1559TransactionRequest(
+    network: NetworkInterfaceGA,
+    partialRequest: EnrichedEIP1559TransactionSignatureRequest
+  ): Promise<{
+    transactionRequest: EnrichedEIP1559TransactionRequest
+    gasEstimationError: string | undefined
+  }> {
+    const {
+      from,
+      to,
+      value,
+      gasLimit,
+      input,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+      nonce,
+      annotation,
+    } = partialRequest
+
+    // Basic transaction construction based on the provided options, with extra data from the chain service
+    const transactionRequest: EnrichedEIP1559TransactionRequest = {
+      from,
+      to,
+      value: value ?? 0n,
+      gasLimit: gasLimit ?? 0n,
+      maxFeePerGas: maxFeePerGas ?? 0n,
+      maxPriorityFeePerGas: maxPriorityFeePerGas ?? 0n,
+      input: input ?? null,
+      type: network.baseAsset.symbol === "QUAI" ? (0 as const) : (2 as const),
+      network,
+      chainID: network.chainID,
+      nonce,
+      annotation,
+    }
+
+    // Always estimate gas to decide whether the transaction will likely fail.
+    let estimatedGasLimit: bigint | undefined
+    let gasEstimationError: string | undefined
+    try {
+      estimatedGasLimit = await this.estimateGasLimit(transactionRequest)
+    } catch (error) {
+      // Try to identify unpredictable gas errors to bubble that information
+      // out.
+      if (error instanceof Error) {
+        // Ethers does some heavily loose typing around errors to carry
+        // arbitrary info without subclassing Error, so an any cast is needed.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const anyError: any = error
+
+        if ("code" in anyError && anyError.code === UNPREDICTABLE_GAS_LIMIT) {
+          gasEstimationError = anyError.error ?? "Unknown transaction error."
+        }
+      }
+    }
+
+    // We use the estimate as the actual limit only if user did not specify the
+    // gas explicitly or if it was set below the minimum network-allowed value.
+    if (
+      typeof estimatedGasLimit !== "undefined" &&
+      (typeof partialRequest.gasLimit === "undefined" ||
+        partialRequest.gasLimit < 21000n)
+    ) {
+      transactionRequest.gasLimit = estimatedGasLimit
+    }
+
+    return { transactionRequest, gasEstimationError }
+  }
+
+  async populatePartialTransactionRequest(
+    network: NetworkInterfaceGA,
+    partialRequest: EnrichedEVMTransactionSignatureRequest,
+    defaults: { maxFeePerGas: bigint; maxPriorityFeePerGas: bigint }
+  ): Promise<{
+    transactionRequest: EnrichedEVMTransactionRequest
+    gasEstimationError: string | undefined
+  }> {
+    const {
+      maxFeePerGas = defaults.maxFeePerGas,
+      maxPriorityFeePerGas = defaults.maxPriorityFeePerGas,
+    } = partialRequest as EnrichedEIP1559TransactionSignatureRequest
+
+    return this.populatePartialEIP1559TransactionRequest(network, {
+      ...(partialRequest as EnrichedEIP1559TransactionSignatureRequest),
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+    })
+  }
+
+  /**
+   * Releases the specified nonce for the given network and address. This
+   * updates internal service state to allow that nonce to be reused. In cases
+   * where multiple nonce's were seen in a row, this will make internally
+   * available for reuse all intervening nonce's.
+   */
+  releaseEVMTransactionNonce(
+    transactionRequest:
+      | ConfirmedQuaiTransactionLike
+      | FailedQuaiTransactionLike
+      | PendingQuaiTransactionLike
+  ): void {
+    const network = this.supportedNetworks.find(
+      (net) =>
+        toBigInt(net.chainID) === toBigInt(transactionRequest.chainId ?? 0)
+    )
+    if (network?.chainID && transactionRequest.from) {
+      const { nonce } = transactionRequest
+
+      if (
+        !this.evmChainLastSeenNoncesByNormalizedAddress[network.chainID]?.[
+          transactionRequest.from
+        ]
+      )
+        return
+
+      const lastSeenNonce =
+        this.evmChainLastSeenNoncesByNormalizedAddress[network.chainID][
+          transactionRequest.from
+        ]
+
+      // TODO Currently this assumes that the only place this nonce could have
+      // TODO been used is this service; however, another wallet or service
+      // TODO could have broadcast a transaction with this same nonce, in which
+      // TODO case the nonce release shouldn't take effect! This should be a
+      // TODO relatively rare edge case, but we should handle it at some point.
+      if (nonce === lastSeenNonce) {
+        this.evmChainLastSeenNoncesByNormalizedAddress[network.chainID][
+          transactionRequest.from
+        ] -= 1
+      } else if (nonce && nonce < lastSeenNonce) {
+        // If the nonce we're releasing is below the latest allocated nonce,
+        // release all intervening nonce's. This risks transaction replacement
+        // issues, but ensures that we don't start allocating nonce's that will
+        // never mine (because they will all be higher than the
+        // now-released-and-therefore-never-broadcast nonce).
+        this.evmChainLastSeenNoncesByNormalizedAddress[network.chainID][
+          transactionRequest.from
+        ] = nonce - 1
+      }
+    }
+  }
+
   async getAccountsToTrack(
     onlyActiveAccounts = false
   ): Promise<AddressOnNetwork[]> {
@@ -849,9 +990,18 @@ export default class ChainService extends BaseService<Events> {
             this.saveTransaction(failedTransaction, "local")
             return Promise.reject(error)
           }),
-        this.subscribeToTransactionConfirmation(transaction),
+        // TODO-MIGRATION FIX
+        // () => {
+        // const network = this.supportedNetworks.find(net => toBigInt(net.chainID) === toBigInt(transaction.chainId ?? 0))
+        //   if (!network) throw new Error("Failed find network from tx")
+        //   const pendingQuaiTransaction = createPendingQuaiTransaction(
+        //     transaction as QuaiTransactionResponse
+        //   )
+        //   this.subscribeToTransactionConfirmation(network, pendingQuaiTransaction),
+        // }
       ])
     } catch (error) {
+      this.releaseEVMTransactionNonce(createFailedQuaiTransaction(transaction))
       this.emitter.emit("transactionSendFailure")
       logger.error("Error broadcasting transaction", transaction, error)
 
@@ -1005,6 +1155,9 @@ export default class ChainService extends BaseService<Events> {
         )
         // Let's see if we have the tx in the db, and if yes let's mark it as dropped.
         this.saveTransaction(failedTransaction, "local")
+
+        // Let's also release the nonce from our bookkeeping.
+        this.releaseEVMTransactionNonce(savedTx)
       }
     }
 
