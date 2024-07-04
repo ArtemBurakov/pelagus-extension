@@ -16,6 +16,8 @@ import {
   INFINITE_VALUE,
 } from "./utils/activities-utils"
 import { getExtendedZoneForAddress } from "../services/chain/utils"
+import { QuaiTransaction } from "../services/chain/db-migration"
+import { toBigInt } from "quais"
 
 export { Activity, ActivityDetail, INFINITE_VALUE }
 export type Activities = {
@@ -44,6 +46,7 @@ const addActivityToState =
   ) => {
     const isEtx =
       transaction.to &&
+      transaction.from &&
       getExtendedZoneForAddress(transaction.from, false) !==
         getExtendedZoneForAddress(transaction.to, false)
     // Don't add TX if it's an ETX and it's not from the null address, this will lead to duplicate transactions
@@ -81,7 +84,7 @@ const initializeActivitiesFromTransactions = ({
   transactions,
   accounts,
 }: {
-  transactions: Transaction[]
+  transactions: QuaiTransaction[]
   accounts: AddressOnNetwork[]
 }): Activities => {
   const activities: {
@@ -93,7 +96,8 @@ const initializeActivitiesFromTransactions = ({
   const addActivity = addActivityToState(activities)
 
   transactions.forEach((transaction) => {
-    const { to, from, network } = transaction
+    const { to, from, chainId } = transaction
+
     const isTrackedTo = accounts.some(
       ({ address, network: activeNetwork }) =>
         network.chainID === activeNetwork.chainID &&
@@ -108,14 +112,15 @@ const initializeActivitiesFromTransactions = ({
     if (
       to &&
       isTrackedTo &&
+      from &&
       (getExtendedZoneForAddress(to, false) ===
         getExtendedZoneForAddress(from, false) ||
         sameQuaiAddress(from, "0x0000000000000000000000000000000000000000"))
     ) {
-      addActivity(to, network.chainID, transaction)
+      addActivity(to, String(chainId), transaction)
     }
     if (from && isTrackedFrom) {
-      addActivity(from, network.chainID, transaction)
+      addActivity(from, String(chainId), transaction)
     }
   })
 

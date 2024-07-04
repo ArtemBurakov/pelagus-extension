@@ -19,7 +19,7 @@ import {
 } from "./utils"
 import resolveTransactionAnnotation from "./transactions"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
-import { TransactionResponse } from "quais"
+import { toBigInt, TransactionResponse } from "quais"
 import {
   ConfirmedQuaiTransactionLike,
   FailedQuaiTransactionLike,
@@ -98,9 +98,12 @@ export default class EnrichmentService extends BaseService<Events> {
 
   async enrichTransactionSignature(
     network: NetworkInterfaceGA,
-    transaction: PartialTransactionRequestWithFrom,
+    transaction:
+      | ConfirmedQuaiTransactionLike
+      | FailedQuaiTransactionLike
+      | PendingQuaiTransactionLike,
     desiredDecimals: number
-  ): Promise<EnrichedEVMTransactionSignatureRequest> {
+  ): Promise<EnrichedEVMTransaction> {
     const enrichedTxSignatureRequest = {
       ...transaction,
       network,
@@ -113,11 +116,6 @@ export default class EnrichmentService extends BaseService<Events> {
         desiredDecimals
       ),
     }
-
-    this.emitter.emit(
-      "enrichedEVMTransactionSignatureRequest",
-      enrichedTxSignatureRequest
-    )
 
     return enrichedTxSignatureRequest
   }
@@ -155,19 +153,20 @@ export default class EnrichmentService extends BaseService<Events> {
       | PendingQuaiTransactionLike
       | FailedQuaiTransactionLike,
     desiredDecimals: number
-  ): Promise<
-    | ConfirmedQuaiTransactionLike
-    | PendingQuaiTransactionLike
-    | FailedQuaiTransactionLike
-  > {
+  ): Promise<EnrichedEVMTransaction> {
+    const network = globalThis.main.chainService.supportedNetworks.find(
+      (net) => toBigInt(net.chainID) === toBigInt(transaction.chainId ?? 0)
+    )
+
+    if (!network) throw new Error("Failed find network in enrichTransaction")
     return {
       ...transaction,
       annotation: await resolveTransactionAnnotation(
         this.chainService,
         this.indexingService,
         this.nameService,
-        temporaryTransaction.network,
-        temporaryTransaction,
+        network,
+        transaction,
         desiredDecimals
       ),
     }

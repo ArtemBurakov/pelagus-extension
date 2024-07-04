@@ -7,6 +7,11 @@ import { HexString, UNIXTime } from "./types"
 import type { FungibleAsset } from "./assets"
 import type { PartialTransactionRequestWithFrom } from "./services/enrichment"
 import { NetworkInterfaceGA } from "./constants/networks/networkTypes"
+import {
+  ConfirmedQuaiTransactionLike,
+  FailedQuaiTransactionLike,
+  PendingQuaiTransactionLike,
+} from "./services/chain/types"
 
 /**
  * Each supported network family is generally incompatible with others from a
@@ -245,7 +250,7 @@ export type TransactionRequestWithNonce = TransactionRequest & { nonce: number }
 export type EVMLog = {
   contractAddress: HexString
   data: HexString
-  topics: HexString[]
+  // topics: HexString[]
 }
 
 /**
@@ -390,9 +395,10 @@ export function toHexChainID(chainID: string | number): string {
 // There is probably some clever way to combine the following type guards into one function
 export const isEIP1559TransactionRequest = (
   transactionRequest:
-    | AnyEVMTransaction
-    | EthersTransactionRequest
-    | Partial<PartialTransactionRequestWithFrom>
+    | ConfirmedQuaiTransactionLike
+    | PendingQuaiTransactionLike
+    | FailedQuaiTransactionLike
+    | QuaiTransactionRequest
 ): transactionRequest is EIP1559TransactionRequest =>
   "maxFeePerGas" in transactionRequest &&
   transactionRequest.maxFeePerGas !== null &&

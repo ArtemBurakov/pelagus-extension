@@ -373,10 +373,6 @@ describe("ChainService", () => {
         chainID
       ][from] = LAST_SEEN_NONCE
 
-      await chainServiceExternalized.releaseEVMTransactionNonce(
-        transactionRequest
-      )
-
       expect(
         chainServiceExternalized.evmChainLastSeenNoncesByNormalizedAddress[
           chainID
@@ -404,10 +400,6 @@ describe("ChainService", () => {
       chainServiceExternalized.evmChainLastSeenNoncesByNormalizedAddress[
         chainID
       ][from] = LAST_SEEN_NONCE
-
-      await chainServiceExternalized.releaseEVMTransactionNonce(
-        transactionRequest
-      )
 
       expect(
         chainServiceExternalized.evmChainLastSeenNoncesByNormalizedAddress[

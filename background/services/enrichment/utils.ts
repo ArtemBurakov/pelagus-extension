@@ -82,12 +82,7 @@ export const getERC20LogsForAddresses = (
   )
 }
 
-export function getRecipient(
-  transaction:
-    | ConfirmedQuaiTransactionLike
-    | PendingQuaiTransactionLike
-    | FailedQuaiTransactionLike
-): {
+export function getRecipient(transaction: EnrichedEVMTransaction): {
   address?: HexString
   name?: string
 } {
@@ -102,7 +97,7 @@ export function getRecipient(
       }
     case "contract-interaction":
       return {
-        address: transaction.to,
+        address: transaction.to ?? "",
         name: annotation.contractInfo?.annotation.nameRecord?.resolved
           .nameOnNetwork.name,
       }
@@ -113,16 +108,11 @@ export function getRecipient(
           .name,
       }
     default:
-      return { address: transaction.to }
+      return { address: transaction.to ?? "" }
   }
 }
 
-export function getSender(
-  transaction:
-    | ConfirmedQuaiTransactionLike
-    | PendingQuaiTransactionLike
-    | FailedQuaiTransactionLike
-): {
+export function getSender(transaction: EnrichedEVMTransaction): {
   address?: HexString
   name?: string
 } {

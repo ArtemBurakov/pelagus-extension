@@ -201,12 +201,7 @@ function legacyEVMTransactionRequestFromEthersTransactionRequest(
 export function transactionRequestFromEthersTransactionRequest(
   ethersTransactionRequest: EthersTransactionRequest
 ): Partial<TransactionRequest> {
-  if (isEIP1559TransactionRequest(ethersTransactionRequest))
-    return eip1559TransactionRequestFromEthersTransactionRequest(
-      ethersTransactionRequest
-    )
-
-  return legacyEVMTransactionRequestFromEthersTransactionRequest(
+  return eip1559TransactionRequestFromEthersTransactionRequest(
     ethersTransactionRequest
   )
 }
