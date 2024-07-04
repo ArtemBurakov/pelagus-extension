@@ -35,7 +35,13 @@ import {
 import { isDefined, isFulfilledPromise } from "../../lib/utils/type-guards"
 import { getExtendedZoneForAddress } from "../chain/utils"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
-import { Shard } from "quais"
+import { Shard, toBigInt } from "quais"
+import {
+  ConfirmedQuaiTransactionLike,
+  FailedQuaiTransactionLike,
+  PendingQuaiTransactionLike,
+} from "../chain/types"
+import { NetworksArray } from "../../constants/networks/networks"
 
 async function buildSubannotations(
   chainService: ChainService,
@@ -188,43 +194,34 @@ export default async function resolveTransactionAnnotation(
   nameService: NameService,
   network: NetworkInterfaceGA,
   transaction:
-    | AnyEVMTransaction
-    | (PartialTransactionRequestWithFrom & {
-        blockHash?: string
-      })
-    | (EnrichedEVMTransactionRequest & {
-        blockHash?: string
-      }),
+    | ConfirmedQuaiTransactionLike
+    | PendingQuaiTransactionLike
+    | FailedQuaiTransactionLike,
   desiredDecimals: number
 ): Promise<TransactionAnnotation> {
-  const assets = await indexingService.getCachedAssets(network)
-  const isExternalTransfer =
-    "type" in transaction &&
-    (transaction.type == 1 || transaction.type == 2) &&
-    "to" in transaction &&
-    transaction.to !== undefined
+  const assets = indexingService.getCachedAssets(network)
+  const isExternalTransfer = !!transaction.type && !!transaction.to
   const useDestinationShard = sameEVMAddress(
     transaction.from,
     "0x0000000000000000000000000000000000000000"
   )
 
-  // By default, annotate all requests as contract interactions, unless they
-  // already carry additional metadata.
-  let txAnnotation: TransactionAnnotation =
-    "annotation" in transaction && transaction.annotation !== undefined
-      ? transaction.annotation
-      : {
-          blockTimestamp: undefined,
-          timestamp: Date.now(),
-          type: "contract-deployment",
-          transactionLogoURL: assets.find(
-            (asset) =>
-              asset.metadata?.logoURL &&
-              asset.symbol === transaction.network.baseAsset.symbol
-          )?.metadata?.logoURL,
-        }
+  let txAnnotation: TransactionAnnotation = {
+    blockTimestamp: undefined,
+    timestamp: Date.now(),
+    type: "contract-deployment",
+    transactionLogoURL: assets.find(
+      (asset) =>
+        asset.metadata?.logoURL &&
+        asset.symbol ===
+          NetworksArray.find(
+            (net) =>
+              toBigInt(net.chainID) === toBigInt(transaction.chainId ?? 0)
+          )?.baseAsset.symbol
+    )?.metadata?.logoURL,
+  }
   // We know this is an External Transfer, and transaction.to means not deployment
-  if (useDestinationShard && transaction.to !== undefined) {
+  if (useDestinationShard && transaction.to && transaction.from) {
     const recipient = await enrichAddressOnNetwork(chainService, nameService, {
       address: transaction.to,
       network,
@@ -242,7 +239,7 @@ export default async function resolveTransactionAnnotation(
       assetAmount: enrichAssetAmountWithDecimalValues(
         {
           asset: network.baseAsset,
-          amount: transaction.value ?? 0n,
+          amount: toBigInt(transaction.value ?? 0n),
         },
         desiredDecimals
       ),
