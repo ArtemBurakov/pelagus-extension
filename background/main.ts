@@ -765,7 +765,7 @@ export default class Main extends BaseService<never> {
     to: string
   ): Promise<void> {
     const accountsToTrack = await this.chainService.getAccountsToTrack()
-    const transaction = await this.chainService.getETX(
+    const transaction = await this.chainService.getTransaction(
       addressNetwork.network,
       txHash
     )
