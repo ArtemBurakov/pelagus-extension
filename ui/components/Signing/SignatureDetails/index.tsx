@@ -21,6 +21,8 @@ import { AnyAction } from "redux"
 import TransactionSignatureDetails from "./TransactionSignatureDetails"
 import MessageDataSignatureDetails from "./DataSignatureDetails/MessageDataSignatureDetails"
 import TypedDataSignatureDetails from "./DataSignatureDetails/TypedDataSignatureDetails"
+import { QuaiTransaction } from "quais"
+import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
 
 /**
  * Details regarding a signature request, resolved for a signer ahead of time
@@ -44,7 +46,7 @@ export type ResolvedSignatureDetails = {
 export function resolveTransactionSignatureDetails({
   request,
   accountSigner,
-}: SignOperation<TransactionRequest>): ResolvedSignatureDetails {
+}: SignOperation<QuaiTransactionRequest>): ResolvedSignatureDetails {
   return {
     signer: accountSigner,
     signingAddress: { address: request.from, network: request.network },

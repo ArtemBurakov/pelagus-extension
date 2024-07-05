@@ -34,6 +34,7 @@ import {
   ConfirmedQuaiTransactionLike,
   FailedQuaiTransactionLike,
   PendingQuaiTransactionLike,
+  QuaiTransactionGeneral,
 } from "../chain/types"
 import { NetworksArray } from "../../constants/networks/networks"
 
@@ -187,10 +188,7 @@ export default async function resolveTransactionAnnotation(
   indexingService: IndexingService,
   nameService: NameService,
   network: NetworkInterfaceGA,
-  transaction:
-    | ConfirmedQuaiTransactionLike
-    | PendingQuaiTransactionLike
-    | FailedQuaiTransactionLike,
+  transaction: QuaiTransactionGeneral,
   desiredDecimals: number
 ): Promise<TransactionAnnotation> {
   const assets = await indexingService.getCachedAssets(network)
