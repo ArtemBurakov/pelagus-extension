@@ -100,7 +100,7 @@ export default function SpendApprovalSummary({
     dispatch(
       updateTransactionData({
         ...transactionRequest,
-        input: updatedInput,
+        data: updatedInput,
       })
     )
   }

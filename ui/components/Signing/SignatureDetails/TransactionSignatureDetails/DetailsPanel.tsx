@@ -9,15 +9,14 @@ import type {
   EnrichedLegacyTransactionRequest,
 } from "@pelagus/pelagus-background/services/enrichment"
 import { useTranslation } from "react-i18next"
-import { EIP_1559_COMPLIANT_CHAIN_IDS } from "@pelagus/pelagus-background/constants"
 import classNames from "classnames"
 import { getAccountNonceAndGasPrice } from "@pelagus/pelagus-background/redux-slices/assets"
+import { QuaiTransactionRequestWithAnnotation } from "@pelagus/pelagus-background/services/chain/types"
 import { useBackgroundDispatch, useBackgroundSelector } from "../../../../hooks"
 import SharedSlideUpMenu from "../../../Shared/SharedSlideUpMenu"
 import NetworkSettingsChooser from "../../../NetworkFees/NetworkSettingsChooser"
 import FeeSettingsButton from "../../../NetworkFees/FeeSettingsButton"
 import TransactionSignatureDetailsWarning from "./TransactionSignatureDetailsWarning"
-import { QuaiTransactionRequestWithAnnotation } from "@pelagus/pelagus-background/services/chain/types"
 
 export type PanelState = {
   dismissedWarnings: string[]
@@ -109,10 +108,6 @@ export default function DetailPanel({
 
   if (transactionDetails === undefined) return <></>
 
-  const isEIP1559Compliant = EIP_1559_COMPLIANT_CHAIN_IDS.has(
-    transactionDetails.network.chainID
-  )
-
   const hasInsufficientFundsWarning =
     transactionDetails.annotation?.warnings?.includes("insufficient-funds")
 
@@ -126,12 +121,7 @@ export default function DetailPanel({
   }
 
   const getHightForSlideUpMenu = () => {
-    return `${
-      3 * 56 +
-      320 +
-      (hasInsufficientFundsWarning ? 15 : 0) +
-      (isEIP1559Compliant ? 0 : 40)
-    }px`
+    return `${3 * 56 + 320 + (hasInsufficientFundsWarning ? 15 : 0)}px`
   }
 
   return (
@@ -181,9 +171,9 @@ export default function DetailPanel({
             value={nonce}
             spellCheck={false}
             onChange={(event) => {
-              if (parseInt(event.target.value) >= 0) {
+              if (parseInt(event.target.value, 10) >= 0) {
                 setNonceUpdated(true)
-                setNonce(parseInt(event.target.value))
+                setNonce(parseInt(event.target.value, 10))
               }
             }}
             style={{

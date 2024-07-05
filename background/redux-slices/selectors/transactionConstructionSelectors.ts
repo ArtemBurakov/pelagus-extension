@@ -1,4 +1,5 @@
 import { createSelector } from "@reduxjs/toolkit"
+import { toBigInt } from "quais"
 import { PricePoint } from "../../assets"
 import { selectCurrentNetwork } from "."
 import { NetworksState } from "../networks"
@@ -36,7 +37,9 @@ export const selectDefaultNetworkFeeSettings = createSelector(
     return {
       feeType: transactionConstruction.feeTypeSelected,
       gasLimit: undefined,
-      suggestedGasLimit: transactionConstruction.transactionRequest?.gasLimit,
+      suggestedGasLimit: toBigInt(
+        transactionConstruction.transactionRequest?.gasLimit ?? 0
+      ),
       values: {
         maxFeePerGas: selectedFeesPerGas?.maxFeePerGas ?? 0n,
         maxPriorityFeePerGas: selectedFeesPerGas?.maxPriorityFeePerGas ?? 0n,

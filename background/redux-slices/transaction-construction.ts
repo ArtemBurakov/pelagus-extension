@@ -13,16 +13,10 @@ import {
   TransactionRequest,
   TransactionRequestGA,
 } from "../networks"
-import { EnrichedEVMTransactionRequest } from "../services/enrichment"
 import { createBackgroundAsyncThunk } from "./utils"
 import { SignOperation } from "./signing"
 import { NetworkInterfaceGA } from "../constants/networks/networkTypes"
-import {
-  ConfirmedQuaiTransactionLike,
-  FailedQuaiTransactionLike,
-  PendingQuaiTransactionLike,
-  QuaiTransactionRequestWithAnnotation,
-} from "../services/chain/types"
+import { QuaiTransactionRequestWithAnnotation } from "../services/chain/types"
 
 export const enum TransactionConstructionStatus {
   Idle = "idle",
@@ -51,7 +45,7 @@ export enum NetworkFeeTypeChosen {
 }
 export type TransactionConstruction = {
   status: TransactionConstructionStatus
-  transactionRequest?: EnrichedEVMTransactionRequest
+  transactionRequest?: QuaiTransactionRequestWithAnnotation
   signedTransaction?: QuaiTransactionLike // TODO-MIGRATION
   broadcastOnSign?: boolean
   transactionLikelyFails: boolean
@@ -85,7 +79,7 @@ export const initialState: TransactionConstruction = {
 }
 
 export type Events = {
-  updateTransaction: Partial<QuaiTransactionRequestWithAnnotation>
+  updateTransaction: QuaiTransactionRequestWithAnnotation
   signTransaction: SignOperation<TransactionRequestGA>
   requestSignature: SignOperation<TransactionRequest>
   signatureRejected: never
@@ -142,7 +136,7 @@ const makeBlockEstimate = (
 // Async thunk to pass transaction options from the store to the background via an event
 export const updateTransactionData = createBackgroundAsyncThunk(
   "transaction-construction/update-transaction",
-  async (payload: Partial<QuaiTransactionRequestWithAnnotation>) => {
+  async (payload: QuaiTransactionRequestWithAnnotation) => {
     await emitter.emit("updateTransaction", payload)
   }
 )
@@ -168,7 +162,7 @@ const transactionSlice = createSlice({
         payload: { transactionRequest, transactionLikelyFails },
       }: {
         payload: {
-          transactionRequest: TransactionRequest
+          transactionRequest: QuaiTransactionRequestWithAnnotation
           transactionLikelyFails: boolean
         }
       }
@@ -183,7 +177,6 @@ const transactionSlice = createSlice({
         transactionLikelyFails,
       }
       const feeType = state.feeTypeSelected
-      const { chainID } = transactionRequest.network
 
       if (
         // We use two guards here to satisfy the compiler but due to the spread
@@ -194,7 +187,7 @@ const transactionSlice = createSlice({
         const estimatedMaxFeePerGas =
           feeType === NetworkFeeTypeChosen.Custom
             ? state.customFeesPerGas?.maxFeePerGas
-            : state.estimatedFeesPerGas?.[chainID]?.[feeType]?.maxFeePerGas
+            : state.estimatedFeesPerGas?.chainId?.[feeType]?.maxFeePerGas // TODO-MIGRATION
 
         newState.transactionRequest.maxFeePerGas =
           estimatedMaxFeePerGas ?? transactionRequest.maxFeePerGas
@@ -202,7 +195,7 @@ const transactionSlice = createSlice({
         const estimatedMaxPriorityFeePerGas =
           feeType === NetworkFeeTypeChosen.Custom
             ? state.customFeesPerGas?.maxPriorityFeePerGas
-            : state.estimatedFeesPerGas?.[chainID]?.[feeType]
+            : state.estimatedFeesPerGas?.chainId?.[feeType] // TODO-MIGRATION
                 ?.maxPriorityFeePerGas
 
         newState.transactionRequest.maxPriorityFeePerGas =
