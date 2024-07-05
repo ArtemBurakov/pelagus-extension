@@ -17,6 +17,7 @@ import SharedSlideUpMenu from "../../../Shared/SharedSlideUpMenu"
 import NetworkSettingsChooser from "../../../NetworkFees/NetworkSettingsChooser"
 import FeeSettingsButton from "../../../NetworkFees/FeeSettingsButton"
 import TransactionSignatureDetailsWarning from "./TransactionSignatureDetailsWarning"
+import { QuaiTransactionRequestWithAnnotation } from "@pelagus/pelagus-background/services/chain/types"
 
 export type PanelState = {
   dismissedWarnings: string[]
