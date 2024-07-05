@@ -107,8 +107,10 @@ export default class SigningService extends BaseService<Events> {
     if (signerType) {
       switch (signerType) {
         case "private-key":
+          await this.keyringService.removeWallet(address)
+          break
         case "keyring":
-          await this.keyringService.hideAccount(address)
+          await this.keyringService.removeQuaiHDWallet(address)
           break
         case "read-only":
           break
@@ -133,9 +135,8 @@ export default class SigningService extends BaseService<Events> {
       switch (accountSigner.type) {
         case "private-key":
         case "keyring": {
-          signedTransactionString = await this.keyringService.signTransaction(
-            transactionRequest
-          )
+          signedTransactionString =
+            await this.keyringService.signQuaiTransaction(transactionRequest)
           break
         }
         case "read-only":
@@ -164,15 +165,11 @@ export default class SigningService extends BaseService<Events> {
     }
   }
 
-  async signTypedData({
-    typedData,
-    account,
-    accountSigner,
-  }: {
-    typedData: EIP712TypedData
-    account: AddressOnNetwork
+  async signTypedData(
+    typedData: EIP712TypedData,
+    account: AddressOnNetwork,
     accountSigner: AccountSigner
-  }): Promise<string> {
+  ): Promise<string> {
     try {
       let signedData: string
       const chainId =
@@ -195,10 +192,10 @@ export default class SigningService extends BaseService<Events> {
       switch (accountSigner.type) {
         case "private-key":
         case "keyring":
-          signedData = await this.keyringService.signTypedData({
-            typedData,
-            account: account.address,
-          })
+          signedData = await this.keyringService.signTypedData(
+            account.address,
+            typedData
+          )
           break
         case "read-only":
           throw new Error("Read-only signers cannot sign.")
@@ -235,10 +232,10 @@ export default class SigningService extends BaseService<Events> {
       switch (accountSigner.type) {
         case "private-key":
         case "keyring":
-          signedData = await this.keyringService.personalSign({
-            signingData: hexDataToSign,
-            account: addressOnNetwork.address,
-          })
+          signedData = await this.keyringService.personalSign(
+            addressOnNetwork.address,
+            hexDataToSign
+          )
           break
         case "read-only":
           throw new Error("Read-only signers cannot sign.")

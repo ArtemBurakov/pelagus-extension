@@ -7,7 +7,7 @@ import {
   selectCurrentAccountSigner,
   selectCurrentNetwork,
 } from "@pelagus/pelagus-background/redux-slices/selectors"
-import { sameEVMAddress } from "@pelagus/pelagus-background/lib/utils"
+import { sameQuaiAddress } from "@pelagus/pelagus-background/lib/utils"
 import {
   AnyAsset,
   isSmartContractFungibleAsset,
@@ -21,6 +21,8 @@ import {
   isUnverifiedAssetByUser,
 } from "@pelagus/pelagus-background/redux-slices/utils/asset-utils"
 import { FeatureFlags, isEnabled } from "@pelagus/pelagus-background/features"
+import { NetworksArray } from "@pelagus/pelagus-background/constants/networks/networks"
+import { isQuaiHandle } from "@pelagus/pelagus-background/constants/networks/networkUtils"
 import { useBackgroundSelector } from "../hooks"
 import SharedAssetIcon from "../components/Shared/SharedAssetIcon"
 import SharedButton from "../components/Shared/SharedButton"
@@ -31,8 +33,6 @@ import { blockExplorer } from "../utils/constants"
 import AssetVerifyToggler from "../components/Wallet/UnverifiedAsset/AssetVerifyToggler"
 import { trimWithEllipsis } from "../utils/textUtils"
 import AssetWarningWrapper from "../components/Wallet/UnverifiedAsset/AssetWarningWrapper"
-import { NetworksArray } from "@pelagus/pelagus-background/constants/networks/networks"
-import { isQuaiHandle } from "@pelagus/pelagus-background/constants/networks/networkUtils"
 
 const MAX_SYMBOL_LENGTH = 10
 
@@ -84,7 +84,7 @@ export default function SingleAsset(): ReactElement {
       if (typeof contractAddress !== "undefined") {
         return (
           isSmartContractFungibleAsset(candidateAsset) &&
-          sameEVMAddress(candidateAsset.contractAddress, contractAddress)
+          sameQuaiAddress(candidateAsset.contractAddress, contractAddress)
         )
       }
       return candidateAsset.symbol === symbol

@@ -34,7 +34,7 @@ import {
 import { useHistory, useLocation } from "react-router-dom"
 import classNames from "classnames"
 import { setSnackbarMessage } from "@pelagus/pelagus-background/redux-slices/ui"
-import { sameEVMAddress } from "@pelagus/pelagus-background/lib/utils"
+import { sameQuaiAddress } from "@pelagus/pelagus-background/lib/utils"
 import { toBigInt } from "quais"
 import { ReadOnlyAccountSigner } from "@pelagus/pelagus-background/services/signing"
 import SharedAssetInput from "../components/Shared/SharedAssetInput"
@@ -232,7 +232,7 @@ export default function Send(): ReactElement {
   const resolvedNameToAddress =
     addressErrorMessage === undefined &&
     destinationAddress !== undefined &&
-    !sameEVMAddress(destinationAddress, userAddressValue)
+    !sameQuaiAddress(destinationAddress, userAddressValue)
 
   if (isOpenConfirmationModal) {
     const onCloseConfirmationModal = () => {

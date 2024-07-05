@@ -7,7 +7,7 @@ import { PermissionRequest } from "@pelagus-provider/provider-bridge-shared"
 import { debounce } from "lodash"
 import { utils } from "ethers"
 import { JsonRpcProvider, WebSocketProvider } from "quais"
-import { decodeJSON, encodeJSON, sameEVMAddress, wait } from "./lib/utils"
+import { decodeJSON, encodeJSON, sameQuaiAddress, wait } from "./lib/utils"
 import {
   AnalyticsService,
   BaseService,
@@ -981,11 +981,11 @@ export default class Main extends BaseService<never> {
       "requestSignTypedData",
       async ({ typedData, account, accountSigner }) => {
         try {
-          const signedData = await this.signingService.signTypedData({
+          const signedData = await this.signingService.signTypedData(
             typedData,
             account,
-            accountSigner,
-          })
+            accountSigner
+          )
           this.store.dispatch(signedTypedData(signedData))
         } catch (err) {
           logger.error("Error signing typed data", typedData, "error: ", err)
@@ -1196,14 +1196,13 @@ export default class Main extends BaseService<never> {
       })
     })
 
-    keyringSliceEmitter.on("generateNewKeyring", async (path) => {
+    keyringSliceEmitter.on("generateQuaiHDWalletMnemonic", async () => {
       // TODO move unlocking to a reasonable place in the initialization flow
       const generated: {
         id: string
         mnemonic: string[]
-      } = await this.keyringService.generateNewKeyring(
-        KeyringTypes.mnemonicBIP39S256,
-        path
+      } = await this.keyringService.generateQuaiHDWalletMnemonic(
+        KeyringTypes.mnemonicBIP39S256
       )
 
       this.store.dispatch(setKeyringToVerify(generated))
@@ -1604,7 +1603,7 @@ export default class Main extends BaseService<never> {
   }
 
   async exportPrivKey(address: string): Promise<string> {
-    return this.keyringService.exportPrivKey(address)
+    return this.keyringService.exportWalletPrivateKey(address)
   }
 
   async importSigner(signerRaw: SignerImportMetadata): Promise<string | null> {
@@ -1768,7 +1767,7 @@ export default class Main extends BaseService<never> {
       .find(
         (asset): asset is SmartContractFungibleAsset =>
           isSmartContractFungibleAsset(asset) &&
-          sameEVMAddress(contractAddress, asset.contractAddress)
+          sameQuaiAddress(contractAddress, asset.contractAddress)
       )
 
     const assetData = await this.chainService.queryAccountTokenDetails(

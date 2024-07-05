@@ -23,7 +23,7 @@ import {
   selectCurrentNetwork,
   selectMainCurrencySymbol,
 } from "./uiSelectors"
-import { convertToEth, sameEVMAddress, truncateAddress } from "../../lib/utils"
+import { convertToEth, sameQuaiAddress, truncateAddress } from "../../lib/utils"
 import { selectAccountSignersByAddress } from "./signingSelectors"
 import {
   selectKeyringsByAddresses,
@@ -463,7 +463,7 @@ function findAccountTotal(
     .flat()
     .find(
       ({ address, network }) =>
-        sameEVMAddress(address, accountAddressOnNetwork.address) &&
+        sameQuaiAddress(address, accountAddressOnNetwork.address) &&
         sameNetwork(network, accountAddressOnNetwork.network)
     )
 }

@@ -305,70 +305,10 @@ export class ChainData {
   multicall: string
 }
 
-export const NUM_ZONES_IN_REGION = 3
-export const NUM_REGIONS_IN_PRIME = 3
-
 export const DEFAULT_QUAI_NETWORKS = [
   DEFAULT_QUAI_TESTNET,
   DEFAULT_QUAI_DEVNET,
   DEFAULT_QUAI_LOCAL,
-]
-
-export const QUAI_CONTEXTS = [
-  {
-    name: "Cyprus One",
-    shard: "cyprus-1",
-    context: 2,
-    byte: ["00", "1D"],
-  },
-  {
-    name: "Cyprus Two",
-    shard: "cyprus-2",
-    context: 2,
-    byte: ["1E", "3A"],
-  },
-  {
-    name: "Cyprus Three",
-    shard: "cyprus-3",
-    context: 2,
-    byte: ["3B", "57"],
-  },
-  {
-    name: "Paxos One",
-    shard: "paxos-1",
-    context: 2,
-    byte: ["58", "73"],
-  },
-  {
-    name: "Paxos Two",
-    shard: "paxos-2",
-    context: 2,
-    byte: ["74", "8F"],
-  },
-  {
-    name: "Paxos Three",
-    shard: "paxos-3",
-    context: 2,
-    byte: ["90", "AB"],
-  },
-  {
-    name: "Hydra One",
-    shard: "hydra-1",
-    context: 2,
-    byte: ["AC", "C7"],
-  },
-  {
-    name: "Hydra Two",
-    shard: "hydra-2",
-    context: 2,
-    byte: ["C8", "E3"],
-  },
-  {
-    name: "Hydra Three",
-    shard: "hydra-3",
-    context: 2,
-    byte: ["E4", "FF"],
-  },
 ]
 
 export const CHAIN_ID_TO_RPC_URLS: {
@@ -430,35 +370,6 @@ export function setProviderForShard(
         )
         return providers
       }
-      logger.error("Provider is not a Quais provider")
-    }
-  }
-  logger.error(`No provider found for shard: ${shard}`)
-  return providers
-}
-
-export function getProviderForGivenShard(
-  providers: SerialFallbackProvider,
-  shard: string
-): JsonRpcProvider {
-  if (shard === undefined || shard === "") {
-    globalThis.main.SetCorrectShard()
-    return providers
-  }
-
-  for (const provider of providers.providerCreators) {
-    if (provider.shard !== undefined && provider.shard === shard) {
-      const quaisProvider = provider.creator()
-      if (quaisProvider instanceof JsonRpcProvider) return quaisProvider
-
-      logger.error("Provider is not a Quais provider")
-    } else if (
-      provider.rpcUrl !== undefined &&
-      ShardFromRpcUrl(provider.rpcUrl) === shard
-    ) {
-      const quaisProvider = provider.creator()
-      if (quaisProvider instanceof JsonRpcProvider) return quaisProvider
-
       logger.error("Provider is not a Quais provider")
     }
   }

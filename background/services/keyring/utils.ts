@@ -1,11 +1,11 @@
+import { randomBytes } from "quais"
 import {
   InternalSignerPrivateKey,
   InternalSignerWithType,
   SignerSourceTypes,
 } from "./types"
-import { randomBytes } from "quais"
 
-export const isPrivateKey = (
+export const isSignerPrivateKeyType = (
   signer: InternalSignerWithType
 ): signer is InternalSignerPrivateKey =>
   signer.type === SignerSourceTypes.privateKey
