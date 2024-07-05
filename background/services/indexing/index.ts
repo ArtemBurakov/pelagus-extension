@@ -23,7 +23,7 @@ import { ServiceCreatorFunction, ServiceLifecycleEvents } from "../types"
 import { CustomAsset, getOrCreateDb, IndexingDatabase } from "./db"
 import BaseService from "../base"
 import { EnrichedEVMTransaction } from "../enrichment"
-import { sameEVMAddress } from "../../lib/utils"
+import { sameQuaiAddress } from "../../lib/utils"
 import { getExtendedZoneForAddress } from "../chain/utils"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
 import { isQuaiHandle } from "../../constants/networks/networkUtils"
@@ -339,7 +339,7 @@ export default class IndexingService extends BaseService<Events> {
       >((lookups, { asset, addressOnNetwork: { address, network } }) => {
         const existingAddressOnNetworkIndex = lookups.findIndex(
           ([{ address: existingAddress, network: existingNetwork }]) =>
-            sameEVMAddress(address, existingAddress) &&
+            sameQuaiAddress(address, existingAddress) &&
             sameNetwork(network, existingNetwork)
         )
 
@@ -627,7 +627,7 @@ export default class IndexingService extends BaseService<Events> {
         contractAddress
       )) ||
       (await this.chainService.assetData.getTokenMetadata({
-        contractAddress: contractAddress,
+        contractAddress,
         homeNetwork: network,
       }))
     if (!customAsset) return undefined

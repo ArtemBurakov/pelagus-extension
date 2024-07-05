@@ -55,7 +55,7 @@ import {
   getExtendedZoneForAddress,
   transactionFromEthersTransaction,
 } from "./utils"
-import { sameEVMAddress } from "../../lib/utils"
+import { sameQuaiAddress } from "../../lib/utils"
 import type {
   EnrichedEIP1559TransactionRequest,
   EnrichedEIP1559TransactionSignatureRequest,
@@ -807,7 +807,7 @@ export default class ChainService extends BaseService<Events> {
       this.emitter.emit("accountsWithBalances", {
         balances: [accountBalance],
         addressOnNetwork: {
-          address: address,
+          address,
           network,
         },
       })
@@ -819,7 +819,7 @@ export default class ChainService extends BaseService<Events> {
   }
 
   async addAccountToTrack(addressNetwork: AddressOnNetwork): Promise<void> {
-    const source = await this.keyringService.getKeyringSourceForAddress(
+    const source = this.keyringService.getQuaiHDWalletSourceForAddress(
       addressNetwork.address
     )
     const isAccountOnNetworkAlreadyTracked =
@@ -1766,8 +1766,8 @@ export default class ChainService extends BaseService<Events> {
 
     const transactions = transactionsForNetwork.filter(
       (transaction) =>
-        sameEVMAddress(transaction.from, address) ||
-        sameEVMAddress(transaction.to, address)
+        sameQuaiAddress(transaction.from, address) ||
+        sameQuaiAddress(transaction.to, address)
     )
 
     this.emitter.emit("initializeActivitiesForAccount", {
@@ -1788,7 +1788,7 @@ export default class ChainService extends BaseService<Events> {
     return addressesOnNetworks.filter(({ address, network }) =>
       accounts.some(
         ({ address: trackedAddress, network: trackedNetwork }) =>
-          sameEVMAddress(trackedAddress, address) &&
+          sameQuaiAddress(trackedAddress, address) &&
           network.baseAsset.name === trackedNetwork.baseAsset.name
       )
     )

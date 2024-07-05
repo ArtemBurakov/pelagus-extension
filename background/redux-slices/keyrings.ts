@@ -1,5 +1,7 @@
 import { createSlice } from "@reduxjs/toolkit"
 import Emittery from "emittery"
+import OnboardingRoutes from "@pelagus/pelagus-ui/pages/Onboarding/Tabbed/Routes"
+import { Zone } from "quais"
 import { setNewSelectedAccount, UIState } from "./ui"
 import { createBackgroundAsyncThunk } from "./utils"
 import {
@@ -8,8 +10,6 @@ import {
   SignerImportMetadata,
   SignerImportSource,
 } from "../services/keyring/types"
-import OnboardingRoutes from "@pelagus/pelagus-ui/pages/Onboarding/Tabbed/Routes"
-import { Zone } from "quais"
 
 type KeyringToVerify = {
   id: string
@@ -46,7 +46,7 @@ interface DeriveAddressData {
 export type Events = {
   createPassword: string
   lockKeyrings: never
-  generateNewKeyring: string | undefined
+  generateQuaiHDWalletMnemonic: never
   deriveAddress: DeriveAddressData
 }
 
@@ -138,11 +138,10 @@ export const {
 
 export default keyringsSlice.reducer
 
-// Async thunk to bubble the generateNewKeyring action from  store to emitter.
-export const generateNewKeyring = createBackgroundAsyncThunk(
-  "keyrings/generateNewKeyring",
-  async (path?: string) => {
-    await emitter.emit("generateNewKeyring", path)
+export const generateQuaiHDWalletMnemonic = createBackgroundAsyncThunk(
+  "keyrings/generateQuaiHDWalletMnemonic",
+  async () => {
+    await emitter.emit("generateQuaiHDWalletMnemonic")
   }
 )
 

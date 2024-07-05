@@ -2,7 +2,7 @@ import { assetAmountToDesiredDecimals } from "../../assets"
 import {
   convertToEth,
   isMaxUint256,
-  sameEVMAddress,
+  sameQuaiAddress,
   weiToGwei,
 } from "../../lib/utils"
 import { isDefined } from "../../lib/utils/type-guards"
@@ -141,7 +141,7 @@ export const getActivity = (
   let activity: Activity = {
     status: "status" in transaction ? transaction.status : undefined,
     to: to && to,
-    from: from,
+    from,
     recipient: { address: to },
     sender: { address: from },
     blockHeight,
@@ -243,11 +243,14 @@ export function getActivityDetails(
           .map((subannotation) => {
             if (
               subannotation.type === "asset-transfer" &&
-              (sameEVMAddress(subannotation.sender.address, tx.from) ||
-                sameEVMAddress(subannotation.recipient.address, tx.from))
+              (sameQuaiAddress(subannotation.sender.address, tx.from) ||
+                sameQuaiAddress(subannotation.recipient.address, tx.from))
             ) {
               return {
-                direction: sameEVMAddress(subannotation.sender.address, tx.from)
+                direction: sameQuaiAddress(
+                  subannotation.sender.address,
+                  tx.from
+                )
                   ? "out"
                   : "in",
                 assetSymbol: subannotation.assetAmount.asset.symbol,

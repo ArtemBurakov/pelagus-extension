@@ -1,3 +1,4 @@
+import { Shard } from "quais"
 import {
   AnyEVMBlock,
   AnyEVMTransaction,
@@ -10,7 +11,7 @@ import {
   AnyAsset,
 } from "../../assets"
 import { enrichAssetAmountWithDecimalValues } from "../../redux-slices/utils/asset-utils"
-import { sameEVMAddress } from "../../lib/utils"
+import { sameQuaiAddress } from "../../lib/utils"
 import ChainService from "../chain"
 import IndexingService from "../indexing"
 import NameService from "../name"
@@ -35,7 +36,6 @@ import {
 import { isDefined, isFulfilledPromise } from "../../lib/utils/type-guards"
 import { getExtendedZoneForAddress } from "../chain/utils"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
-import { Shard } from "quais"
 
 async function buildSubannotations(
   chainService: ChainService,
@@ -63,7 +63,7 @@ async function buildSubannotations(
           const matchingFungibleAsset = assets.find(
             (asset): asset is SmartContractFungibleAsset =>
               isSmartContractFungibleAsset(asset) &&
-              sameEVMAddress(asset.contractAddress, contractAddress)
+              sameQuaiAddress(asset.contractAddress, contractAddress)
           )
 
           if (!matchingFungibleAsset) return undefined
@@ -203,7 +203,7 @@ export default async function resolveTransactionAnnotation(
     (transaction.type == 1 || transaction.type == 2) &&
     "to" in transaction &&
     transaction.to !== undefined
-  const useDestinationShard = sameEVMAddress(
+  const useDestinationShard = sameQuaiAddress(
     transaction.from,
     "0x0000000000000000000000000000000000000000"
   )
@@ -393,7 +393,7 @@ export default async function resolveTransactionAnnotation(
       const matchingFungibleAsset = assets.find(
         (asset): asset is SmartContractFungibleAsset =>
           isSmartContractFungibleAsset(asset) &&
-          sameEVMAddress(asset.contractAddress, transaction.to)
+          sameQuaiAddress(asset.contractAddress, transaction.to)
       )
 
       const transactionLogoURL = matchingFungibleAsset?.metadata?.logoURL
@@ -431,7 +431,7 @@ export default async function resolveTransactionAnnotation(
           ),
         }
         // Warn if we're sending the token to its own contract
-        if (sameEVMAddress(erc20Tx.args.to, transaction.to)) {
+        if (sameQuaiAddress(erc20Tx.args.to, transaction.to)) {
           txAnnotation.warnings ??= []
           txAnnotation.warnings.push("send-to-token")
         }

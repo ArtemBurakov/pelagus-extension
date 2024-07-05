@@ -1,11 +1,10 @@
+import { TypedDataEncoder, QuaiTransaction, hexlify, toUtf8Bytes } from "quais"
 import { TransactionRequest as QuaiTransactionRequest } from "@quais/abstract-provider"
-import { QuaiTransaction } from "quais"
 import {
   EIP1193_ERROR_CODES,
   EIP1193Error,
   RPCRequest,
 } from "@pelagus-provider/provider-bridge-shared"
-import { _TypedDataEncoder, hexlify, toUtf8Bytes } from "ethers/lib/utils"
 import { normalizeHexAddress } from "@pelagus/hd-keyring"
 import logger from "../../lib/logger"
 import BaseService from "../base"
@@ -411,7 +410,7 @@ export default class InternalQuaiProviderService extends BaseService<Events> {
 
     // Ask Ethers to give us a filtered payload that only includes types
     // specified in the `types` object.
-    const filteredTypedDataPayload = _TypedDataEncoder.getPayload(
+    const filteredTypedDataPayload = TypedDataEncoder.getPayload(
       params.typedData.domain,
       typesForSigning,
       params.typedData.message

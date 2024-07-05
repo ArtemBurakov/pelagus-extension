@@ -15,7 +15,7 @@ import {
   isSameAsset,
 } from "./utils/asset-utils"
 import { DomainName, HexString } from "../types"
-import { sameEVMAddress } from "../lib/utils"
+import { sameQuaiAddress } from "../lib/utils"
 import { AccountSigner } from "../services/signing"
 import { TEST_NETWORK_BY_CHAIN_ID } from "../constants"
 import { convertFixedPoint } from "../lib/fixed-point"
@@ -256,7 +256,7 @@ const accountSlice = createSlice({
           )
         )
       )
-        return //If none of the chains we're tracking has a matching address - this is a noop.
+        return // If none of the chains we're tracking has a matching address - this is a noop.
 
       // Delete the account from all chains.
       Object.keys(evm).forEach((chainId) => {
@@ -354,7 +354,7 @@ const accountSlice = createSlice({
           Object.values(account.balances).forEach(({ assetAmount }) => {
             if (
               isSmartContractFungibleAsset(assetAmount.asset) &&
-              sameEVMAddress(
+              sameQuaiAddress(
                 assetAmount.asset.contractAddress,
                 asset.contractAddress
               )

@@ -28,10 +28,11 @@ import {
 } from "@pelagus/pelagus-background/redux-slices/selectors"
 import { useHistory } from "react-router-dom"
 import { AccountType } from "@pelagus/pelagus-background/redux-slices/accounts"
-import { sameEVMAddress } from "@pelagus/pelagus-background/lib/utils"
+import { sameQuaiAddress } from "@pelagus/pelagus-background/lib/utils"
 import { useTranslation } from "react-i18next"
 import { AccountSigner } from "@pelagus/pelagus-background/services/signing"
 import { isSameAccountSignerWithId } from "@pelagus/pelagus-background/utils/signing"
+import { Zone } from "quais"
 import SharedButton from "../Shared/SharedButton"
 import {
   useBackgroundDispatch,
@@ -57,7 +58,6 @@ import {
 import SharedORDivider from "../Shared/SharedORDivider"
 import SelectAccountListItem from "../AccountItem/SelectAccountListItem"
 import AccountsSearchBar from "../AccountItem/AccountsSearchBar"
-import { Zone } from "quais"
 
 type WalletTypeInfo = {
   title: string
@@ -762,7 +762,7 @@ export default function AccountsNotificationPanelAccounts({
                     />
                     <ul>
                       {accountTotalsBySignerId.map((accountTotal, idx) => {
-                        const isSelected = sameEVMAddress(
+                        const isSelected = sameQuaiAddress(
                           accountTotal.address,
                           selectedAccountAddress
                         )

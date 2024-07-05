@@ -1,5 +1,11 @@
 import { normalizeHexAddress } from "@pelagus/hd-keyring"
-import { toBigInt, MaxUint256, parseUnits, formatUnits } from "quais"
+import {
+  toBigInt,
+  MaxUint256,
+  parseUnits,
+  formatUnits,
+  getAddress,
+} from "quais"
 
 /**
  * Manually truncate number, try to cut as close to `decimalLength` as possible.
@@ -43,9 +49,9 @@ export function truncateDecimalAmount(
   return `${integer}.${decimalsTruncated}`
 }
 
-export function sameEVMAddress(
-  address1: string | Buffer | undefined | null,
-  address2: string | Buffer | undefined | null
+export function sameQuaiAddress(
+  address1: string | undefined | null,
+  address2: string | undefined | null
 ): boolean {
   if (
     typeof address1 === "undefined" ||
@@ -55,7 +61,7 @@ export function sameEVMAddress(
   )
     return false
 
-  return normalizeHexAddress(address1) === normalizeHexAddress(address2)
+  return getAddress(address1) === getAddress(address2)
 }
 
 export function gweiToWei(value: number | bigint): bigint {

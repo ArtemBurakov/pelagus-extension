@@ -3,7 +3,7 @@
 /* eslint-disable no-param-reassign */
 import { createSlice } from "@reduxjs/toolkit"
 import { AddressOnNetwork } from "../accounts"
-import { sameEVMAddress } from "../lib/utils"
+import { sameQuaiAddress } from "../lib/utils"
 import { Transaction } from "../services/chain/db"
 import { EnrichedEVMTransaction } from "../services/enrichment"
 import { HexString } from "../types"
@@ -52,8 +52,8 @@ const addActivityToState =
     // 0xCyprus2 Activities: TX1, TX2
     if (
       isEtx &&
-      sameEVMAddress(transaction.to, address) &&
-      !sameEVMAddress(
+      sameQuaiAddress(transaction.to, address) &&
+      !sameQuaiAddress(
         transaction.from,
         "0x0000000000000000000000000000000000000000"
       )
@@ -96,12 +96,13 @@ const initializeActivitiesFromTransactions = ({
     const { to, from, network } = transaction
     const isTrackedTo = accounts.some(
       ({ address, network: activeNetwork }) =>
-        network.chainID === activeNetwork.chainID && sameEVMAddress(to, address)
+        network.chainID === activeNetwork.chainID &&
+        sameQuaiAddress(to, address)
     )
     const isTrackedFrom = accounts.some(
       ({ address, network: activeNetwork }) =>
         network.chainID === activeNetwork.chainID &&
-        sameEVMAddress(from, address)
+        sameQuaiAddress(from, address)
     )
 
     if (
@@ -109,7 +110,7 @@ const initializeActivitiesFromTransactions = ({
       isTrackedTo &&
       (getExtendedZoneForAddress(to, false) ===
         getExtendedZoneForAddress(from, false) ||
-        sameEVMAddress(from, "0x0000000000000000000000000000000000000000"))
+        sameQuaiAddress(from, "0x0000000000000000000000000000000000000000"))
     ) {
       addActivity(to, network.chainID, transaction)
     }
