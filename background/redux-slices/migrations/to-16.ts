@@ -1,4 +1,3 @@
-import { NETWORK_BY_CHAIN_ID } from "../../constants"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
 import { NetworksArray, QuaiNetworkGA } from "../../constants/networks/networks"
 

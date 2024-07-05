@@ -119,7 +119,7 @@ describe("KeyringService when uninitialized", () => {
       await Promise.all(
         Object.keys(KeyringTypes).map(async (keyringType) =>
           expect(
-            service.generateNewKeyring(keyringType as KeyringTypes)
+            service.generateQuaiHDWalletMnemonic(keyringType as KeyringTypes)
           ).rejects.toThrow("KeyringService must be unlocked.")
         )
       )
@@ -134,7 +134,7 @@ describe("KeyringService when uninitialized", () => {
 
     it("won't sign transactions", async () => {
       await expect(
-        service.signTransaction(validTransactionRequests.simple)
+        service.signQuaiTransaction(validTransactionRequests.simple)
       ).rejects.toThrow("KeyringService must be unlocked.")
     })
   })
@@ -157,14 +157,14 @@ describe("KeyringService when uninitialized", () => {
     )
 
     it("will create multiple distinct BIP-39 S256 accounts and expose mnemonics", async () => {
-      const keyringOne = service.generateNewKeyring(
+      const keyringOne = service.generateQuaiHDWalletMnemonic(
         KeyringTypes.mnemonicBIP39S256
       )
       await expect(keyringOne).resolves.toMatchObject({
         id: expect.stringMatching(/.+/),
       })
 
-      const keyringTwo = service.generateNewKeyring(
+      const keyringTwo = service.generateQuaiHDWalletMnemonic(
         KeyringTypes.mnemonicBIP39S256
       )
       await expect(keyringTwo).resolves.toMatchObject({
@@ -210,7 +210,7 @@ describe("KeyringService when initialized", () => {
     service.emitter.on("address", (emittedAddress) => {
       address = emittedAddress
     })
-    const { mnemonic } = await service.generateNewKeyring(
+    const { mnemonic } = await service.generateQuaiHDWalletMnemonic(
       KeyringTypes.mnemonicBIP39S256
     )
     await service.importKeyring({
@@ -221,7 +221,7 @@ describe("KeyringService when initialized", () => {
   })
 
   it("will return keyring IDs and addresses", async () => {
-    const keyrings = service.getKeyrings()
+    const keyrings = service.getQuaiHDWallets()
     expect(keyrings).toHaveLength(1)
     expect(keyrings[0]).toMatchObject({
       id: expect.anything(),
@@ -237,7 +237,7 @@ describe("KeyringService when initialized", () => {
         id,
         addresses: [originalAddress],
       },
-    ] = service.getKeyrings()
+    ] = service.getQuaiHDWallets()
 
     const newAddress = id
       ? await service.deriveAddress({
@@ -250,7 +250,7 @@ describe("KeyringService when initialized", () => {
       expect.not.stringMatching(new RegExp(originalAddress, "i"))
     )
 
-    const keyrings = service.getKeyrings()
+    const keyrings = service.getQuaiHDWallets()
     expect(keyrings).toHaveLength(1)
     expect(keyrings[0]).toMatchObject({
       id: expect.anything(),
@@ -268,7 +268,7 @@ describe("KeyringService when initialized", () => {
     }
 
     await expect(
-      service.signTransaction(transactionWithFrom)
+      service.signQuaiTransaction(transactionWithFrom)
     ).resolves.toMatchObject({
       from: expect.stringMatching(new RegExp(address, "i")), // case insensitive match
       r: expect.anything(),
@@ -293,7 +293,7 @@ describe("KeyringService when initialized", () => {
     expect(goodUnlockResult).toEqual(true)
 
     await expect(
-      service.signTransaction(transactionWithFrom)
+      service.signQuaiTransaction(transactionWithFrom)
     ).resolves.toBeDefined()
   })
 
@@ -355,7 +355,7 @@ describe("KeyringService when saving keyrings", () => {
       }),
     })
 
-    const { mnemonic } = await service.generateNewKeyring(
+    const { mnemonic } = await service.generateQuaiHDWalletMnemonic(
       KeyringTypes.mnemonicBIP39S256
     )
     await service.importKeyring({
@@ -460,7 +460,7 @@ describe("Keyring service when autolocking", () => {
     service.emitter.on("address", (emittedAddress) => {
       address = emittedAddress
     })
-    const { mnemonic } = await service.generateNewKeyring(
+    const { mnemonic } = await service.generateQuaiHDWalletMnemonic(
       KeyringTypes.mnemonicBIP39S256
     )
     await service.importKeyring({
@@ -499,7 +499,7 @@ describe("Keyring service when autolocking", () => {
           from: address,
         }
 
-        await service.signTransaction(transactionWithFrom)
+        await service.signQuaiTransaction(transactionWithFrom)
       },
     },
     {
@@ -515,7 +515,9 @@ describe("Keyring service when autolocking", () => {
     {
       action: "generating a keyring",
       call: async () => {
-        await service.generateNewKeyring(KeyringTypes.mnemonicBIP39S256)
+        await service.generateQuaiHDWalletMnemonic(
+          KeyringTypes.mnemonicBIP39S256
+        )
       },
     },
   ])("will bump keyring activity idle time when $action", async ({ call }) => {
@@ -554,7 +556,7 @@ describe("Keyring service when autolocking", () => {
     jest
       .spyOn(Date, "now")
       .mockReturnValue(dateNowValue + MAX_KEYRING_IDLE_TIME - 1)
-    await service.generateNewKeyring(KeyringTypes.mnemonicBIP39S256)
+    await service.generateQuaiHDWalletMnemonic(KeyringTypes.mnemonicBIP39S256)
 
     callAutolockHandler(MAX_OUTSIDE_IDLE_TIME)
     expect(service.locked()).toEqual(false)

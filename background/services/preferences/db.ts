@@ -5,7 +5,6 @@ import DEFAULT_PREFERENCES from "./defaults"
 import { AccountSignerSettings } from "../../ui"
 import { AccountSignerWithId } from "../../signing"
 import { AnalyticsPreferences } from "./types"
-import { NETWORK_BY_CHAIN_ID } from "../../constants"
 import { getExtendedZoneForAddress } from "../chain/utils"
 import { NetworksArray, QuaiNetworkGA } from "../../constants/networks/networks"
 

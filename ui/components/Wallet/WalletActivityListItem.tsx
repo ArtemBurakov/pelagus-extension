@@ -1,15 +1,15 @@
 import React, { ReactElement, useEffect, useRef, useState } from "react"
 import dayjs from "dayjs"
 import {
-  sameEVMAddress,
+  sameQuaiAddress,
   truncateAddress,
 } from "@pelagus/pelagus-background/lib/utils"
 import { useTranslation } from "react-i18next"
 import { Activity } from "@pelagus/pelagus-background/redux-slices/activities"
+import { getExtendedZoneForAddress } from "@pelagus/pelagus-background/services/chain/utils"
 import SharedAssetIcon from "../Shared/SharedAssetIcon"
 import SharedActivityIcon from "../Shared/SharedActivityIcon"
 import useActivityViewDetails from "../../hooks/activity-hooks"
-import { getExtendedZoneForAddress } from "@pelagus/pelagus-background/services/chain/utils"
 
 interface Props {
   onClick: () => void
@@ -23,7 +23,7 @@ function isSendActivity(
 ): boolean {
   return activity.type === "asset-transfer" ||
     activity.type === "external-transfer"
-    ? sameEVMAddress(activity.sender?.address, activityInitiatorAddress)
+    ? sameQuaiAddress(activity.sender?.address, activityInitiatorAddress)
     : true
 }
 

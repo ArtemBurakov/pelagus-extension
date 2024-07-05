@@ -1,10 +1,9 @@
-import { TypedDataField } from "@ethersproject/abstract-signer"
-import { Opaque } from "./tag-types"
+import { TypedDataField, TypedDataDomain } from "quais"
 
 /**
  * Named type for strings that should be domain names.
  *
- * Currently *does not offer type safety*, just documentation value; see
+ * Currently, *does not offer type safety*, just documentation value; see
  * https://github.com/microsoft/TypeScript/issues/202 and
  * https://github.com/microsoft/TypeScript/issues/41160 for TS features that
  * would give this some more teeth. Right now, any `string` can be assigned
@@ -15,7 +14,7 @@ export type DomainName = string
 /**
  * Named type for strings that should be hexadecimal numbers.
  *
- * Currently *does not offer type safety*, just documentation value; see
+ * Currently, *does not offer type safety*, just documentation value; see
  * https://github.com/microsoft/TypeScript/issues/202 and
  * https://github.com/microsoft/TypeScript/issues/41160 for TS features that
  * would give this some more teeth. Right now, any `string` can be assigned
@@ -41,22 +40,11 @@ export enum KeyringTypes {
 
 export type EIP191Data = string
 
-export type EIP712DomainType = {
-  name?: string
-  version?: string
-  chainId?: number | string
-  verifyingContract?: HexString
-}
-
 export type EIP712TypedData<T = Record<string, unknown>> = {
-  domain: EIP712DomainType
+  domain: TypedDataDomain
   types: Record<string, TypedDataField[]>
   message: T
   primaryType: string
 }
 
-export type Deferrable<T> = {
-  [K in keyof T]: T[K] | Promise<T[K]>
-}
-export type Writeable<T> = { -readonly [P in keyof T]: T[P] }
 export type DeepWriteable<T> = { -readonly [P in keyof T]: DeepWriteable<T[P]> }

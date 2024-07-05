@@ -387,10 +387,6 @@ export function toHexChainID(chainID: string | number): string {
   return `0x${BigInt(chainID).toString(16)}`
 }
 
-export const sameChainID = (chainID: string, other: string): boolean => {
-  return toHexChainID(chainID) === toHexChainID(other)
-}
-
 // There is probably some clever way to combine the following type guards into one function
 export const isEIP1559TransactionRequest = (
   transactionRequest:

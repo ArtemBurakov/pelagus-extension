@@ -1,10 +1,10 @@
+import dayjs from "dayjs"
 import { EIP2612SignTypedDataAnnotation, EnrichedEVMTransaction } from "./types"
 import { EIP712TypedData, HexString } from "../../types"
 import { EIP2612TypedData } from "../../utils/signing"
 import { ERC20TransferLog } from "../../lib/erc20"
-import { sameEVMAddress } from "../../lib/utils"
+import { sameQuaiAddress } from "../../lib/utils"
 import { AddressOnNetwork } from "../../accounts"
-import dayjs from "dayjs"
 import { SmartContractFungibleAsset } from "../../assets"
 import { getExtendedZoneForAddress } from "../chain/utils"
 
@@ -143,8 +143,8 @@ export function getRelevantTransactionAddresses(
     const result = trackedAccounts
       .filter(
         ({ address }) =>
-          sameEVMAddress(senderAddress, address) ||
-          sameEVMAddress(recipientAddress, address)
+          sameQuaiAddress(senderAddress, address) ||
+          sameQuaiAddress(recipientAddress, address)
       )
       .map(({ address }) => address)
     return result
@@ -152,13 +152,13 @@ export function getRelevantTransactionAddresses(
   if (senderAddress === "0x0000000000000000000000000000000000000000") {
     // This is the ETX landing transaction, so return the recipient account
     const result = trackedAccounts
-      .filter(({ address }) => sameEVMAddress(recipientAddress, address))
+      .filter(({ address }) => sameQuaiAddress(recipientAddress, address))
       .map(({ address }) => address)
     return result
   }
   // If they are not on the same shard, only return the sender account
   const result = trackedAccounts
-    .filter(({ address }) => sameEVMAddress(senderAddress, address))
+    .filter(({ address }) => sameQuaiAddress(senderAddress, address))
     .map(({ address }) => address)
   return result
 }

@@ -1,8 +1,8 @@
+import { QuaiHDWallet, Wallet, Zone } from "quais"
+import { SerializedHDWallet } from "quais/lib/commonjs/wallet/hdwallet"
 import { HexString, KeyringTypes } from "../../types"
 import { ServiceLifecycleEvents } from "../types"
 import { SignedTransaction } from "../../networks"
-import { QuaiHDWallet, Wallet, Zone } from "quais"
-import { SerializedHDWallet } from "quais/lib/commonjs/wallet/hdwallet"
 
 export type Keyring = {
   type: KeyringTypes
@@ -10,10 +10,11 @@ export type Keyring = {
   path: string | null
   addresses: string[]
 }
+
 export type PrivateKey = Keyring & {
   type: KeyringTypes.singleSECP
   path: null
-  addresses: [string]
+  addresses: string[]
 }
 
 export type KeyringAccountSigner = {
@@ -27,10 +28,9 @@ export type PrivateKeyAccountSigner = {
   zone: Zone
 }
 
-/////////////////////////////////////////////////////////////////////////////
 export type SerializedPrivateKey = {
-  version: number
   id: string
+  version: number
   privateKey: string
 }
 
@@ -40,7 +40,6 @@ export interface SerializedVaultData {
   metadata: { [keyringId: string]: { source: SignerImportSource } }
   hiddenAccounts: { [address: HexString]: boolean }
 }
-/////////////////////////////////////////////////////////////////////////////
 
 export interface Events extends ServiceLifecycleEvents {
   locked: boolean
@@ -52,7 +51,6 @@ export interface Events extends ServiceLifecycleEvents {
     }
   }
   address: string
-  // TODO message was signed
   signedTx: SignedTransaction
   signedData: string
 }
