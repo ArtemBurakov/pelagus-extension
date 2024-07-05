@@ -16,6 +16,7 @@ import {
 } from "./utils/activities-utils"
 import { getExtendedZoneForAddress } from "../services/chain/utils"
 import { QuaiTransaction } from "../services/chain/db-migration"
+import { QuaiTransactionGeneralWithAnnotation } from "../services/chain/types"
 
 export { Activity, ActivityDetail, INFINITE_VALUE }
 export type Activities = {
@@ -177,7 +178,7 @@ const activitiesSlice = createSlice({
         payload: { transaction, forAccounts },
       }: {
         payload: {
-          transaction: EnrichedEVMTransaction
+          transaction: QuaiTransactionGeneralWithAnnotation
           forAccounts: string[]
         }
       }

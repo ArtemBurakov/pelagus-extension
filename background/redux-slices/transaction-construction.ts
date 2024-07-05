@@ -21,6 +21,7 @@ import {
   ConfirmedQuaiTransactionLike,
   FailedQuaiTransactionLike,
   PendingQuaiTransactionLike,
+  QuaiTransactionRequestWithAnnotation,
 } from "../services/chain/types"
 
 export const enum TransactionConstructionStatus {
@@ -84,10 +85,7 @@ export const initialState: TransactionConstruction = {
 }
 
 export type Events = {
-  updateTransaction:
-    | ConfirmedQuaiTransactionLike
-    | PendingQuaiTransactionLike
-    | FailedQuaiTransactionLike
+  updateTransaction: Partial<QuaiTransactionRequestWithAnnotation>
   signTransaction: SignOperation<TransactionRequestGA>
   requestSignature: SignOperation<TransactionRequest>
   signatureRejected: never
@@ -144,12 +142,7 @@ const makeBlockEstimate = (
 // Async thunk to pass transaction options from the store to the background via an event
 export const updateTransactionData = createBackgroundAsyncThunk(
   "transaction-construction/update-transaction",
-  async (
-    payload:
-      | ConfirmedQuaiTransactionLike
-      | PendingQuaiTransactionLike
-      | FailedQuaiTransactionLike
-  ) => {
+  async (payload: Partial<QuaiTransactionRequestWithAnnotation>) => {
     await emitter.emit("updateTransaction", payload)
   }
 )

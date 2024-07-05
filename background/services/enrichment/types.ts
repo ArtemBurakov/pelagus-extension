@@ -48,6 +48,8 @@ export type Warning =
   | "approve-eoa"
   | "insufficient-funds"
 
+// ------------------------------------------------------------------------
+
 export type ContractDeployment = BaseTransactionAnnotation & {
   type: "contract-deployment"
 }
@@ -83,6 +85,8 @@ export type TransactionAnnotation =
   | AssetApproval
   | AssetTransfer
   | ExternalTransfer
+
+// ---------------------------------------------------------
 
 export type EnrichedEVMTransaction =
   | (ConfirmedQuaiTransactionLike & {

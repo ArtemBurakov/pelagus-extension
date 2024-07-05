@@ -11,6 +11,7 @@ import {
   ConfirmedQuaiTransactionLike,
   FailedQuaiTransactionLike,
   PendingQuaiTransactionLike,
+  QuaiTransactionGeneralWithAnnotation,
 } from "../chain/types"
 
 export function isEIP2612TypedData(
@@ -131,10 +132,7 @@ export function getSender(transaction: EnrichedEVMTransaction): {
 }
 
 export function getRelevantTransactionAddresses(
-  transaction:
-    | ConfirmedQuaiTransactionLike
-    | PendingQuaiTransactionLike
-    | FailedQuaiTransactionLike,
+  transaction: QuaiTransactionGeneralWithAnnotation,
   trackedAccounts: AddressOnNetwork[]
 ): string[] {
   const { address: recipientAddress } = getRecipient(transaction)

@@ -6,7 +6,6 @@ import {
 import { updateTransactionData } from "@pelagus/pelagus-background/redux-slices/transaction-construction"
 import type {
   EnrichedEIP1559TransactionRequest,
-  EnrichedEVMTransactionRequest,
   EnrichedLegacyTransactionRequest,
 } from "@pelagus/pelagus-background/services/enrichment"
 import { useTranslation } from "react-i18next"
@@ -18,13 +17,14 @@ import SharedSlideUpMenu from "../../../Shared/SharedSlideUpMenu"
 import NetworkSettingsChooser from "../../../NetworkFees/NetworkSettingsChooser"
 import FeeSettingsButton from "../../../NetworkFees/FeeSettingsButton"
 import TransactionSignatureDetailsWarning from "./TransactionSignatureDetailsWarning"
+import { QuaiTransactionRequestWithAnnotation } from "@pelagus/pelagus-background/services/chain/types"
 
 export type PanelState = {
   dismissedWarnings: string[]
 }
 
 type DetailPanelProps = {
-  transactionRequest?: EnrichedEVMTransactionRequest
+  transactionRequest?: QuaiTransactionRequestWithAnnotation
   defaultPanelState?: PanelState
 }
 

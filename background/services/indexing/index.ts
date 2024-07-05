@@ -29,6 +29,7 @@ import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
 import { isQuaiHandle } from "../../constants/networks/networkUtils"
 import { NetworksArray } from "../../constants/networks/networks"
 import { toBigInt } from "quais"
+import { QuaiTransactionGeneralWithAnnotation } from "../chain/types"
 
 // Transactions seen within this many blocks of the chain tip will schedule a
 // token refresh sooner than the standard rate.
@@ -259,7 +260,7 @@ export default class IndexingService extends BaseService<Events> {
   }
 
   notifyEnrichedTransaction(
-    enrichedEVMTransaction: EnrichedEVMTransaction
+    enrichedEVMTransaction: QuaiTransactionGeneralWithAnnotation
   ): void {
     const network = globalThis.main.chainService.supportedNetworks.find(
       (net) =>
@@ -268,6 +269,7 @@ export default class IndexingService extends BaseService<Events> {
 
     if (!network)
       throw new Error("Failed find a network in notifyEnrichedTransaction")
+
     const jointAnnotations =
       typeof enrichedEVMTransaction.annotation === "undefined"
         ? []

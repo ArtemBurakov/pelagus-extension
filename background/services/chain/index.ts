@@ -57,6 +57,7 @@ import {
   ConfirmedQuaiTransactionLike,
   FailedQuaiTransactionLike,
   PendingQuaiTransactionLike,
+  QuaiTransactionGeneral,
   QuaiTransactionStatus,
 } from "./types"
 
@@ -126,10 +127,7 @@ interface Events extends ServiceLifecycleEvents {
   block: AnyEVMBlock
   transaction: {
     forAccounts: string[]
-    transaction:
-      | ConfirmedQuaiTransactionLike
-      | PendingQuaiTransactionLike
-      | FailedQuaiTransactionLike
+    transaction: QuaiTransactionGeneral
   }
   blockPrices: { blockPrices: BlockPrices; network: NetworkInterfaceGA }
   customChainAdded: ValidatedAddEthereumChainParameter
@@ -1271,10 +1269,7 @@ export default class ChainService extends BaseService<Events> {
    * @param dataSource Where the transaction was seen.
    */
   public async saveTransaction(
-    transaction:
-      | ConfirmedQuaiTransactionLike
-      | PendingQuaiTransactionLike
-      | FailedQuaiTransactionLike,
+    transaction: QuaiTransactionGeneral,
     dataSource: "local"
   ): Promise<void> {
     const network = NetworksArray.find(

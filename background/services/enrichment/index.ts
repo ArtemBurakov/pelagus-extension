@@ -24,13 +24,16 @@ import {
   ConfirmedQuaiTransactionLike,
   FailedQuaiTransactionLike,
   PendingQuaiTransactionLike,
+  QuaiTransactionGeneral,
+  QuaiTransactionGeneralWithAnnotation,
+  QuaiTransactionRequestWithAnnotation,
 } from "../chain/types"
 
 export * from "./types"
 
 interface Events extends ServiceLifecycleEvents {
   enrichedEVMTransaction: {
-    transaction: EnrichedEVMTransaction
+    transaction: QuaiTransactionGeneralWithAnnotation
     forAccounts: string[]
   }
   enrichedEVMTransactionSignatureRequest: EnrichedEVMTransactionSignatureRequest
@@ -148,12 +151,9 @@ export default class EnrichmentService extends BaseService<Events> {
   }
 
   async enrichTransaction(
-    transaction:
-      | ConfirmedQuaiTransactionLike
-      | PendingQuaiTransactionLike
-      | FailedQuaiTransactionLike,
+    transaction: QuaiTransactionGeneral,
     desiredDecimals: number
-  ): Promise<EnrichedEVMTransaction> {
+  ): Promise<QuaiTransactionGeneralWithAnnotation> {
     const network = globalThis.main.chainService.supportedNetworks.find(
       (net) => toBigInt(net.chainID) === toBigInt(transaction.chainId ?? 0)
     )
