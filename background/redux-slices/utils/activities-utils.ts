@@ -7,12 +7,11 @@ import {
   weiToGwei,
 } from "../../lib/utils"
 import { isDefined } from "../../lib/utils/type-guards"
-import { Transaction } from "../../services/chain/db"
+import { QuaiTransaction } from "../../services/chain/db"
 import { EnrichedEVMTransaction } from "../../services/enrichment"
 import { getRecipient, getSender } from "../../services/enrichment/utils"
 import { HexString } from "../../types"
 import { getExtendedZoneForAddress } from "../../services/chain/utils"
-import { QuaiTransaction } from "../../services/chain/db-migration"
 import { QuaiTransactionStatus } from "../../services/chain/types"
 
 export const INFINITE_VALUE = "infinite"
@@ -43,7 +42,7 @@ export type ActivityDetail = {
 const ACTIVITY_DECIMALS = 2
 
 function isEnrichedTransaction(
-  transaction: Transaction | EnrichedEVMTransaction
+  transaction: QuaiTransaction | EnrichedEVMTransaction
 ): transaction is EnrichedEVMTransaction {
   return "annotation" in transaction
 }

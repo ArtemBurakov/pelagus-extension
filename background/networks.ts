@@ -1,11 +1,9 @@
-import { TransactionRequest as EthersTransactionRequest } from "@quais/abstract-provider"
 import { Transaction } from "@quais/transactions"
 import { QuaiTransaction } from "quais"
 import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
 import { ChainData, Slip44CoinType } from "./constants"
 import { HexString, UNIXTime } from "./types"
 import type { FungibleAsset } from "./assets"
-import type { PartialTransactionRequestWithFrom } from "./services/enrichment"
 import { NetworkInterfaceGA } from "./constants/networks/networkTypes"
 import {
   ConfirmedQuaiTransactionLike,
