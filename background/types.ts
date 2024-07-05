@@ -1,5 +1,4 @@
 import { TypedDataField } from "@ethersproject/abstract-signer"
-import { Opaque } from "./tag-types"
 
 /**
  * Named type for strings that should be domain names.
@@ -55,8 +54,4 @@ export type EIP712TypedData<T = Record<string, unknown>> = {
   primaryType: string
 }
 
-export type Deferrable<T> = {
-  [K in keyof T]: T[K] | Promise<T[K]>
-}
-export type Writeable<T> = { -readonly [P in keyof T]: T[P] }
 export type DeepWriteable<T> = { -readonly [P in keyof T]: DeepWriteable<T[P]> }

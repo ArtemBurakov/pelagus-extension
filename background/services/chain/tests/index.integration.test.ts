@@ -11,7 +11,6 @@ import {
   createLegacyTransactionRequest,
 } from "../../../tests/factories"
 import { ChainDatabase } from "../db"
-import SerialFallbackProvider from "../serial-fallback-provider"
 import {
   NetworksArray,
   QuaiNetworkGA,
@@ -56,25 +55,18 @@ describe("ChainService", () => {
       const chainServiceInstance =
         (await createChainService()) as unknown as ChainServiceExternalized
 
-      const initialize = sandbox.spy(chainServiceInstance.db, "initialize")
-
       const initializeBaseAssets = sandbox.spy(
         chainServiceInstance.db,
         "initializeBaseAssets"
       )
-      const initializeRPCs = sandbox.spy(
+      const initializeNetworks = sandbox.spy(
         chainServiceInstance.db,
-        "initializeRPCs"
-      )
-      const initializeEVMNetworks = sandbox.spy(
-        chainServiceInstance.db,
-        "initializeEVMNetworks"
+        "initializeNetworks"
       )
 
       await chainServiceInstance.internalStartService()
 
-      expect(initializeBaseAssets.calledBefore(initializeRPCs)).toBe(true)
-      expect(initializeRPCs.calledBefore(initializeEVMNetworks)).toBe(true)
+      expect(initializeBaseAssets.calledBefore(initializeNetworks)).toBe(true)
     })
   })
 

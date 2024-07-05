@@ -15,8 +15,8 @@ import {
   INFINITE_VALUE,
 } from "./utils/activities-utils"
 import { getExtendedZoneForAddress } from "../services/chain/utils"
-import { QuaiTransaction } from "../services/chain/db-migration"
 import { QuaiTransactionGeneralWithAnnotation } from "../services/chain/types"
+import { QuaiTransaction } from "../services/chain/db"
 
 export { Activity, ActivityDetail, INFINITE_VALUE }
 export type Activities = {
