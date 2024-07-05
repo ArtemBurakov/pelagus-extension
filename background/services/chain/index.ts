@@ -124,7 +124,13 @@ interface Events extends ServiceLifecycleEvents {
     assetTransfers: AssetTransfer[]
   }
   block: AnyEVMBlock
-  transaction: { forAccounts: string[]; transaction: AnyEVMTransaction }
+  transaction: {
+    forAccounts: string[]
+    transaction:
+      | ConfirmedQuaiTransactionLike
+      | PendingQuaiTransactionLike
+      | FailedQuaiTransactionLike
+  }
   blockPrices: { blockPrices: BlockPrices; network: NetworkInterfaceGA }
   customChainAdded: ValidatedAddEthereumChainParameter
 }

@@ -1,3 +1,4 @@
+import { toBigInt } from "quais"
 import { assetAmountToDesiredDecimals } from "../../assets"
 import {
   convertToEth,
@@ -11,11 +12,8 @@ import { EnrichedEVMTransaction } from "../../services/enrichment"
 import { getRecipient, getSender } from "../../services/enrichment/utils"
 import { HexString } from "../../types"
 import { getExtendedZoneForAddress } from "../../services/chain/utils"
-
-enum TxStatus {
-  FAIL = 0,
-  SUCCESS = 1,
-}
+import { QuaiTransaction } from "../../services/chain/db-migration"
+import { QuaiTransactionStatus } from "../../services/chain/types"
 
 export const INFINITE_VALUE = "infinite"
 
@@ -39,7 +37,7 @@ export type Activity = {
 export type ActivityDetail = {
   assetIconUrl?: string
   label: string
-  value: string
+  value: string | null | undefined
 }
 
 const ACTIVITY_DECIMALS = 2
@@ -51,31 +49,35 @@ function isEnrichedTransaction(
 }
 
 function getAmount(tx: EnrichedEVMTransaction): string {
-  const {
-    value,
-    network: {
-      baseAsset: { symbol },
-    },
-  } = tx
-  if (value == null || typeof value === "undefined") return "(Unknown)"
+  const txNetwork = globalThis.main.chainService.supportedNetworks.find(
+    (net) => toBigInt(net.chainID) === toBigInt(tx.chainId ?? 0)
+  )
 
-  return `${convertToEth(value) || "0"} ${symbol}`
+  if (!txNetwork)
+    throw new Error("Failed find a tx network fot getting activity")
+  const { value } = tx
+  if (!value) return "(Unknown)"
+
+  return `${convertToEth(value) || "0"} ${txNetwork.baseAsset.symbol}`
 }
 
-function getBlockHeight(tx: EnrichedEVMTransaction): string {
-  const { blockHeight } = tx
-  const status = "status" in tx ? tx.status : undefined
+async function getBlockHeight(tx: EnrichedEVMTransaction): Promise<string> {
+  const blockHeight = await globalThis.main.chainService
+    .getCurrentProvider()
+    .jsonRpc.getBlockNumber()
+
+  const { status } = tx
   if (
-    blockHeight !== null &&
-    status !== undefined &&
-    status !== TxStatus.SUCCESS &&
-    status !== 2
+    blockHeight &&
+    status !== QuaiTransactionStatus.CONFIRMED &&
+    status !== QuaiTransactionStatus.PENDING
   )
     return "(failed)"
 
-  if (blockHeight !== null) return blockHeight.toString()
+  if (blockHeight) return blockHeight.toString()
 
-  if (blockHeight === null && status === TxStatus.FAIL) return "(dropped)"
+  if (!blockHeight && status === QuaiTransactionStatus.FAILED)
+    return "(dropped)"
 
   return "(pending)"
 }
@@ -93,6 +95,13 @@ function getTimestamp(blockTimestamp: number | undefined) {
 }
 
 const getAssetSymbol = (transaction: EnrichedEVMTransaction) => {
+  const txNetwork = globalThis.main.chainService.supportedNetworks.find(
+    (net) => toBigInt(net.chainID) === toBigInt(transaction.chainId ?? 0)
+  )
+
+  if (!txNetwork)
+    throw new Error("Failed find a tx network fot getting activity")
+
   const { annotation } = transaction
 
   switch (annotation?.type) {
@@ -100,16 +109,23 @@ const getAssetSymbol = (transaction: EnrichedEVMTransaction) => {
     case "asset-approval":
       return annotation.assetAmount.asset.symbol
     default:
-      return transaction.asset.symbol
+      return txNetwork.baseAsset.symbol
   }
 }
 
-const getValue = (transaction: Transaction | EnrichedEVMTransaction) => {
-  const { asset, value } = transaction
+const getValue = (transaction: QuaiTransaction | EnrichedEVMTransaction) => {
+  const txNetwork = globalThis.main.chainService.supportedNetworks.find(
+    (net) => toBigInt(net.chainID) === toBigInt(transaction.chainId ?? 0)
+  )
+
+  if (!txNetwork)
+    throw new Error("Failed find a tx network fot getting activity")
+
+  const { value } = transaction
   const localizedValue = assetAmountToDesiredDecimals(
     {
-      asset,
-      amount: value,
+      asset: txNetwork.baseAsset,
+      amount: toBigInt(value ?? 0),
     },
     ACTIVITY_DECIMALS
   ).toLocaleString("default", {
@@ -133,21 +149,50 @@ const getValue = (transaction: Transaction | EnrichedEVMTransaction) => {
   return localizedValue
 }
 
-export const getActivity = (
-  transaction: Transaction | EnrichedEVMTransaction
-): Activity => {
-  const { to, from, blockHeight, nonce, hash, blockHash, asset } = transaction
+const getAnnotationType = (transaction: QuaiTransaction) => {
+  const { to, from } = transaction
+  if (typeof to === undefined) return "contract-deployment"
+
+  let annotation = "contract-interaction"
+
+  // Likely not a contract interaction
+
+  if (to && from)
+    annotation =
+      getExtendedZoneForAddress(to, false) !==
+      getExtendedZoneForAddress(from, false)
+        ? "external-transfer"
+        : "asset-transfer"
+
+  return annotation
+}
+
+export const getActivity = async (
+  transaction: QuaiTransaction | EnrichedEVMTransaction
+): Promise<Activity> => {
+  const { to, from, nonce, hash, blockHash, chainId } = transaction
+
+  const txNetwork = globalThis.main.chainService.supportedNetworks.find(
+    (net) => toBigInt(net.chainID) === toBigInt(chainId ?? 0)
+  )
+
+  const blockHeight = await globalThis.main.chainService
+    .getCurrentProvider()
+    .jsonRpc.getBlockNumber()
+
+  if (!txNetwork)
+    throw new Error("Failed find a tx network fot getting activity")
 
   let activity: Activity = {
     status: "status" in transaction ? transaction.status : undefined,
-    to: to && to,
-    from: from,
-    recipient: { address: to },
+    to: to ?? "",
+    from: from ?? "",
+    recipient: { address: to ?? "" },
     sender: { address: from },
     blockHeight,
-    assetSymbol: asset.symbol,
-    nonce,
-    hash,
+    assetSymbol: txNetwork?.baseAsset.symbol,
+    nonce: nonce ?? 0,
+    hash: hash ?? "",
     blockHash,
     value: getValue(transaction),
   }
@@ -174,28 +219,6 @@ export const getActivity = (
     ...activity,
     type: annotation,
   }
-}
-
-const getAnnotationType = (transaction: Transaction) => {
-  const { to, from } = transaction
-  if (typeof to === undefined) return "contract-deployment"
-
-  let annotation = "contract-interaction"
-
-  // Likely not a contract interaction
-  if (
-    transaction.input === null ||
-    transaction.input === "0x" ||
-    typeof transaction.input === "undefined"
-  ) {
-    annotation =
-      to &&
-      getExtendedZoneForAddress(to, false) !==
-        getExtendedZoneForAddress(from, false)
-        ? "external-transfer"
-        : "asset-transfer"
-  }
-  return annotation
 }
 
 export const sortActivities = (a: Activity, b: Activity): number => {
@@ -232,12 +255,13 @@ export const sortActivities = (a: Activity, b: Activity): number => {
   return b.blockHeight - a.blockHeight
 }
 
-export function getActivityDetails(
+export async function getActivityDetails(
   tx: EnrichedEVMTransaction
-): ActivityDetail[] {
+): Promise<ActivityDetail[]> {
   const { annotation } = tx
+
   const assetTransfers =
-    annotation?.subannotations === undefined
+    !annotation || !annotation?.subannotations
       ? []
       : annotation.subannotations
           .map((subannotation) => {
@@ -260,15 +284,16 @@ export function getActivityDetails(
           })
           .filter(isDefined)
 
+  const { maxFeePerGas, gasPrice, nonce, hash } = tx
   return [
-    { label: "Block Height", value: getBlockHeight(tx) },
-    { label: "Amount", value: getAmount(tx) },
-    { label: "Max Fee/Gas", value: getGweiPrice(tx.maxFeePerGas) },
-    { label: "Gas Price", value: getGweiPrice(tx.gasPrice) },
+    { label: "Block Height", value: await getBlockHeight(tx) },
+    { label: "Amount", value: getAmount(tx) ?? "" },
+    { label: "Max Fee/Gas", value: getGweiPrice(toBigInt(maxFeePerGas ?? 0)) },
+    { label: "Gas Price", value: getGweiPrice(toBigInt(gasPrice ?? 0)) },
     { label: "Gas", value: "gasUsed" in tx ? tx.gasUsed.toString() : "" },
-    { label: "Nonce", value: tx.nonce.toString() },
-    { label: "Timestamp", value: getTimestamp(tx.annotation?.blockTimestamp) },
-    { label: "Hash", value: tx.hash },
+    { label: "Nonce", value: String(nonce) },
+    { label: "Timestamp", value: getTimestamp(annotation?.blockTimestamp) },
+    { label: "Hash", value: hash },
   ].concat(
     assetTransfers.map((transfer) => {
       return {

@@ -1583,7 +1583,6 @@ export default class Main extends BaseService<never> {
   }
 
   async getActivityDetails(txHash: string): Promise<ActivityDetail[]> {
-    const addressNetwork = this.store.getState().ui.selectedAccount
     const transaction = await this.chainService.getTransaction(txHash)
     if (!transaction) return []
 

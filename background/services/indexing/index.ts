@@ -422,11 +422,20 @@ export default class IndexingService extends BaseService<Events> {
     this.chainService.emitter.on(
       "transaction",
       async ({ transaction, forAccounts }) => {
+        const transactionNetwork =
+          globalThis.main.chainService.supportedNetworks.find(
+            (net) =>
+              toBigInt(net.chainID) === toBigInt(transaction.chainId ?? 0)
+          )
+
+        if (!transactionNetwork)
+          throw new Error("Failed find network for transaction")
         if (
           "status" in transaction &&
           transaction.status === 1 &&
-          transaction.blockHeight >
-            (await this.chainService.getBlockHeight(transaction.network)) -
+          transaction?.blockNumber &&
+          transaction.blockNumber >
+            (await this.chainService.getBlockHeight(transactionNetwork)) -
               FAST_TOKEN_REFRESH_BLOCK_RANGE
         ) {
           this.scheduledTokenRefresh = true
@@ -438,7 +447,7 @@ export default class IndexingService extends BaseService<Events> {
           forAccounts.forEach((accountAddress) => {
             this.chainService.getLatestBaseAccountBalance({
               address: accountAddress,
-              network: transaction.network,
+              network: transactionNetwork,
             })
           })
         }
