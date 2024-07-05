@@ -5,8 +5,7 @@ import { configureStore, isPlain, Middleware } from "@reduxjs/toolkit"
 import { devToolsEnhancer } from "@redux-devtools/remote"
 import { PermissionRequest } from "@pelagus-provider/provider-bridge-shared"
 import { debounce } from "lodash"
-import { utils } from "ethers"
-import { JsonRpcProvider, WebSocketProvider } from "quais"
+import { formatUnits, JsonRpcProvider, WebSocketProvider } from "quais"
 import { decodeJSON, encodeJSON, sameQuaiAddress, wait } from "./lib/utils"
 import {
   AnalyticsService,
@@ -1779,7 +1778,7 @@ export default class Main extends BaseService<never> {
     return {
       ...assetData,
       balance: Number.parseFloat(
-        utils.formatUnits(assetData.amount, assetData.asset.decimals)
+        formatUnits(assetData.amount, assetData.asset.decimals)
       ),
       mainCurrencyAmount: undefined,
       exists: !!cachedAsset,

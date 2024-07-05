@@ -1,6 +1,6 @@
 /* eslint-disable class-methods-use-this */
 import { DexieOptions } from "dexie"
-import { keccak256 } from "ethers/lib/utils"
+import { keccak256 } from "quais"
 import { AccountBalance, AddressOnNetwork } from "../accounts"
 import {
   AnyAsset,
