@@ -6,8 +6,8 @@ import { devToolsEnhancer } from "@redux-devtools/remote"
 import { PermissionRequest } from "@pelagus-provider/provider-bridge-shared"
 import { debounce } from "lodash"
 import { utils } from "ethers"
-import { JsonRpcProvider, toBigInt, WebSocketProvider } from "quais"
-import { decodeJSON, encodeJSON, sameEVMAddress, wait } from "./lib/utils"
+import { JsonRpcProvider, WebSocketProvider } from "quais"
+import { decodeJSON, encodeJSON, sameEVMAddress } from "./lib/utils"
 import {
   AnalyticsService,
   BaseService,
@@ -71,7 +71,6 @@ import {
   transactionSigned,
   updateTransactionData,
 } from "./redux-slices/transaction-construction"
-import { selectDefaultNetworkFeeSettings } from "./redux-slices/selectors/transactionConstructionSelectors"
 import { allAliases } from "./redux-slices/utils"
 import {
   emitter as providerBridgeSliceEmitter,
@@ -861,31 +860,9 @@ export default class Main extends BaseService<never> {
     transactionConstructionSliceEmitter.on(
       "updateTransaction",
       async (transaction) => {
-        const network = this.chainService.supportedNetworks.find(
-          (net) => toBigInt(net.chainID) === toBigInt(transaction.chainId ?? 0)
-        )
-
-        if (!network)
-          throw new Error("Failed find network for updateTransaction")
-
-        const getAnnotation = async () => {
-          const { annotation } =
-            await this.enrichmentService.enrichTransactionSignature(
-              network,
-              transaction,
-              2 /* TODO desiredDecimals should be configurable */
-            )
-          return annotation
-        }
-
-        const enrichedTxSignatureRequest = await getAnnotation()
-
-        if (!enrichedTxSignatureRequest)
-          throw new Error("Failed get annotation for updateTransaction")
-
         this.store.dispatch(
           transactionRequest({
-            transactionRequest: enrichedTxSignatureRequest,
+            transactionRequest: transaction,
             transactionLikelyFails: true,
           })
         )
