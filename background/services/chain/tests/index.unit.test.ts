@@ -13,10 +13,6 @@ import {
   createTransactionsToRetrieve,
 } from "../../../tests/factories"
 import { UNIXTime } from "../../../types"
-import {
-  EnrichedEIP1559TransactionSignatureRequest,
-  EnrichedLegacyTransactionSignatureRequest,
-} from "../../enrichment"
 import { AddressOnNetwork } from "../../../accounts"
 import { NetworkInterfaceGA } from "../../../constants/networks/networkTypes"
 import { QuaiNetworkGA } from "../../../constants/networks/networks"
@@ -61,14 +57,6 @@ describe("Chain Service", () => {
     })
 
     it("should use the correct method to populate Legacy EVM Transaction Requests", async () => {
-      const partialTransactionRequest: EnrichedLegacyTransactionSignatureRequest =
-        {
-          from: "0x0d18b6e68ec588149f2fc20b76ff70b1cfb28882",
-          network: QuaiNetworkGA,
-          nonce: 1,
-          gasPrice: 1_000n,
-        }
-
       const stub = sandbox.stub(
         chainService as unknown as ChainServiceExternalized,
         "populatePartialLegacyEVMTransactionRequest"

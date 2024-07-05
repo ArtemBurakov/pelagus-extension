@@ -6,7 +6,6 @@ import {
   FunctionFragment,
   LogParams,
 } from "quais"
-import { EVMLog } from "../networks"
 import { HexString } from "../types"
 import { ERC20_FUNCTIONS } from "./erc20"
 

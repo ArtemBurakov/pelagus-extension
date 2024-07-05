@@ -19,7 +19,7 @@ import {
 } from "../contracts/multicall"
 import { HexString } from "../types"
 import { ShardToMulticall } from "../constants"
-import { EVMLog, SmartContract } from "../networks"
+import { SmartContract } from "../networks"
 import { AddressOnNetwork } from "../accounts"
 import { getExtendedZoneForAddress } from "../services/chain/utils"
 import { SmartContractAmount, SmartContractFungibleAsset } from "../assets"

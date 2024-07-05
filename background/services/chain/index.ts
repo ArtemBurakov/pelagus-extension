@@ -13,7 +13,7 @@ import {
 } from "quais"
 import { QuaiTransactionResponse } from "quais/lib/commonjs/providers"
 import { NetworksArray } from "../../constants/networks/networks"
-import ProviderFactory from "../provider-factory"
+import ProviderFactory from "./provider-factory"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
 import logger from "../../lib/logger"
 import getBlockPrices from "../../lib/gas"
@@ -21,7 +21,6 @@ import { HexString, UNIXTime } from "../../types"
 import { AccountBalance, AddressOnNetwork } from "../../accounts"
 import {
   AnyEVMBlock,
-  AnyEVMTransaction,
   BlockPrices,
   SignedTransactionGA,
   toHexChainID,
@@ -35,7 +34,7 @@ import {
 import { HOUR, MINUTE, SECOND } from "../../constants"
 import PreferenceService from "../preferences"
 import { ServiceCreatorFunction, ServiceLifecycleEvents } from "../types"
-import { ChainDatabase, createDB, QuaiTransaction } from "./db-migration"
+import { ChainDatabase, createDB, QuaiTransaction } from "./db"
 import BaseService from "../base"
 import {
   blockFromEthersBlock,
