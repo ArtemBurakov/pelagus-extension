@@ -17,7 +17,6 @@ import {
 } from "./utils/activities-utils"
 import { getExtendedZoneForAddress } from "../services/chain/utils"
 import { QuaiTransaction } from "../services/chain/db-migration"
-import { toBigInt } from "quais"
 
 export { Activity, ActivityDetail, INFINITE_VALUE }
 export type Activities = {
@@ -39,10 +38,10 @@ const cleanActivitiesArray = (activitiesArray: Activity[] = []) => {
 
 const addActivityToState =
   (activities: Activities) =>
-  (
+  async (
     address: string,
     chainID: string,
-    transaction: Transaction | EnrichedEVMTransaction
+    transaction: QuaiTransaction | EnrichedEVMTransaction
   ) => {
     const isEtx =
       transaction.to &&
@@ -63,7 +62,7 @@ const addActivityToState =
     )
       return
 
-    const activity = getActivity(transaction)
+    const activity = await getActivity(transaction)
     const normalizedAddress = address
 
     activities[normalizedAddress] ??= {}
@@ -144,7 +143,10 @@ const activitiesSlice = createSlice({
       {
         payload,
       }: {
-        payload: { transactions: Transaction[]; accounts: AddressOnNetwork[] }
+        payload: {
+          transactions: QuaiTransaction[]
+          accounts: AddressOnNetwork[]
+        }
       }
     ) => ({
       activities: initializeActivitiesFromTransactions(payload),
@@ -153,7 +155,9 @@ const activitiesSlice = createSlice({
       immerState,
       {
         payload: { transactions, account },
-      }: { payload: { transactions: Transaction[]; account: AddressOnNetwork } }
+      }: {
+        payload: { transactions: QuaiTransaction[]; account: AddressOnNetwork }
+      }
     ) => {
       const {
         address,
@@ -181,10 +185,17 @@ const activitiesSlice = createSlice({
         }
       }
     ) => {
-      const { chainID } = transaction.network
+      const { chainId } = transaction
+      if (!chainId) throw new Error("Failed het chainId from transaction")
       forAccounts.forEach((address) => {
-        addActivityToState(immerState.activities)(address, chainID, transaction)
-        cleanActivitiesArray(immerState.activities[address]?.[chainID])
+        addActivityToState(immerState.activities)(
+          address,
+          chainId.toString(),
+          transaction
+        )
+        cleanActivitiesArray(
+          immerState.activities[address]?.[chainId.toString()]
+        )
       })
     },
   },

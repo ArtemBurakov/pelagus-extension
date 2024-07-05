@@ -181,10 +181,7 @@ describe("ChainService", () => {
 
     // Transaction should be persisted to the db
     expect(
-      await chainServiceExternalized.getTransaction(
-        QuaiNetworkGA,
-        validQuaiTransaction.hash
-      )
+      await chainServiceExternalized.getTransaction(validQuaiTransaction.hash)
     ).toBeTruthy()
   })
 

@@ -15,7 +15,6 @@ import {
 import logger from "../../lib/logger"
 import { AnyEVMTransaction } from "../../networks"
 import { AddressOnNetwork } from "../../accounts"
-import { transactionFromEthersTransaction } from "./utils"
 import { Transaction as EthersTransaction } from "quais-old"
 // Back off by this amount as a base, exponentiated by attempts and jittered.
 const BASE_BACKOFF_MS = 600
@@ -500,32 +499,30 @@ export default class SerialFallbackProvider extends JsonRpcProvider {
     }
 
     // Fall back on a standard pending transaction subscription if the
-    this.on("pending", async (transactionHash: unknown) => {
-      try {
-        if (typeof transactionHash === "string") {
-          const tx = (await this.getTransaction(
-            transactionHash
-          )) as TransactionResponse &
-            EthersTransaction & {
-              from: string
-              blockHash?: string | undefined
-              blockNumber?: number | undefined
-              type?: number | null | undefined
-            } // TODO-MIGRATION
-
-          if (!tx) throw new Error("getTransaction return null")
-
-          const transaction = transactionFromEthersTransaction(tx, network)
-
-          handler(transaction)
-        }
-      } catch (innerError) {
-        logger.error(
-          `Error handling incoming pending transaction hash: ${transactionHash}`,
-          innerError
-        )
-      }
-    })
+    // this.on("pending", async (transactionHash: unknown) => {
+    //   try {
+    //     if (typeof transactionHash === "string") {
+    //       const transaction = (await this.getTransaction(
+    //         transactionHash
+    //       )) as TransactionResponse &
+    //         EthersTransaction & {
+    //           from: string
+    //           blockHash?: string | undefined
+    //           blockNumber?: number | undefined
+    //           type?: number | null | undefined
+    //         } // TODO-MIGRATION
+    //
+    //       if (!transaction) throw new Error("getTransaction return null")
+    //
+    //       handler(transaction)
+    //     }
+    //   } catch (innerError) {
+    //     logger.error(
+    //       `Error handling incoming pending transaction hash: ${transactionHash}`,
+    //       innerError
+    //     )
+    //   }
+    // })
   }
 
   /**
