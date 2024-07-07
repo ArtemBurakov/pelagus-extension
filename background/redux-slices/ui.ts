@@ -1,11 +1,13 @@
 import { createSlice, createSelector } from "@reduxjs/toolkit"
 import Emittery from "emittery"
-import { AddressOnNetwork } from "../accounts"
 import { AnalyticsEvent, OneTimeAnalyticsEvent } from "../lib/posthog"
 import { ChainIdWithError } from "../networks"
 import { AnalyticsPreferences } from "../services/preferences/types"
-import { AccountSignerWithId } from "../signing"
-import { AccountSignerSettings } from "../ui"
+import {
+  AddressOnNetwork,
+  AccountSignerWithId,
+  AccountSignerSettings,
+} from "../accounts"
 import { AccountState, addAddressNetwork } from "./accounts"
 import { createBackgroundAsyncThunk } from "./utils"
 import { getExtendedZoneForAddress } from "../services/chain/utils"

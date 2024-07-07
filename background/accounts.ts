@@ -1,6 +1,7 @@
 import { AnyAssetAmount } from "./assets"
 import { HexString } from "./types"
 import { NetworkInterfaceGA } from "./constants/networks/networkTypes"
+import type { AccountSigner, ReadOnlyAccountSigner } from "./services/signing"
 
 /**
  * An account balance at a particular time and block height, on a particular
@@ -49,4 +50,14 @@ export type AddressOnNetwork = {
 export type NameOnNetwork = {
   name: string
   network: NetworkInterfaceGA
+}
+
+export type AccountSignerWithId = Exclude<
+  AccountSigner,
+  typeof ReadOnlyAccountSigner
+>
+
+export type AccountSignerSettings = {
+  signer: AccountSignerWithId
+  title?: string
 }

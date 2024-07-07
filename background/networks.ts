@@ -185,13 +185,6 @@ export type LegacyEVMTransactionRequest = Pick<
  */
 export const KNOWN_TX_TYPES = [0, 1, 2, 100] as const
 export type KnownTxTypes = typeof KNOWN_TX_TYPES[number]
-export function isKnownTxType(arg: unknown): arg is KnownTxTypes {
-  return (
-    arg !== undefined &&
-    arg !== null &&
-    (KNOWN_TX_TYPES as unknown as number[]).includes(Number(arg))
-  )
-}
 
 /**
  * An EIP1559 EVM transaction, whose type is set to `1` or `2` per EIP1559 and

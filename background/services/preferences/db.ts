@@ -1,11 +1,12 @@
 import Dexie, { Transaction } from "dexie"
 import { FiatCurrency } from "../../assets"
-import { AddressOnNetwork } from "../../accounts"
 import DEFAULT_PREFERENCES from "./defaults"
-import { AccountSignerSettings } from "../../ui"
-import { AccountSignerWithId } from "../../signing"
+import {
+  AddressOnNetwork,
+  AccountSignerSettings,
+  AccountSignerWithId,
+} from "../../accounts"
 import { AnalyticsPreferences } from "./types"
-import { NETWORK_BY_CHAIN_ID } from "../../constants"
 import { getExtendedZoneForAddress } from "../chain/utils"
 import { NetworksArray, QuaiNetworkGA } from "../../constants/networks/networks"
 

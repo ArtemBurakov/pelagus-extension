@@ -25,7 +25,12 @@ import {
 } from "./services"
 import { HexString, KeyringTypes } from "./types"
 import { ChainIdWithError, SignedTransactionGA } from "./networks"
-import { AccountBalance, AddressOnNetwork, NameOnNetwork } from "./accounts"
+import {
+  AccountSignerWithId,
+  AccountBalance,
+  AddressOnNetwork,
+  NameOnNetwork,
+} from "./accounts"
 import rootReducer from "./redux-slices"
 import {
   AccountType,
@@ -110,7 +115,6 @@ import {
 import { selectActivitesHashesForEnrichment } from "./redux-slices/selectors"
 import { getActivityDetails } from "./redux-slices/utils/activities-utils"
 import { getRelevantTransactionAddresses } from "./services/enrichment/utils"
-import { AccountSignerWithId } from "./signing"
 import { AnalyticsPreferences } from "./services/preferences/types"
 import {
   AnyAssetMetadata,

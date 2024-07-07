@@ -1,7 +1,6 @@
-import { TransactionReceiptParams, TransactionResponse } from "quais"
+import { TransactionReceiptParams } from "quais"
 import { QuaiTransactionResponse } from "quais/lib/commonjs/providers"
 import { QuaiTransactionLike } from "quais/lib/commonjs/transaction/quai-transaction"
-
 import {
   ConfirmedQuaiTransactionLike,
   FailedQuaiTransactionLike,
