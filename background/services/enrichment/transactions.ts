@@ -30,12 +30,7 @@ import {
 import { isDefined, isFulfilledPromise } from "../../lib/utils/type-guards"
 import { getExtendedZoneForAddress } from "../chain/utils"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
-import {
-  ConfirmedQuaiTransactionLike,
-  FailedQuaiTransactionLike,
-  PendingQuaiTransactionLike,
-  QuaiTransactionGeneral,
-} from "../chain/types"
+import { QuaiTransactionGeneral } from "../chain/types"
 import { NetworksArray } from "../../constants/networks/networks"
 
 async function buildSubannotations(

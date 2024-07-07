@@ -65,6 +65,7 @@ import {
   FailedQuaiTransactionLike,
   PendingQuaiTransactionLike,
   QuaiTransactionGeneral,
+  QuaiTransactionGeneralWithAnnotation,
   QuaiTransactionStatus,
 } from "./types"
 
@@ -1289,7 +1290,17 @@ export default class ChainService extends BaseService<Events> {
         })
         accounts = await this.getAccountsToTrack()
       }
-      const forAccounts = getRelevantTransactionAddresses(transaction, accounts)
+
+      // TODO-MIGRATION
+      const transactionPopulatedWithNetwork: QuaiTransactionGeneralWithAnnotation =
+        {
+          ...transaction,
+          network,
+        }
+      const forAccounts = getRelevantTransactionAddresses(
+        transactionPopulatedWithNetwork,
+        accounts
+      )
 
       await this.emitter.emit("transaction", {
         transaction,

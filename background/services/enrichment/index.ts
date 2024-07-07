@@ -1,4 +1,4 @@
-import { AnyEVMTransaction } from "../../networks"
+import { toBigInt } from "quais"
 import ChainService from "../chain"
 import IndexingService from "../indexing"
 import NameService from "../name"
@@ -9,7 +9,6 @@ import {
   EnrichedEVMTransactionSignatureRequest,
   SignTypedDataAnnotation,
   EnrichedSignTypedDataRequest,
-  PartialTransactionRequestWithFrom,
 } from "./types"
 import { SignTypedDataRequest } from "../../utils/signing"
 import {
@@ -19,14 +18,12 @@ import {
 } from "./utils"
 import resolveTransactionAnnotation from "./transactions"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
-import { toBigInt, TransactionResponse } from "quais"
 import {
   ConfirmedQuaiTransactionLike,
   FailedQuaiTransactionLike,
   PendingQuaiTransactionLike,
   QuaiTransactionGeneral,
   QuaiTransactionGeneralWithAnnotation,
-  QuaiTransactionRequestWithAnnotation,
 } from "../chain/types"
 
 export * from "./types"
@@ -169,6 +166,7 @@ export default class EnrichmentService extends BaseService<Events> {
         transaction,
         desiredDecimals
       ),
+      network,
     }
   }
 }

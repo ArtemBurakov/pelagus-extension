@@ -86,7 +86,7 @@ export default function DetailPanel({
       dispatch(
         getAccountNonceAndGasPrice({
           details: {
-            address: transactionDetails.from,
+            address: transactionDetails.from.toString(), // TODO-MIGRATION
             network: transactionDetails.network,
           },
         })

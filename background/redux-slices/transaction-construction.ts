@@ -1,22 +1,20 @@
 import { createSlice } from "@reduxjs/toolkit"
 import Emittery from "emittery"
 import { QuaiTransactionLike } from "quais/lib/commonjs/transaction"
+import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
 import { EXPRESS, INSTANT, MAX_FEE_MULTIPLIER, REGULAR } from "../constants"
 import {
   BlockEstimate,
   BlockPrices,
-  EIP1559TransactionRequest,
   isEIP1559TransactionRequest,
-  LegacyEVMTransactionRequest,
   SignedTransaction,
   SignedTransactionGA,
-  TransactionRequest,
-  TransactionRequestGA,
 } from "../networks"
 import { createBackgroundAsyncThunk } from "./utils"
 import { SignOperation } from "./signing"
 import { NetworkInterfaceGA } from "../constants/networks/networkTypes"
 import { QuaiTransactionRequestWithAnnotation } from "../services/chain/types"
+import { AccountSigner } from "../services/signing"
 
 export const enum TransactionConstructionStatus {
   Idle = "idle",
@@ -80,8 +78,12 @@ export const initialState: TransactionConstruction = {
 
 export type Events = {
   updateTransaction: QuaiTransactionRequestWithAnnotation
-  signTransaction: SignOperation<TransactionRequestGA>
-  requestSignature: SignOperation<TransactionRequest>
+  // TODO-MIGRATION
+  signTransaction: {
+    request: QuaiTransactionRequest
+    accountSigner: AccountSigner
+  }
+  requestSignature: SignOperation<QuaiTransactionRequestWithAnnotation>
   signatureRejected: never
   broadcastSignedTransaction: SignedTransactionGA
   signedTransactionResult: SignedTransaction
@@ -143,11 +145,7 @@ export const updateTransactionData = createBackgroundAsyncThunk(
 
 export const signTransaction = createBackgroundAsyncThunk(
   "transaction-construction/sign",
-  async (
-    request: SignOperation<
-      EIP1559TransactionRequest | LegacyEVMTransactionRequest
-    >
-  ) => {
+  async (request: SignOperation<QuaiTransactionRequestWithAnnotation>) => {
     await emitter.emit("requestSignature", request)
   }
 )

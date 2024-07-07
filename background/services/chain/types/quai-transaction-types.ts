@@ -1,8 +1,8 @@
 import { TransactionReceiptParams } from "quais"
 import { QuaiTransactionLike } from "quais/lib/commonjs/transaction/quai-transaction"
 import { QuaiTransactionResponseParams } from "quais/lib/commonjs/providers/formatting"
-import { TransactionAnnotation } from "../../enrichment"
 import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
+import { TransactionAnnotation } from "../../enrichment"
 import { NetworkInterfaceGA } from "../../../constants/networks/networkTypes"
 
 export enum QuaiTransactionStatus {
@@ -35,14 +35,10 @@ export type QuaiTransactionGeneral =
 
 export type QuaiTransactionGeneralWithAnnotation = QuaiTransactionGeneral & {
   annotation?: TransactionAnnotation
+  network: NetworkInterfaceGA
 }
 
 export type QuaiTransactionRequestWithAnnotation = QuaiTransactionRequest & {
   annotation?: TransactionAnnotation
+  network: NetworkInterfaceGA
 }
-
-export type PartialQuaiTransactionRequestWithFrom =
-  Partial<QuaiTransactionRequest> & {
-    from: string
-    network: NetworkInterfaceGA
-  }

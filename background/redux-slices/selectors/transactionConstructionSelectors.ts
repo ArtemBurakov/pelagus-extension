@@ -13,7 +13,7 @@ import { selectAssetPricePoint } from "../assets"
 
 export const selectTransactionNetwork = createSelector(
   (state: { transactionConstruction: TransactionConstruction }) =>
-    state.transactionConstruction.transactionRequest?.network,
+    state.transactionConstruction.transactionRequest?.network, // TODO-MIGRATION
   (network) => network
 )
 
@@ -65,7 +65,7 @@ export const selectEstimatedFeesPerGas = createSelector(
 
 export const selectBaseAsset = createSelector(
   (state: { transactionConstruction: TransactionConstruction }) =>
-    state.transactionConstruction.transactionRequest?.network.baseAsset,
+    state.transactionConstruction.transactionRequest?.network.baseAsset, // TODO-MIGRATION
   (baseAsset) => baseAsset
 )
 
