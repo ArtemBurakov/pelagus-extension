@@ -1,5 +1,10 @@
 import { FiatCurrency } from "../../assets"
-import { AddressOnNetwork, NameOnNetwork } from "../../accounts"
+import {
+  AccountSignerSettings,
+  AccountSignerWithId,
+  AddressOnNetwork,
+  NameOnNetwork,
+} from "../../accounts"
 import { ServiceLifecycleEvents, ServiceCreatorFunction } from "../types"
 import {
   AnalyticsPreferences,
@@ -10,8 +15,6 @@ import { getOrCreateDB, PreferenceDatabase } from "./db"
 import BaseService from "../base"
 import { sameNetwork } from "../../networks"
 import { HexString } from "../../types"
-import { AccountSignerSettings } from "../../ui"
-import { AccountSignerWithId } from "../../signing"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
 
 type AddressBookEntry = {
