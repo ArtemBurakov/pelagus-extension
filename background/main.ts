@@ -906,15 +906,17 @@ export default class Main extends BaseService<never> {
       "requestSignature",
       async ({ request, accountSigner }) => {
         try {
-          // const signedTransactionResult =
-          //   await this.signingService.signTransaction(request, accountSigner)
+          const signedTransaction = await this.signingService.signTransaction(
+            request,
+            accountSigner
+          )
 
-          // this.store.dispatch(transactionSigned(signedTransactionResult))
+          this.store.dispatch(transactionSigned(signedTransaction))
 
           await this.analyticsService.sendAnalyticsEvent(
             AnalyticsEvent.TRANSACTION_SIGNED,
             {
-              chainId: request.chainID,
+              chainId: signedTransaction.chainId,
             }
           )
         } catch (exception) {
@@ -962,10 +964,11 @@ export default class Main extends BaseService<never> {
       }
     )
 
-    // Report on transactions for basic activity. Fancier stuff is handled via connectEnrichmentService
-    this.chainService.emitter.on("transaction", async (transactionInfo) => {
-      this.store.dispatch(addActivity(transactionInfo))
-    })
+    // TODO-MIGRATION we dont need to duplicate addActivity, because enrichment service already doing it
+    // // Report on transactions for basic activity. Fancier stuff is handled via connectEnrichmentService
+    // this.chainService.emitter.on("transaction", async (transactionInfo) => {
+    //   this.store.dispatch(addActivity(transactionInfo))
+    // })
 
     uiSliceEmitter.on("userActivityEncountered", (addressOnNetwork) => {
       this.chainService.markAccountActivity(addressOnNetwork)
