@@ -10,11 +10,7 @@ import { sameQuaiAddress } from "../../lib/utils"
 import ChainService from "../chain"
 import IndexingService from "../indexing"
 import NameService from "../name"
-import {
-  TransactionAnnotation,
-  PartialTransactionRequestWithFrom,
-  EnrichedAddressOnNetwork,
-} from "./types"
+import { TransactionAnnotation, EnrichedAddressOnNetwork } from "./types"
 import {
   getDistinctRecipentAddressesFromERC20Logs,
   getERC20LogsForAddresses,
@@ -226,7 +222,7 @@ export default async function resolveTransactionAnnotation(
       assetAmount: enrichAssetAmountWithDecimalValues(
         {
           asset: network.baseAsset,
-          amount: transaction.value ?? 0n,
+          amount: toBigInt(transaction.value ?? 0n),
         },
         desiredDecimals
       ),

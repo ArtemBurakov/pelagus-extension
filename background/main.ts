@@ -5,8 +5,13 @@ import { configureStore, isPlain, Middleware } from "@reduxjs/toolkit"
 import { devToolsEnhancer } from "@redux-devtools/remote"
 import { PermissionRequest } from "@pelagus-provider/provider-bridge-shared"
 import { debounce } from "lodash"
-import { formatUnits, JsonRpcProvider, WebSocketProvider, toBigInt } from "quais"
-import { decodeJSON, encodeJSON, sameQuaiAddress, wait } from "./lib/utils"
+import {
+  formatUnits,
+  JsonRpcProvider,
+  QuaiTransaction,
+  WebSocketProvider,
+} from "quais"
+import { decodeJSON, encodeJSON, sameQuaiAddress } from "./lib/utils"
 import {
   AnalyticsService,
   BaseService,
@@ -803,7 +808,7 @@ export default class Main extends BaseService<never> {
 
       // Set up initial state.
       const existingAccounts = await this.chainService.getAccountsToTrack()
-      existingAccounts.forEach(async (addressNetwork) => {
+      existingAccounts.forEach((addressNetwork) => {
         // Mark as loading and wire things up.
         this.store.dispatch(loadAccount(addressNetwork))
         // Force a refresh of the account balance to populate the store.
@@ -866,7 +871,7 @@ export default class Main extends BaseService<never> {
     transactionConstructionSliceEmitter.on(
       "broadcastSignedTransaction",
       async (transaction: QuaiTransaction) => {
-        await this.chainService.broadcastQuaiTransaction(transaction)
+        await this.chainService.broadcastSignedTransaction(transaction)
       }
     )
 

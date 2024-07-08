@@ -504,7 +504,7 @@ export default class ChainService extends BaseService<Events> {
   }
 
   async addAccountToTrack(addressNetwork: AddressOnNetwork): Promise<void> {
-    const source = await this.keyringService.getKeyringSourceForAddress(
+    const source = this.keyringService.getQuaiHDWalletSourceForAddress(
       addressNetwork.address
     )
     const isAccountOnNetworkAlreadyTracked =
@@ -766,26 +766,39 @@ export default class ChainService extends BaseService<Events> {
     return (estimate * 11n) / 10n
   }
 
-  async broadcastQuaiTransaction(
-    transaction: SignedTransactionGA
+  /**
+   * Broadcast a signed EVM transaction.
+   *
+   * @param transaction A signed EVM transaction to broadcast. Since the tx is signed,
+   *        it needs to include all gas limit and price params.
+   */
+  async broadcastSignedTransaction(
+    transaction: QuaiTransaction
   ): Promise<void> {
     try {
       if (!transaction.to) {
         throw new Error("Transaction 'to' field is not specified.")
       }
 
-      const zone = getZoneForAddress(transaction.to)
-      if (!zone) {
+      const zoneToBroadcast = getZoneForAddress(transaction.to)
+      if (!zoneToBroadcast) {
         throw new Error(
           "Invalid address shard: Unable to determine the zone for the given 'to' address."
         )
       }
 
-      const { serialized: signedTx } = transaction
+      const network = NetworksArray.find(
+        (net) => toBigInt(net.chainID) === toBigInt(transaction.chainId ?? 0)
+      )
+      if (!network) {
+        throw new Error("Network is null.")
+      }
+
+      const { serialized: signedTransaction } = transaction
 
       await Promise.all([
         this.currentProvider.jsonRpc
-          ?.broadcastTransaction(zone, signedTx)
+          ?.broadcastTransaction(zoneToBroadcast, signedTransaction)
           .then((transactionResponse) => {
             this.emitter.emit("transactionSend", transactionResponse.hash)
 

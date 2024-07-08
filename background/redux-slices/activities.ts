@@ -4,8 +4,6 @@
 import { createSlice } from "@reduxjs/toolkit"
 import { AddressOnNetwork } from "../accounts"
 import { sameQuaiAddress } from "../lib/utils"
-import { Transaction } from "../services/chain/db"
-import { EnrichedEVMTransaction } from "../services/enrichment"
 import { HexString } from "../types"
 import { createBackgroundAsyncThunk } from "./utils"
 import {
@@ -106,13 +104,11 @@ const initializeActivitiesFromTransactions = ({
 
     const isTrackedTo = accounts.some(
       ({ address, network: activeNetwork }) =>
-        network.chainID === activeNetwork.chainID &&
-        sameQuaiAddress(to, address)
+        chainId === activeNetwork.chainID && sameQuaiAddress(to, address)
     )
     const isTrackedFrom = accounts.some(
       ({ address, network: activeNetwork }) =>
-        network.chainID === activeNetwork.chainID &&
-        sameQuaiAddress(from, address)
+        chainId === activeNetwork.chainID && sameQuaiAddress(from, address)
     )
 
     if (
