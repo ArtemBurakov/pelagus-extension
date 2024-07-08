@@ -7,12 +7,14 @@ import {
   weiToGwei,
 } from "../../lib/utils"
 import { isDefined } from "../../lib/utils/type-guards"
-import { QuaiTransaction } from "../../services/chain/db"
-import { EnrichedEVMTransaction } from "../../services/enrichment"
 import { getRecipient, getSender } from "../../services/enrichment/utils"
 import { HexString } from "../../types"
 import { getExtendedZoneForAddress } from "../../services/chain/utils"
-import { QuaiTransactionStatus } from "../../services/chain/types"
+import {
+  EnrichedQuaiTransaction,
+  QuaiTransactionState,
+  QuaiTransactionStatus,
+} from "../../services/chain/types"
 
 export const INFINITE_VALUE = "infinite"
 
@@ -42,12 +44,12 @@ export type ActivityDetail = {
 const ACTIVITY_DECIMALS = 2
 
 function isEnrichedTransaction(
-  transaction: QuaiTransaction | EnrichedEVMTransaction
-): transaction is EnrichedEVMTransaction {
+  transaction: QuaiTransactionState | EnrichedQuaiTransaction
+): transaction is EnrichedQuaiTransaction {
   return "annotation" in transaction
 }
 
-function getAmount(tx: EnrichedEVMTransaction): string {
+function getAmount(tx: EnrichedQuaiTransaction): string {
   const txNetwork = globalThis.main.chainService.supportedNetworks.find(
     (net) => toBigInt(net.chainID) === toBigInt(tx.chainId ?? 0)
   )
@@ -60,7 +62,7 @@ function getAmount(tx: EnrichedEVMTransaction): string {
   return `${convertToEth(value) || "0"} ${txNetwork.baseAsset.symbol}`
 }
 
-async function getBlockHeight(tx: EnrichedEVMTransaction): Promise<string> {
+async function getBlockHeight(tx: EnrichedQuaiTransaction): Promise<string> {
   const blockHeight = await globalThis.main.chainService
     .getCurrentProvider()
     .jsonRpc.getBlockNumber()
@@ -93,7 +95,7 @@ function getTimestamp(blockTimestamp: number | undefined) {
     : "(Unknown)"
 }
 
-const getAssetSymbol = (transaction: EnrichedEVMTransaction) => {
+const getAssetSymbol = (transaction: EnrichedQuaiTransaction) => {
   const txNetwork = globalThis.main.chainService.supportedNetworks.find(
     (net) => toBigInt(net.chainID) === toBigInt(transaction.chainId ?? 0)
   )
@@ -112,7 +114,9 @@ const getAssetSymbol = (transaction: EnrichedEVMTransaction) => {
   }
 }
 
-const getValue = (transaction: QuaiTransaction | EnrichedEVMTransaction) => {
+const getValue = (
+  transaction: QuaiTransactionState | EnrichedQuaiTransaction
+) => {
   const txNetwork = globalThis.main.chainService.supportedNetworks.find(
     (net) => toBigInt(net.chainID) === toBigInt(transaction.chainId ?? 0)
   )
@@ -148,7 +152,7 @@ const getValue = (transaction: QuaiTransaction | EnrichedEVMTransaction) => {
   return localizedValue
 }
 
-const getAnnotationType = (transaction: QuaiTransaction) => {
+const getAnnotationType = (transaction: QuaiTransactionState) => {
   const { to, from } = transaction
   if (typeof to === undefined) return "contract-deployment"
 
@@ -167,7 +171,7 @@ const getAnnotationType = (transaction: QuaiTransaction) => {
 }
 
 export const getActivity = async (
-  transaction: QuaiTransaction | EnrichedEVMTransaction
+  transaction: QuaiTransactionState | EnrichedQuaiTransaction
 ): Promise<Activity> => {
   const { to, from, nonce, hash, blockHash, chainId } = transaction
 
@@ -255,7 +259,7 @@ export const sortActivities = (a: Activity, b: Activity): number => {
 }
 
 export async function getActivityDetails(
-  tx: EnrichedEVMTransaction
+  tx: EnrichedQuaiTransaction
 ): Promise<ActivityDetail[]> {
   const { annotation } = tx
 

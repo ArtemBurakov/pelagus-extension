@@ -30,7 +30,7 @@ import {
 import { isDefined, isFulfilledPromise } from "../../lib/utils/type-guards"
 import { getExtendedZoneForAddress } from "../chain/utils"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
-import { QuaiTransactionGeneral } from "../chain/types"
+import { QuaiTransactionState } from "../chain/types"
 import { NetworksArray } from "../../constants/networks/networks"
 
 async function buildSubannotations(
@@ -183,7 +183,7 @@ export default async function resolveTransactionAnnotation(
   indexingService: IndexingService,
   nameService: NameService,
   network: NetworkInterfaceGA,
-  transaction: QuaiTransactionGeneral,
+  transaction: QuaiTransactionState,
   desiredDecimals: number
 ): Promise<TransactionAnnotation> {
   const assets = await indexingService.getCachedAssets(network)

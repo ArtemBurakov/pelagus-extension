@@ -1,16 +1,12 @@
 import { getZoneForAddress, toBigInt, Zone, Block } from "quais"
 import { TransactionRequest as EthersTransactionRequest } from "@quais/abstract-provider"
 
-// TODO-MIGRATION: Update TransactionTypes
-import { BigNumber, Transaction as EthersTransaction } from "quais-old"
 import {
   AnyEVMBlock,
   EIP1559TransactionRequest,
   LegacyEVMTransactionRequest,
   isEIP1559TransactionRequest,
   TransactionRequest,
-  isEIP1559SignedTransaction,
-  SignedTransaction,
   KnownTxTypes,
 } from "../../../networks"
 import { NetworkInterfaceGA } from "../../../constants/networks/networkTypes"
@@ -160,41 +156,6 @@ export function transactionRequestFromEthersTransactionRequest(
   return eip1559TransactionRequestFromEthersTransactionRequest(
     ethersTransactionRequest
   )
-}
-
-export function ethersTransactionFromSignedTransaction(
-  tx: SignedTransaction
-): EthersTransaction {
-  const baseTx: EthersTransaction = {
-    nonce: Number(tx.nonce),
-    // TODO-MIGRATION: Update with to: tx.to ?? null
-    to: tx.to,
-    data: tx.input || "",
-    // TODO-MIGRATION: Update with gasPrice: tx.gasPrice ? toBigInt(tx.gasPrice) : null,
-    gasPrice: tx.gasPrice ? BigNumber.from(tx.gasPrice) : undefined,
-    type: tx.type,
-    // TODO-MIGRATION: Update with chainId: toBigInt(tx.network.chainID)
-    chainId: parseInt(tx.network.chainID, 10),
-    // TODO-MIGRATION: Update with value: toBigInt(tx.value),
-    value: BigNumber.from(tx.value),
-    // TODO-MIGRATION: Update with gasLimit: toBigInt(tx.gasLimit),
-    gasLimit: BigNumber.from(tx.gasLimit),
-  }
-
-  if (isEIP1559SignedTransaction(tx))
-    return {
-      ...baseTx,
-      // TODO-MIGRATION: Update with maxFeePerGas: toBigInt(tx.maxFeePerGas!)
-      maxFeePerGas: BigNumber.from(tx.maxFeePerGas),
-      // TODO-MIGRATION: Update with maxPriorityFeePerGas: toBigInt(tx.maxPriorityFeePerGas!)
-      maxPriorityFeePerGas: BigNumber.from(tx.maxPriorityFeePerGas),
-      r: tx.r,
-      from: tx.from,
-      s: tx.s,
-      v: tx.v,
-    }
-
-  return baseTx
 }
 
 export const getExtendedZoneForAddress = (

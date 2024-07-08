@@ -1,10 +1,10 @@
 /* eslint-disable no-underscore-dangle */
 /* eslint-disable no-console */
 /* eslint-disable import/no-cycle */
-
 import {
   getZoneForAddress,
   JsonRpcProvider,
+  QuaiTransaction,
   Shard,
   toBigInt,
   TransactionReceipt,
@@ -22,7 +22,6 @@ import { AccountBalance, AddressOnNetwork } from "../../accounts"
 import {
   AnyEVMBlock,
   BlockPrices,
-  SignedTransactionGA,
   toHexChainID,
   TransactionRequest,
 } from "../../networks"
@@ -34,7 +33,7 @@ import {
 import { HOUR, MINUTE, SECOND } from "../../constants"
 import PreferenceService from "../preferences"
 import { ServiceCreatorFunction, ServiceLifecycleEvents } from "../types"
-import { ChainDatabase, createDB, QuaiTransaction } from "./db"
+import { ChainDatabase, createDB } from "./db"
 import BaseService from "../base"
 import {
   blockFromEthersBlock,
@@ -43,14 +42,6 @@ import {
   getExtendedZoneForAddress,
 } from "./utils"
 import { sameQuaiAddress } from "../../lib/utils"
-import type {
-  EnrichedEIP1559TransactionRequest,
-  EnrichedEIP1559TransactionSignatureRequest,
-  EnrichedEVMTransactionRequest,
-  EnrichedEVMTransactionSignatureRequest,
-  EnrichedLegacyTransactionRequest,
-  EnrichedLegacyTransactionSignatureRequest,
-} from "../enrichment"
 import AssetDataHelper from "./utils/asset-data-helper"
 import KeyringService from "../keyring"
 import type { ValidatedAddEthereumChainParameter } from "../provider-bridge/utils"
@@ -61,11 +52,8 @@ import {
   createPendingQuaiTransaction,
 } from "./utils/quai-transactions"
 import {
-  ConfirmedQuaiTransactionLike,
-  FailedQuaiTransactionLike,
-  PendingQuaiTransactionLike,
-  QuaiTransactionGeneral,
-  QuaiTransactionGeneralWithAnnotation,
+  PendingQuaiTransaction,
+  QuaiTransactionState,
   QuaiTransactionStatus,
 } from "./types"
 
@@ -103,11 +91,11 @@ const TRANSACTIONS_WITH_PRIORITY_MAX_COUNT = 25
 
 interface Events extends ServiceLifecycleEvents {
   initializeActivities: {
-    transactions: QuaiTransaction[]
+    transactions: QuaiTransactionState[]
     accounts: AddressOnNetwork[]
   }
   initializeActivitiesForAccount: {
-    transactions: QuaiTransaction[]
+    transactions: QuaiTransactionState[]
     account: AddressOnNetwork
   }
   newAccountToTrack: {
@@ -135,7 +123,7 @@ interface Events extends ServiceLifecycleEvents {
   block: AnyEVMBlock
   transaction: {
     forAccounts: string[]
-    transaction: QuaiTransactionGeneral
+    transaction: QuaiTransactionState
   }
   blockPrices: { blockPrices: BlockPrices; network: NetworkInterfaceGA }
   customChainAdded: ValidatedAddEthereumChainParameter
@@ -331,7 +319,8 @@ export default class ChainService extends BaseService<Events> {
     this.assetData = new AssetDataHelper(this.currentProvider.jsonRpc)
 
     const accounts = await this.getAccountsToTrack()
-    const transactions = await this.db.getAllQuaiTransactions()
+    const transactions =
+      (await this.db.getAllQuaiTransactions()) as QuaiTransactionState[]
     await this.emitter.emit("initializeActivities", { transactions, accounts })
 
     await this.subscribeOnAccountTransactions(this.supportedNetworks, accounts)
@@ -515,7 +504,7 @@ export default class ChainService extends BaseService<Events> {
   }
 
   async addAccountToTrack(addressNetwork: AddressOnNetwork): Promise<void> {
-    const source = this.keyringService.getQuaiHDWalletSourceForAddress(
+    const source = await this.keyringService.getKeyringSourceForAddress(
       addressNetwork.address
     )
     const isAccountOnNetworkAlreadyTracked =
@@ -638,13 +627,7 @@ export default class ChainService extends BaseService<Events> {
    *
    * @param txHash the hash of the unconfirmed transaction we're interested in
    */
-  async getTransaction(
-    txHash: HexString
-  ): Promise<
-    | PendingQuaiTransactionLike
-    | ConfirmedQuaiTransactionLike
-    | FailedQuaiTransactionLike
-  > {
+  async getTransaction(txHash: HexString): Promise<QuaiTransactionState> {
     const { currentProvider } = this
     const transactionResponse = (await currentProvider.jsonRpc.getTransaction(
       txHash
@@ -1264,7 +1247,7 @@ export default class ChainService extends BaseService<Events> {
    * @param dataSource Where the transaction was seen.
    */
   public async saveTransaction(
-    transaction: QuaiTransactionGeneral,
+    transaction: QuaiTransactionState,
     dataSource: "local"
   ): Promise<void> {
     const network = NetworksArray.find(
@@ -1291,17 +1274,7 @@ export default class ChainService extends BaseService<Events> {
         accounts = await this.getAccountsToTrack()
       }
 
-      // TODO-MIGRATION
-      const transactionPopulatedWithNetwork: QuaiTransactionGeneralWithAnnotation =
-        {
-          ...transaction,
-          network,
-        }
-      const forAccounts = getRelevantTransactionAddresses(
-        transactionPopulatedWithNetwork,
-        accounts
-      )
-
+      const forAccounts = getRelevantTransactionAddresses(transaction, accounts)
       await this.emitter.emit("transaction", {
         transaction,
         forAccounts,
@@ -1317,9 +1290,9 @@ export default class ChainService extends BaseService<Events> {
 
   async emitSavedTransactions(account: AddressOnNetwork): Promise<void> {
     const { address, network } = account
-    const transactionsForNetwork = await this.db.getQuaiTransactionsByNetwork(
+    const transactionsForNetwork = (await this.db.getQuaiTransactionsByNetwork(
       network
-    )
+    )) as QuaiTransactionState[]
 
     const transactions = transactionsForNetwork.filter(
       (transaction) =>
@@ -1446,7 +1419,7 @@ export default class ChainService extends BaseService<Events> {
    * @param network
    */
   private async handlePendingTransaction(
-    transaction: PendingQuaiTransactionLike,
+    transaction: PendingQuaiTransaction,
     network: NetworkInterfaceGA
   ): Promise<void> {
     try {
@@ -1489,7 +1462,7 @@ export default class ChainService extends BaseService<Events> {
    */
   private async subscribeToTransactionConfirmation(
     network: NetworkInterfaceGA,
-    transaction: PendingQuaiTransactionLike
+    transaction: PendingQuaiTransaction
   ): Promise<void> {
     const provider = this.currentProvider.jsonRpc
     provider?.once(transaction.hash, (receipt: TransactionReceipt) => {

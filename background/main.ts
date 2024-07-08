@@ -23,7 +23,7 @@ import {
   TelemetryService,
 } from "./services"
 import { HexString, KeyringTypes } from "./types"
-import { ChainIdWithError, SignedTransactionGA } from "./networks"
+import { ChainIdWithError } from "./networks"
 import {
   AccountSignerWithId,
   AccountBalance,
@@ -111,7 +111,7 @@ import {
   initializeActivitiesForAccount,
   removeActivities,
 } from "./redux-slices/activities"
-import { selectActivitesHashesForEnrichment } from "./redux-slices/selectors"
+import { selectActivitiesHashesForEnrichment } from "./redux-slices/selectors"
 import { getActivityDetails } from "./redux-slices/utils/activities-utils"
 import { getRelevantTransactionAddresses } from "./services/enrichment/utils"
 import { AnalyticsPreferences } from "./services/preferences/types"
@@ -693,45 +693,36 @@ export default class Main extends BaseService<never> {
     this.nameService.removeAccount(address)
   }
 
-  async getAccountEthBalanceUncached(
-    addressNetwork: AddressOnNetwork
-  ): Promise<bigint> {
-    const accountBalance = await this.chainService.getLatestBaseAccountBalance(
-      addressNetwork
-    )
-
-    return accountBalance.assetAmount.amount
-  }
-
   async enrichActivitiesForSelectedAccount(): Promise<void> {
-    const addressNetwork = this.store.getState().ui.selectedAccount
-    if (addressNetwork) {
-      await this.enrichActivities(addressNetwork)
-    }
+    await this.enrichActivities()
   }
 
-  async enrichActivities(addressNetwork: AddressOnNetwork): Promise<void> {
-    const activitiesToEnrich = selectActivitesHashesForEnrichment(
+  // TODO delete unused function param
+  async enrichActivities(): Promise<void> {
+    const activitiesToEnrich = selectActivitiesHashesForEnrichment(
       this.store.getState()
     )
+
     // This a mint if the from address is '0x0000000000000000000000000000000000000000' and we enrich it as an ITX
-    activitiesToEnrich.forEach(async ({ hash: txHash, status, to, from }) => {
-      // Enrich ETX or ITX
-      if (
-        to &&
-        getExtendedZoneForAddress(to, false) !==
-          getExtendedZoneForAddress(from, false) &&
-        from !== "0x0000000000000000000000000000000000000000"
-      ) {
-        await this.enrichETXActivity(txHash, status)
-      } else {
-        await this.enrichITXActivity(addressNetwork, txHash, status)
-      }
-    })
+    await Promise.all(
+      activitiesToEnrich.map(async (activity) => {
+        const { hash: txHash, status, to, from } = activity
+
+        if (
+          to &&
+          getExtendedZoneForAddress(to, false) !==
+            getExtendedZoneForAddress(from, false) &&
+          from !== "0x0000000000000000000000000000000000000000"
+        ) {
+          await this.enrichETXActivity(txHash, status)
+        } else {
+          await this.enrichITXActivity(txHash, status)
+        }
+      })
+    )
   }
 
   async enrichITXActivity(
-    addressNetwork: AddressOnNetwork,
     txHash: HexString,
     status: number | undefined
   ): Promise<void> {
@@ -810,14 +801,6 @@ export default class Main extends BaseService<never> {
       this.store.dispatch(initializeActivities(payload))
       await this.enrichActivitiesForSelectedAccount()
 
-      this.chainService.emitter.on(
-        "initializeActivitiesForAccount",
-        async (payloadForAccount) => {
-          this.store.dispatch(initializeActivitiesForAccount(payloadForAccount))
-          await this.enrichActivitiesForSelectedAccount()
-        }
-      )
-
       // Set up initial state.
       const existingAccounts = await this.chainService.getAccountsToTrack()
       existingAccounts.forEach(async (addressNetwork) => {
@@ -827,6 +810,14 @@ export default class Main extends BaseService<never> {
         this.chainService.getLatestBaseAccountBalance(addressNetwork)
       })
     })
+
+    this.chainService.emitter.on(
+      "initializeActivitiesForAccount",
+      async (payloadForAccount) => {
+        this.store.dispatch(initializeActivitiesForAccount(payloadForAccount))
+        await this.enrichActivitiesForSelectedAccount()
+      }
+    )
 
     // Wire up chain service to account slice.
     this.chainService.emitter.on(
@@ -874,7 +865,7 @@ export default class Main extends BaseService<never> {
 
     transactionConstructionSliceEmitter.on(
       "broadcastSignedTransaction",
-      async (transaction: SignedTransactionGA) => {
+      async (transaction: QuaiTransaction) => {
         await this.chainService.broadcastQuaiTransaction(transaction)
       }
     )
@@ -1519,9 +1510,9 @@ export default class Main extends BaseService<never> {
       )
     })
 
-    uiSliceEmitter.on("newSelectedAccountSwitched", async (addressNetwork) => {
-      this.enrichActivities(addressNetwork)
-    })
+    uiSliceEmitter.on("newSelectedAccountSwitched", async () =>
+      this.enrichActivities()
+    )
 
     uiSliceEmitter.on(
       "newDefaultWalletValue",

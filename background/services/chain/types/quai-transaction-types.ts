@@ -1,7 +1,8 @@
 import { TransactionReceiptParams } from "quais"
+import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
 import { QuaiTransactionLike } from "quais/lib/commonjs/transaction/quai-transaction"
 import { QuaiTransactionResponseParams } from "quais/lib/commonjs/providers/formatting"
-import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
+
 import { TransactionAnnotation } from "../../enrichment"
 import { NetworkInterfaceGA } from "../../../constants/networks/networkTypes"
 
@@ -11,29 +12,29 @@ export enum QuaiTransactionStatus {
   CONFIRMED = 2,
 }
 
-export type FailedQuaiTransactionLike = QuaiTransactionLike & {
+export type FailedQuaiTransaction = QuaiTransactionLike & {
   status: QuaiTransactionStatus.FAILED
   error?: string
   blockHash: null
   blockHeight: null
 }
 
-export type ConfirmedQuaiTransactionLike = QuaiTransactionLike &
+export type ConfirmedQuaiTransaction = QuaiTransactionLike &
   TransactionReceiptParams & {
     status: QuaiTransactionStatus.CONFIRMED
   }
 
-export type PendingQuaiTransactionLike = QuaiTransactionLike &
+export type PendingQuaiTransaction = QuaiTransactionLike &
   QuaiTransactionResponseParams & {
     status: QuaiTransactionStatus.PENDING
   }
 
-export type QuaiTransactionGeneral =
-  | FailedQuaiTransactionLike
-  | ConfirmedQuaiTransactionLike
-  | PendingQuaiTransactionLike
+export type QuaiTransactionState =
+  | FailedQuaiTransaction
+  | ConfirmedQuaiTransaction
+  | PendingQuaiTransaction
 
-export type QuaiTransactionGeneralWithAnnotation = QuaiTransactionGeneral & {
+export type EnrichedQuaiTransaction = QuaiTransactionState & {
   annotation?: TransactionAnnotation
   network: NetworkInterfaceGA
 }

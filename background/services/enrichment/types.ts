@@ -1,7 +1,6 @@
 import { AnyAssetAmount, SmartContractFungibleAsset } from "../../assets"
 import { AccountBalance, AddressOnNetwork } from "../../accounts"
 import {
-  AnyEVMTransaction,
   EIP1559TransactionRequest,
   LegacyEVMTransactionRequest,
 } from "../../networks"
@@ -10,11 +9,6 @@ import { UNIXTime } from "../../types"
 import { SignTypedDataRequest } from "../../utils/signing"
 import { ResolvedNameRecord } from "../name"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
-import {
-  ConfirmedQuaiTransactionLike,
-  FailedQuaiTransactionLike,
-  PendingQuaiTransactionLike,
-} from "../chain/types"
 
 export type BaseTransactionAnnotation = {
   /**
@@ -88,17 +82,6 @@ export type TransactionAnnotation =
 
 // ---------------------------------------------------------
 
-export type EnrichedEVMTransaction =
-  | (ConfirmedQuaiTransactionLike & {
-      annotation?: TransactionAnnotation
-    })
-  | (PendingQuaiTransactionLike & {
-      annotation?: TransactionAnnotation
-    })
-  | (FailedQuaiTransactionLike & {
-      annotation?: TransactionAnnotation
-    })
-
 export type EnrichedEVMTransactionSignatureRequest =
   | EnrichedEIP1559TransactionSignatureRequest
   | EnrichedLegacyTransactionSignatureRequest
@@ -128,22 +111,6 @@ export type EnrichedLegacyTransactionRequest = LegacyEVMTransactionRequest & {
 export type EnrichedEVMTransactionRequest =
   | EnrichedEIP1559TransactionRequest
   | EnrichedLegacyTransactionRequest
-
-type PartialEIP1559TransactionRequestWithFrom =
-  | Partial<EIP1559TransactionRequest> & {
-      from: string
-      network: NetworkInterfaceGA
-    }
-
-type PartialLegacyEVMTransactionRequestWithFrom =
-  | Partial<LegacyEVMTransactionRequest> & {
-      from: string
-      network: NetworkInterfaceGA
-    }
-
-export type PartialTransactionRequestWithFrom =
-  | PartialEIP1559TransactionRequestWithFrom
-  | PartialLegacyEVMTransactionRequestWithFrom
 
 export type TypedDataField = {
   value: string

@@ -16,8 +16,10 @@ import {
   INFINITE_VALUE,
 } from "./utils/activities-utils"
 import { getExtendedZoneForAddress } from "../services/chain/utils"
-import { QuaiTransactionGeneralWithAnnotation } from "../services/chain/types"
-import { QuaiTransaction } from "../services/chain/db"
+import {
+  EnrichedQuaiTransaction,
+  QuaiTransactionState,
+} from "../services/chain/types"
 
 export { Activity, ActivityDetail, INFINITE_VALUE }
 export type Activities = {
@@ -28,6 +30,10 @@ export type Activities = {
 
 type ActivitiesState = {
   activities: Activities
+}
+
+const initialState: ActivitiesState = {
+  activities: {},
 }
 
 const ACTIVITIES_MAX_COUNT = 25
@@ -42,14 +48,14 @@ const addActivityToState =
   async (
     address: string,
     chainID: string,
-    transaction: QuaiTransaction | EnrichedEVMTransaction
+    transaction: QuaiTransactionState | EnrichedQuaiTransaction
   ) => {
     const isEtx =
       transaction.to &&
       transaction.from &&
       getExtendedZoneForAddress(transaction.from, false) !==
         getExtendedZoneForAddress(transaction.to, false)
-    // Don't add TX if it's an ETX and it's not from the null address, this will lead to duplicate transactions
+    // Don't add TX if it's an ETX, and it's not from the null address, this will lead to duplicate transactions
     // Example: 0xCyprus1 -> 0xCyprus2 (TX1) generates an ITX on Cyprus2 which is 0x00000 -> 0xCyprus2 (TX2)
     // 0xCyprus1 Activities: TX1
     // 0xCyprus2 Activities: TX1, TX2
@@ -60,23 +66,23 @@ const addActivityToState =
         transaction.from,
         "0x0000000000000000000000000000000000000000"
       )
-    )
+    ) {
       return
+    }
 
     const activity = await getActivity(transaction)
-    const normalizedAddress = address
 
-    activities[normalizedAddress] ??= {}
-    activities[normalizedAddress][chainID] ??= []
+    activities[address] ??= {}
+    activities[address][chainID] ??= []
 
-    const exisistingIndex = activities[normalizedAddress][chainID].findIndex(
+    const existingIndex = activities[address][chainID].findIndex(
       (tx) => tx.hash === transaction.hash
     )
 
-    if (exisistingIndex !== -1) {
-      activities[normalizedAddress][chainID][exisistingIndex] = activity
+    if (existingIndex !== -1) {
+      activities[address][chainID][existingIndex] = activity
     } else {
-      activities[normalizedAddress][chainID].push(activity)
+      activities[address][chainID].push(activity)
     }
   }
 
@@ -84,7 +90,7 @@ const initializeActivitiesFromTransactions = ({
   transactions,
   accounts,
 }: {
-  transactions: QuaiTransaction[]
+  transactions: QuaiTransactionState[]
   accounts: AddressOnNetwork[]
 }): Activities => {
   const activities: {
@@ -131,10 +137,6 @@ const initializeActivitiesFromTransactions = ({
   return activities
 }
 
-const initialState: ActivitiesState = {
-  activities: {},
-}
-
 const activitiesSlice = createSlice({
   name: "activities",
   initialState,
@@ -145,7 +147,7 @@ const activitiesSlice = createSlice({
         payload,
       }: {
         payload: {
-          transactions: QuaiTransaction[]
+          transactions: QuaiTransactionState[]
           accounts: AddressOnNetwork[]
         }
       }
@@ -157,7 +159,10 @@ const activitiesSlice = createSlice({
       {
         payload: { transactions, account },
       }: {
-        payload: { transactions: QuaiTransaction[]; account: AddressOnNetwork }
+        payload: {
+          transactions: QuaiTransactionState[]
+          account: AddressOnNetwork
+        }
       }
     ) => {
       const {
@@ -181,13 +186,14 @@ const activitiesSlice = createSlice({
         payload: { transaction, forAccounts },
       }: {
         payload: {
-          transaction: QuaiTransactionGeneralWithAnnotation
+          transaction: EnrichedQuaiTransaction
           forAccounts: string[]
         }
       }
     ) => {
       const { chainId } = transaction
       if (!chainId) throw new Error("Failed het chainId from transaction")
+
       forAccounts.forEach((address) => {
         addActivityToState(immerState.activities)(
           address,
@@ -209,14 +215,14 @@ export const {
   initializeActivitiesForAccount,
 } = activitiesSlice.actions
 
+export default activitiesSlice.reducer
+
 export const removeAccountActivities = createBackgroundAsyncThunk(
   "activities/removeAccountActivities",
   async (payload: HexString, { extra: { main } }) => {
     await main.removeAccountActivity(payload)
   }
 )
-
-export default activitiesSlice.reducer
 
 export const fetchSelectedActivityDetails = createBackgroundAsyncThunk(
   "activities/fetchSelectedActivityDetails",

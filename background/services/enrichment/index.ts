@@ -5,7 +5,6 @@ import NameService from "../name"
 import { ServiceCreatorFunction, ServiceLifecycleEvents } from "../types"
 import BaseService from "../base"
 import {
-  EnrichedEVMTransaction,
   EnrichedEVMTransactionSignatureRequest,
   SignTypedDataAnnotation,
   EnrichedSignTypedDataRequest,
@@ -17,20 +16,13 @@ import {
   isEIP2612TypedData,
 } from "./utils"
 import resolveTransactionAnnotation from "./transactions"
-import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
-import {
-  ConfirmedQuaiTransactionLike,
-  FailedQuaiTransactionLike,
-  PendingQuaiTransactionLike,
-  QuaiTransactionGeneral,
-  QuaiTransactionGeneralWithAnnotation,
-} from "../chain/types"
+import { QuaiTransactionState, EnrichedQuaiTransaction } from "../chain/types"
 
 export * from "./types"
 
 interface Events extends ServiceLifecycleEvents {
   enrichedEVMTransaction: {
-    transaction: QuaiTransactionGeneralWithAnnotation
+    transaction: EnrichedQuaiTransaction
     forAccounts: string[]
   }
   enrichedEVMTransactionSignatureRequest: EnrichedEVMTransactionSignatureRequest
@@ -96,30 +88,6 @@ export default class EnrichmentService extends BaseService<Events> {
     })
   }
 
-  async enrichTransactionSignature(
-    network: NetworkInterfaceGA,
-    transaction:
-      | ConfirmedQuaiTransactionLike
-      | FailedQuaiTransactionLike
-      | PendingQuaiTransactionLike,
-    desiredDecimals: number
-  ): Promise<EnrichedEVMTransaction> {
-    const enrichedTxSignatureRequest = {
-      ...transaction,
-      network,
-      annotation: await resolveTransactionAnnotation(
-        this.chainService,
-        this.indexingService,
-        this.nameService,
-        network,
-        transaction,
-        desiredDecimals
-      ),
-    }
-
-    return enrichedTxSignatureRequest
-  }
-
   async enrichSignTypedDataRequest(
     signTypedDataRequest: SignTypedDataRequest
   ): Promise<EnrichedSignTypedDataRequest> {
@@ -148,14 +116,14 @@ export default class EnrichmentService extends BaseService<Events> {
   }
 
   async enrichTransaction(
-    transaction: QuaiTransactionGeneral,
+    transaction: QuaiTransactionState,
     desiredDecimals: number
-  ): Promise<QuaiTransactionGeneralWithAnnotation> {
+  ): Promise<EnrichedQuaiTransaction> {
     const network = globalThis.main.chainService.supportedNetworks.find(
       (net) => toBigInt(net.chainID) === toBigInt(transaction.chainId ?? 0)
     )
-
     if (!network) throw new Error("Failed find network in enrichTransaction")
+
     return {
       ...transaction,
       annotation: await resolveTransactionAnnotation(

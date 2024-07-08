@@ -7,10 +7,11 @@ import { BASE_ASSETS } from "../../constants"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
 import { NetworksArray } from "../../constants/networks/networks"
 import {
-  PendingQuaiTransactionLike,
-  ConfirmedQuaiTransactionLike,
-  FailedQuaiTransactionLike,
+  PendingQuaiTransaction,
+  ConfirmedQuaiTransaction,
+  FailedQuaiTransaction,
   QuaiTransactionStatus,
+  QuaiTransactionState,
 } from "./types"
 
 type AdditionalTransactionFieldsForDB = {
@@ -18,10 +19,10 @@ type AdditionalTransactionFieldsForDB = {
   firstSeen: UNIXTime
 }
 
-export type QuaiTransaction =
-  | (PendingQuaiTransactionLike & AdditionalTransactionFieldsForDB)
-  | (ConfirmedQuaiTransactionLike & AdditionalTransactionFieldsForDB)
-  | (FailedQuaiTransactionLike & AdditionalTransactionFieldsForDB)
+export type QuaiTransactionDBEntry =
+  | (PendingQuaiTransaction & AdditionalTransactionFieldsForDB)
+  | (ConfirmedQuaiTransaction & AdditionalTransactionFieldsForDB)
+  | (FailedQuaiTransaction & AdditionalTransactionFieldsForDB)
 
 type AccountAssetTransferLookup = {
   addressNetwork: AddressOnNetwork
@@ -65,7 +66,10 @@ export class ChainDatabase extends Dexie {
    *
    * Keyed by the [transaction hash, network chainID] pair.
    */
-  private quaiTransactions!: Dexie.Table<QuaiTransaction, [string, string]>
+  private quaiTransactions!: Dexie.Table<
+    QuaiTransactionDBEntry,
+    [string, string]
+  >
 
   /*
    * Historic account balances.
@@ -332,7 +336,7 @@ export class ChainDatabase extends Dexie {
 
   /** TRANSACTIONS */
 
-  async getAllQuaiTransactions(): Promise<QuaiTransaction[]> {
+  async getAllQuaiTransactions(): Promise<QuaiTransactionDBEntry[]> {
     return this.quaiTransactions.toArray()
   }
 
@@ -342,7 +346,7 @@ export class ChainDatabase extends Dexie {
 
   async getQuaiTransactionByHash(
     txHash: string | null | undefined
-  ): Promise<QuaiTransaction | null> {
+  ): Promise<QuaiTransactionDBEntry | null> {
     if (!txHash) return null
 
     return (
@@ -354,7 +358,7 @@ export class ChainDatabase extends Dexie {
 
   async getQuaiTransactionsByNetwork(
     network: NetworkInterfaceGA
-  ): Promise<QuaiTransaction[]> {
+  ): Promise<QuaiTransactionDBEntry[]> {
     const transactions = this.quaiTransactions
       .where("[network.chainID]")
       .equals([network.chainID])
@@ -365,7 +369,7 @@ export class ChainDatabase extends Dexie {
   async getQuaiTransactionsByStatus(
     network: NetworkInterfaceGA,
     status: QuaiTransactionStatus
-  ): Promise<QuaiTransaction[]> {
+  ): Promise<QuaiTransactionDBEntry[]> {
     const transactions = this.quaiTransactions
       .where("[network.chainID+status]")
       .equals([network.chainID, status])
@@ -374,17 +378,11 @@ export class ChainDatabase extends Dexie {
   }
 
   async addOrUpdateQuaiTransaction(
-    tx:
-      | ConfirmedQuaiTransactionLike
-      | PendingQuaiTransactionLike
-      | FailedQuaiTransactionLike,
-    dataSource: QuaiTransaction["dataSource"]
+    tx: QuaiTransactionState,
+    dataSource: QuaiTransactionDBEntry["dataSource"]
   ): Promise<void> {
     const existingTx = await this.getQuaiTransactionByHash(tx.hash)
-    const updatedTx = { ...tx, ...existingTx } as
-      | ConfirmedQuaiTransactionLike
-      | PendingQuaiTransactionLike
-      | FailedQuaiTransactionLike
+    const updatedTx = { ...tx, ...existingTx } as QuaiTransactionState
 
     if (!existingTx || !updatedTx)
       throw new Error("Failed get quai transaction by hash from DB")
