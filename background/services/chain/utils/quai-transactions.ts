@@ -2,16 +2,16 @@ import { TransactionReceiptParams } from "quais"
 import { QuaiTransactionResponse } from "quais/lib/commonjs/providers"
 import { QuaiTransactionLike } from "quais/lib/commonjs/transaction/quai-transaction"
 import {
-  ConfirmedQuaiTransactionLike,
-  FailedQuaiTransactionLike,
-  PendingQuaiTransactionLike,
+  ConfirmedQuaiTransaction,
+  FailedQuaiTransaction,
+  PendingQuaiTransaction,
   QuaiTransactionStatus,
 } from "../types"
 
 export const createFailedQuaiTransaction = (
   transaction: QuaiTransactionLike,
   error?: string
-): FailedQuaiTransactionLike => {
+): FailedQuaiTransaction => {
   return {
     ...transaction,
     status: QuaiTransactionStatus.FAILED,
@@ -24,7 +24,7 @@ export const createFailedQuaiTransaction = (
 export const createConfirmedQuaiTransaction = (
   transaction: QuaiTransactionLike,
   receipt: TransactionReceiptParams
-): ConfirmedQuaiTransactionLike => {
+): ConfirmedQuaiTransaction => {
   const {
     nonce,
     gasLimit,
@@ -52,7 +52,7 @@ export const createConfirmedQuaiTransaction = (
 
 export const createPendingQuaiTransaction = (
   responseParams: QuaiTransactionResponse
-): PendingQuaiTransactionLike => {
+): PendingQuaiTransaction => {
   return {
     ...responseParams,
     status: QuaiTransactionStatus.PENDING,

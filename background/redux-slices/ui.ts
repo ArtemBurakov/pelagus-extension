@@ -58,7 +58,7 @@ export type Events = {
   refreshBackgroundPage: null
   sendEvent: AnalyticsEvent | OneTimeAnalyticsEvent
   newSelectedAccount: AddressOnNetwork
-  newSelectedAccountSwitched: AddressOnNetwork
+  newSelectedAccountSwitched: never
   userActivityEncountered: AddressOnNetwork
   newSelectedNetwork: NetworkInterfaceGA
   updateAnalyticsPreferences: Partial<AnalyticsPreferences>
@@ -325,7 +325,7 @@ export const setNewSelectedAccount = createBackgroundAsyncThunk(
     // Once the default value has persisted, propagate to the store.
     dispatch(uiSlice.actions.setSelectedAccount(addressNetwork))
     // Do async work needed after the account is switched
-    await emitter.emit("newSelectedAccountSwitched", addressNetwork)
+    await emitter.emit("newSelectedAccountSwitched")
   }
 )
 

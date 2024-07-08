@@ -1,14 +1,13 @@
 import { Transaction } from "@quais/transactions"
-import { QuaiTransaction } from "quais"
 import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
 import { ChainData, Slip44CoinType } from "./constants"
 import { HexString, UNIXTime } from "./types"
 import type { FungibleAsset } from "./assets"
 import { NetworkInterfaceGA } from "./constants/networks/networkTypes"
 import {
-  ConfirmedQuaiTransactionLike,
-  FailedQuaiTransactionLike,
-  PendingQuaiTransactionLike,
+  ConfirmedQuaiTransaction,
+  FailedQuaiTransaction,
+  PendingQuaiTransaction,
 } from "./services/chain/types"
 
 /**
@@ -226,12 +225,11 @@ export type EIP1559TransactionRequest = Pick<
   nonce?: number
 }
 
-export type TransactionRequestGA = QuaiTransactionRequest // TODO-MIGRATION
-
 export type TransactionRequest =
   | EIP1559TransactionRequest
   | LegacyEVMTransactionRequest
 
+// TODO-MIGRATION remove
 export type TransactionRequestWithNonce = TransactionRequest & { nonce: number }
 
 /**
@@ -298,8 +296,6 @@ export type SignedLegacyEVMTransaction = LegacyEVMTransaction & {
   s: string
   v: number
 }
-
-export type SignedTransactionGA = QuaiTransaction // TODO-MIGRATION
 
 export type SignedTransaction =
   | SignedEIP1559Transaction
@@ -385,21 +381,13 @@ export function toHexChainID(chainID: string | number): string {
 
 // There is probably some clever way to combine the following type guards into one function
 export const isEIP1559TransactionRequest = (
-  transactionRequest:
-    | ConfirmedQuaiTransactionLike
-    | PendingQuaiTransactionLike
-    | FailedQuaiTransactionLike
+  transactionRequest: // TODO-MIGRATION we don`t need this in future - remove
+  | ConfirmedQuaiTransaction
+    | PendingQuaiTransaction
+    | FailedQuaiTransaction
     | QuaiTransactionRequest
 ): transactionRequest is EIP1559TransactionRequest =>
   "maxFeePerGas" in transactionRequest &&
   transactionRequest.maxFeePerGas !== null &&
   "maxPriorityFeePerGas" in transactionRequest &&
   transactionRequest.maxPriorityFeePerGas !== null
-
-export const isEIP1559SignedTransaction = (
-  signedTransaction: SignedTransaction
-): signedTransaction is SignedEIP1559Transaction =>
-  "maxFeePerGas" in signedTransaction &&
-  "maxPriorityFeePerGas" in signedTransaction &&
-  signedTransaction.maxFeePerGas !== null &&
-  signedTransaction.maxPriorityFeePerGas !== null

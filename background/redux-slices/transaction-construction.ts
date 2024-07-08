@@ -2,13 +2,13 @@ import { createSlice } from "@reduxjs/toolkit"
 import Emittery from "emittery"
 import { QuaiTransactionLike } from "quais/lib/commonjs/transaction"
 import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
+import { QuaiTransaction } from "quais"
 import { EXPRESS, INSTANT, MAX_FEE_MULTIPLIER, REGULAR } from "../constants"
 import {
   BlockEstimate,
   BlockPrices,
   isEIP1559TransactionRequest,
   SignedTransaction,
-  SignedTransactionGA,
 } from "../networks"
 import { createBackgroundAsyncThunk } from "./utils"
 import { SignOperation } from "./signing"
@@ -85,7 +85,7 @@ export type Events = {
   }
   requestSignature: SignOperation<QuaiTransactionRequestWithAnnotation>
   signatureRejected: never
-  broadcastSignedTransaction: SignedTransactionGA
+  broadcastSignedTransaction: QuaiTransaction
   signedTransactionResult: SignedTransaction
 }
 
@@ -325,7 +325,7 @@ export default transactionSlice.reducer
 
 export const transactionSigned = createBackgroundAsyncThunk(
   "transaction-construction/transaction-signed",
-  async (transaction: SignedTransactionGA, { dispatch, getState }) => {
+  async (transaction: QuaiTransaction, { dispatch, getState }) => {
     dispatch(signed(JSON.stringify(transaction)))
 
     const { transactionConstruction } = getState() as {

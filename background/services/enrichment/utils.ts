@@ -1,18 +1,13 @@
-import { EIP2612SignTypedDataAnnotation, EnrichedEVMTransaction } from "./types"
+import dayjs from "dayjs"
+import { EIP2612SignTypedDataAnnotation } from "./types"
 import { EIP712TypedData, HexString } from "../../types"
 import { EIP2612TypedData } from "../../utils/signing"
 import { ERC20TransferLog } from "../../lib/erc20"
 import { sameEVMAddress } from "../../lib/utils"
 import { AddressOnNetwork } from "../../accounts"
-import dayjs from "dayjs"
 import { SmartContractFungibleAsset } from "../../assets"
 import { getExtendedZoneForAddress } from "../chain/utils"
-import {
-  ConfirmedQuaiTransactionLike,
-  FailedQuaiTransactionLike,
-  PendingQuaiTransactionLike,
-  QuaiTransactionGeneralWithAnnotation,
-} from "../chain/types"
+import { EnrichedQuaiTransaction, QuaiTransactionState } from "../chain/types"
 
 export function isEIP2612TypedData(
   typedData: EIP712TypedData
@@ -83,10 +78,16 @@ export const getERC20LogsForAddresses = (
   )
 }
 
-export function getRecipient(transaction: EnrichedEVMTransaction): {
+export function getRecipient(
+  transaction: QuaiTransactionState | EnrichedQuaiTransaction
+): {
   address?: HexString
   name?: string
 } {
+  if (!("annotation" in transaction)) {
+    return { address: transaction.from }
+  }
+
   const { annotation } = transaction
 
   switch (annotation?.type) {
@@ -113,10 +114,16 @@ export function getRecipient(transaction: EnrichedEVMTransaction): {
   }
 }
 
-export function getSender(transaction: EnrichedEVMTransaction): {
+export function getSender(
+  transaction: QuaiTransactionState | EnrichedQuaiTransaction
+): {
   address?: HexString
   name?: string
 } {
+  if (!("annotation" in transaction)) {
+    return { address: transaction.from }
+  }
+
   const { annotation } = transaction
 
   switch (annotation?.type) {
@@ -132,7 +139,7 @@ export function getSender(transaction: EnrichedEVMTransaction): {
 }
 
 export function getRelevantTransactionAddresses(
-  transaction: QuaiTransactionGeneralWithAnnotation,
+  transaction: QuaiTransactionState | EnrichedQuaiTransaction,
   trackedAccounts: AddressOnNetwork[]
 ): string[] {
   const { address: recipientAddress } = getRecipient(transaction)

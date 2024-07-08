@@ -1,4 +1,5 @@
 import { QuaiTransaction } from "quais"
+import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
 import KeyringService from "../keyring"
 import { EIP712TypedData, HexString } from "../../types"
 import BaseService from "../base"
@@ -7,7 +8,6 @@ import ChainService from "../chain"
 import { AddressOnNetwork } from "../../accounts"
 import { assertUnreachable } from "../../lib/utils/type-guards"
 import { KeyringAccountSigner, PrivateKeyAccountSigner } from "../keyring/types"
-import { SignedTransactionGA, TransactionRequestGA } from "../../networks"
 
 type SigningErrorReason = "userRejected" | "genericError"
 type ErrorResponse = {
@@ -18,7 +18,7 @@ type ErrorResponse = {
 export type SignTransactionResponse =
   | {
       type: "success-tx"
-      signedTx: SignedTransactionGA
+      signedTx: QuaiTransaction
     }
   | ErrorResponse
 
@@ -125,9 +125,9 @@ export default class SigningService extends BaseService<Events> {
 
   /// /////////////////////////////////////////Sign Methods////////////////////////////////////////////
   async signTransaction(
-    transactionRequest: TransactionRequestGA,
+    transactionRequest: QuaiTransactionRequest,
     accountSigner: AccountSigner
-  ): Promise<SignedTransactionGA> {
+  ): Promise<QuaiTransaction> {
     try {
       let signedTransactionString = ""
       switch (accountSigner.type) {

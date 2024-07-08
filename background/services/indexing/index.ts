@@ -1,3 +1,4 @@
+import { toBigInt } from "quais"
 import logger from "../../lib/logger"
 import { HexString } from "../../types"
 import { sameNetwork } from "../../networks"
@@ -22,14 +23,12 @@ import ChainService from "../chain"
 import { ServiceCreatorFunction, ServiceLifecycleEvents } from "../types"
 import { CustomAsset, getOrCreateDb, IndexingDatabase } from "./db"
 import BaseService from "../base"
-import { EnrichedEVMTransaction } from "../enrichment"
 import { sameEVMAddress } from "../../lib/utils"
 import { getExtendedZoneForAddress } from "../chain/utils"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
 import { isQuaiHandle } from "../../constants/networks/networkUtils"
 import { NetworksArray } from "../../constants/networks/networks"
-import { toBigInt } from "quais"
-import { QuaiTransactionGeneralWithAnnotation } from "../chain/types"
+import { EnrichedQuaiTransaction } from "../chain/types"
 
 // Transactions seen within this many blocks of the chain tip will schedule a
 // token refresh sooner than the standard rate.
@@ -260,7 +259,7 @@ export default class IndexingService extends BaseService<Events> {
   }
 
   notifyEnrichedTransaction(
-    enrichedEVMTransaction: QuaiTransactionGeneralWithAnnotation
+    enrichedEVMTransaction: EnrichedQuaiTransaction
   ): void {
     const network = globalThis.main.chainService.supportedNetworks.find(
       (net) =>
