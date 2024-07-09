@@ -11,7 +11,6 @@ import {
   createLegacyTransactionRequest,
 } from "../../../tests/factories"
 import { ChainDatabase } from "../db"
-import SerialFallbackProvider from "../serial-fallback-provider"
 import {
   NetworksArray,
   QuaiNetworkGA,
@@ -56,25 +55,18 @@ describe("ChainService", () => {
       const chainServiceInstance =
         (await createChainService()) as unknown as ChainServiceExternalized
 
-      const initialize = sandbox.spy(chainServiceInstance.db, "initialize")
-
       const initializeBaseAssets = sandbox.spy(
         chainServiceInstance.db,
         "initializeBaseAssets"
       )
-      const initializeRPCs = sandbox.spy(
+      const initializeNetworks = sandbox.spy(
         chainServiceInstance.db,
-        "initializeRPCs"
-      )
-      const initializeEVMNetworks = sandbox.spy(
-        chainServiceInstance.db,
-        "initializeEVMNetworks"
+        "initializeNetworks"
       )
 
       await chainServiceInstance.internalStartService()
 
-      expect(initializeBaseAssets.calledBefore(initializeRPCs)).toBe(true)
-      expect(initializeRPCs.calledBefore(initializeEVMNetworks)).toBe(true)
+      expect(initializeBaseAssets.calledBefore(initializeNetworks)).toBe(true)
     })
   })
 
@@ -181,10 +173,7 @@ describe("ChainService", () => {
 
     // Transaction should be persisted to the db
     expect(
-      await chainServiceExternalized.getTransaction(
-        QuaiNetworkGA,
-        validQuaiTransaction.hash
-      )
+      await chainServiceExternalized.getTransaction(validQuaiTransaction.hash)
     ).toBeTruthy()
   })
 
@@ -373,10 +362,6 @@ describe("ChainService", () => {
         chainID
       ][from] = LAST_SEEN_NONCE
 
-      await chainServiceExternalized.releaseEVMTransactionNonce(
-        transactionRequest
-      )
-
       expect(
         chainServiceExternalized.evmChainLastSeenNoncesByNormalizedAddress[
           chainID
@@ -404,10 +389,6 @@ describe("ChainService", () => {
       chainServiceExternalized.evmChainLastSeenNoncesByNormalizedAddress[
         chainID
       ][from] = LAST_SEEN_NONCE
-
-      await chainServiceExternalized.releaseEVMTransactionNonce(
-        transactionRequest
-      )
 
       expect(
         chainServiceExternalized.evmChainLastSeenNoncesByNormalizedAddress[

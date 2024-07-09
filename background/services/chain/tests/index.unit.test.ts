@@ -13,10 +13,6 @@ import {
   createTransactionsToRetrieve,
 } from "../../../tests/factories"
 import { UNIXTime } from "../../../types"
-import {
-  EnrichedEIP1559TransactionSignatureRequest,
-  EnrichedLegacyTransactionSignatureRequest,
-} from "../../enrichment"
 import { AddressOnNetwork } from "../../../accounts"
 import { NetworkInterfaceGA } from "../../../constants/networks/networkTypes"
 import { QuaiNetworkGA } from "../../../constants/networks/networks"
@@ -60,56 +56,10 @@ describe("Chain Service", () => {
       await chainService.stopService()
     })
 
-    it("should use the correct method to populate EIP1559 Transaction Requests", async () => {
-      const partialTransactionRequest: EnrichedEIP1559TransactionSignatureRequest =
-        {
-          from: "0x0d18b6e68ec588149f2fc20b76ff70b1cfb28882",
-          network: QuaiNetworkGA,
-          nonce: 1,
-          maxPriorityFeePerGas: 1n,
-          maxFeePerGas: 2n,
-        }
-
-      const stub = sandbox.stub(
-        chainService as unknown as ChainServiceExternalized,
-        "populatePartialEIP1559TransactionRequest"
-      )
-
-      await chainService.populatePartialTransactionRequest(
-        QuaiNetworkGA,
-        partialTransactionRequest,
-        { maxFeePerGas: 100n, maxPriorityFeePerGas: 1000n }
-      )
-
-      expect(stub.callCount).toBe(1)
-
-      await chainService.populatePartialTransactionRequest(
-        QuaiNetworkGA,
-        { ...partialTransactionRequest, network: QuaiNetworkGA },
-        { maxFeePerGas: 100n, maxPriorityFeePerGas: 1000n }
-      )
-
-      expect(stub.callCount).toBe(2)
-    })
-
     it("should use the correct method to populate Legacy EVM Transaction Requests", async () => {
-      const partialTransactionRequest: EnrichedLegacyTransactionSignatureRequest =
-        {
-          from: "0x0d18b6e68ec588149f2fc20b76ff70b1cfb28882",
-          network: QuaiNetworkGA,
-          nonce: 1,
-          gasPrice: 1_000n,
-        }
-
       const stub = sandbox.stub(
         chainService as unknown as ChainServiceExternalized,
         "populatePartialLegacyEVMTransactionRequest"
-      )
-
-      await chainService.populatePartialTransactionRequest(
-        QuaiNetworkGA,
-        partialTransactionRequest,
-        { maxFeePerGas: 100n, maxPriorityFeePerGas: 1000n }
       )
 
       expect(stub.callCount).toBe(1)

@@ -1,3 +1,4 @@
+import { toBigInt } from "quais"
 import logger from "../../lib/logger"
 import { HexString } from "../../types"
 import { sameNetwork } from "../../networks"
@@ -22,12 +23,12 @@ import ChainService from "../chain"
 import { ServiceCreatorFunction, ServiceLifecycleEvents } from "../types"
 import { CustomAsset, getOrCreateDb, IndexingDatabase } from "./db"
 import BaseService from "../base"
-import { EnrichedEVMTransaction } from "../enrichment"
 import { sameQuaiAddress } from "../../lib/utils"
 import { getExtendedZoneForAddress } from "../chain/utils"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
 import { isQuaiHandle } from "../../constants/networks/networkUtils"
 import { NetworksArray } from "../../constants/networks/networks"
+import { EnrichedQuaiTransaction } from "../chain/types"
 
 // Transactions seen within this many blocks of the chain tip will schedule a
 // token refresh sooner than the standard rate.
@@ -258,8 +259,16 @@ export default class IndexingService extends BaseService<Events> {
   }
 
   notifyEnrichedTransaction(
-    enrichedEVMTransaction: EnrichedEVMTransaction
+    enrichedEVMTransaction: EnrichedQuaiTransaction
   ): void {
+    const network = globalThis.main.chainService.supportedNetworks.find(
+      (net) =>
+        toBigInt(net.chainID) === toBigInt(enrichedEVMTransaction.chainId ?? 0)
+    )
+
+    if (!network)
+      throw new Error("Failed find a network in notifyEnrichedTransaction")
+
     const jointAnnotations =
       typeof enrichedEVMTransaction.annotation === "undefined"
         ? []
@@ -283,7 +292,7 @@ export default class IndexingService extends BaseService<Events> {
           annotation.recipient.address,
         ].map((address) => ({
           address,
-          network: enrichedEVMTransaction.network,
+          network,
         }))
 
         const trackedAddresesOnNetworks =
@@ -296,18 +305,19 @@ export default class IndexingService extends BaseService<Events> {
         // list) OR the sender is a tracked address.
         const baselineTrustedAsset =
           typeof this.getKnownSmartContractAsset(
-            enrichedEVMTransaction.network,
+            network,
             asset.contractAddress
           ) !== "undefined" ||
           (await this.db.isTrackingAsset(asset)) ||
-          (
-            await this.chainService.filterTrackedAddressesOnNetworks([
-              {
-                address: enrichedEVMTransaction.from,
-                network: enrichedEVMTransaction.network,
-              },
-            ])
-          ).length > 0
+          (enrichedEVMTransaction.from &&
+            (
+              await this.chainService.filterTrackedAddressesOnNetworks([
+                {
+                  address: enrichedEVMTransaction.from,
+                  network,
+                },
+              ])
+            ).length > 0)
 
         if (baselineTrustedAsset) {
           const assetLookups = trackedAddresesOnNetworks.map(
@@ -413,11 +423,20 @@ export default class IndexingService extends BaseService<Events> {
     this.chainService.emitter.on(
       "transaction",
       async ({ transaction, forAccounts }) => {
+        const transactionNetwork =
+          globalThis.main.chainService.supportedNetworks.find(
+            (net) =>
+              toBigInt(net.chainID) === toBigInt(transaction.chainId ?? 0)
+          )
+
+        if (!transactionNetwork)
+          throw new Error("Failed find network for transaction")
         if (
           "status" in transaction &&
           transaction.status === 1 &&
-          transaction.blockHeight >
-            (await this.chainService.getBlockHeight(transaction.network)) -
+          transaction?.blockNumber &&
+          transaction.blockNumber >
+            (await this.chainService.getBlockHeight(transactionNetwork)) -
               FAST_TOKEN_REFRESH_BLOCK_RANGE
         ) {
           this.scheduledTokenRefresh = true
@@ -429,7 +448,7 @@ export default class IndexingService extends BaseService<Events> {
           forAccounts.forEach((accountAddress) => {
             this.chainService.getLatestBaseAccountBalance({
               address: accountAddress,
-              network: transaction.network,
+              network: transactionNetwork,
             })
           })
         }

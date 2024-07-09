@@ -1,7 +1,6 @@
 import { AnyAssetAmount, SmartContractFungibleAsset } from "../../assets"
 import { AccountBalance, AddressOnNetwork } from "../../accounts"
 import {
-  AnyEVMTransaction,
   EIP1559TransactionRequest,
   LegacyEVMTransactionRequest,
 } from "../../networks"
@@ -43,6 +42,8 @@ export type Warning =
   | "approve-eoa"
   | "insufficient-funds"
 
+// ------------------------------------------------------------------------
+
 export type ContractDeployment = BaseTransactionAnnotation & {
   type: "contract-deployment"
 }
@@ -79,9 +80,7 @@ export type TransactionAnnotation =
   | AssetTransfer
   | ExternalTransfer
 
-export type EnrichedEVMTransaction = AnyEVMTransaction & {
-  annotation?: TransactionAnnotation
-}
+// ---------------------------------------------------------
 
 export type EnrichedEVMTransactionSignatureRequest =
   | EnrichedEIP1559TransactionSignatureRequest
@@ -112,22 +111,6 @@ export type EnrichedLegacyTransactionRequest = LegacyEVMTransactionRequest & {
 export type EnrichedEVMTransactionRequest =
   | EnrichedEIP1559TransactionRequest
   | EnrichedLegacyTransactionRequest
-
-type PartialEIP1559TransactionRequestWithFrom =
-  | Partial<EIP1559TransactionRequest> & {
-      from: string
-      network: NetworkInterfaceGA
-    }
-
-type PartialLegacyEVMTransactionRequestWithFrom =
-  | Partial<LegacyEVMTransactionRequest> & {
-      from: string
-      network: NetworkInterfaceGA
-    }
-
-export type PartialTransactionRequestWithFrom =
-  | PartialEIP1559TransactionRequestWithFrom
-  | PartialLegacyEVMTransactionRequestWithFrom
 
 export type TypedDataField = {
   value: string

@@ -1,12 +1,10 @@
 /* eslint-disable no-restricted-syntax */
 /* eslint-disable import/no-cycle */
 // eslint-disable-next-line max-classes-per-file
-import { indexOf } from "lodash"
-import { JsonRpcProvider, Zone } from "quais"
+import { Zone } from "quais"
 import logger from "../lib/logger"
 import { QUAI, QUAI_LOCAL } from "."
 import { EVMNetwork } from "../networks"
-import SerialFallbackProvider from "../services/chain/serial-fallback-provider"
 import { getExtendedZoneForAddress } from "../services/chain/utils"
 import { NetworkInterfaceGA } from "./networks/networkTypes"
 
@@ -93,69 +91,6 @@ export const DEFAULT_QUAI_TESTNET = {
       shard: "hydra-3",
       rpc: "https://rpc.hydra3.colosseum.quaiscan.io",
       blockExplorerUrl: "https://hydra3.colosseum.quaiscan.io",
-    },
-  ],
-} as Network
-
-export const DEFAULT_QUAI_DEVNET = {
-  name: "Garden",
-  chainCode: 994,
-  chainID: 12000,
-  isCustom: false,
-  chains: [
-    {
-      name: "Cyprus One",
-      shard: "cyprus-1",
-      rpc: "https://rpc.cyprus1.garden.quaiscan.io",
-      blockExplorerUrl: "https://cyprus1.garden.quaiscan.io",
-    },
-    {
-      name: "Cyprus Two",
-      shard: "cyprus-2",
-      rpc: "https://rpc.cyprus2.garden.quaiscan.io",
-      blockExplorerUrl: "https://cyprus2.garden.quaiscan.io",
-    },
-    {
-      name: "Cyprus Three",
-      shard: "cyprus-3",
-      rpc: "https://rpc.cyprus3.garden.quaiscan.io",
-      blockExplorerUrl: "https://cyprus3.garden.quaiscan.io",
-    },
-    {
-      name: "Paxos One",
-      shard: "paxos-1",
-      rpc: "https://rpc.paxos1.garden.quaiscan.io",
-      blockExplorerUrl: "https://paxos1.garden.quaiscan.io",
-    },
-    {
-      name: "Paxos Two",
-      shard: "paxos-2",
-      rpc: "https://rpc.paxos2.garden.quaiscan.io",
-      blockExplorerUrl: "https://paxos2.garden.quaiscan.io",
-    },
-    {
-      name: "Paxos Three",
-      shard: "paxos-3",
-      rpc: "https://rpc.paxos3.garden.quaiscan.io",
-      blockExplorerUrl: "https://paxos3.garden.quaiscan.io",
-    },
-    {
-      name: "Hydra One",
-      shard: "hydra-1",
-      rpc: "https://rpc.hydra1.garden.quaiscan.io",
-      blockExplorerUrl: "https://hydra1.garden.quaiscan.io",
-    },
-    {
-      name: "Hydra Two",
-      shard: "hydra-2",
-      rpc: "https://rpc.hydra2.garden.quaiscan.io",
-      blockExplorerUrl: "https://hydra2.garden.quaiscan.io",
-    },
-    {
-      name: "Hydra Three",
-      shard: "hydra-3",
-      rpc: "https://rpc.hydra3.garden.quaiscan.io",
-      blockExplorerUrl: "https://hydra3.garden.quaiscan.io",
     },
   ],
 } as Network
@@ -269,10 +204,6 @@ export const EIP_1559_COMPLIANT_CHAIN_IDS = new Set(
   [QUAI_NETWORK, QUAI_NETWORK_LOCAL].map((network) => network.chainID)
 )
 
-export const CHAINS_WITH_MEMPOOL = new Set(
-  [QUAI_NETWORK, QUAI_NETWORK_LOCAL].map((network) => network.chainID)
-)
-
 export const NETWORK_BY_CHAIN_ID = {
   [QUAI_NETWORK.chainID]: QUAI_NETWORK,
   [QUAI_NETWORK_LOCAL.chainID]: QUAI_NETWORK_LOCAL,
@@ -303,78 +234,6 @@ export class ChainData {
   rpc: string
 
   multicall: string
-}
-
-export const DEFAULT_QUAI_NETWORKS = [
-  DEFAULT_QUAI_TESTNET,
-  DEFAULT_QUAI_DEVNET,
-  DEFAULT_QUAI_LOCAL,
-]
-
-export const CHAIN_ID_TO_RPC_URLS: {
-  [chainId: string]: Array<string> | undefined
-} = {
-  [QUAI_NETWORK.chainID]: [
-    ...DEFAULT_QUAI_TESTNET.chains.map((chain) => chain.rpc),
-  ],
-  [QUAI_NETWORK_LOCAL.chainID]: [
-    ...DEFAULT_QUAI_LOCAL.chains.map((chain) => chain.rpc),
-  ],
-}
-
-export function ShardFromRpcUrl(url: string): string {
-  for (const network of DEFAULT_QUAI_NETWORKS) {
-    for (const chain of network.chains) {
-      if (chain.rpc === url) return chain.shard
-
-      if (
-        new URL(chain.rpc).port === new URL(url).port &&
-        new URL(chain.rpc).port !== ""
-      )
-        return chain.shard
-    }
-  }
-  logger.error(`Unknown shard for rpc url: ${url}`)
-  return ""
-}
-
-export function setProviderForShard(
-  providers: SerialFallbackProvider
-): SerialFallbackProvider {
-  const shard = globalThis.main.SelectedShard
-  if (shard === undefined || shard === "") {
-    globalThis.main.SetCorrectShard()
-    return providers
-  }
-
-  for (const provider of providers.providerCreators) {
-    if (provider.shard !== undefined && provider.shard === shard) {
-      const quaisProvider = provider.creator()
-      if (quaisProvider instanceof JsonRpcProvider) {
-        providers.SetCurrentProvider(
-          quaisProvider,
-          indexOf(providers.providerCreators, provider)
-        )
-        return providers
-      }
-      logger.error("Provider is not a Quais provider")
-    } else if (
-      provider.rpcUrl !== undefined &&
-      ShardFromRpcUrl(provider.rpcUrl) === shard
-    ) {
-      const quaisProvider = provider.creator()
-      if (quaisProvider instanceof JsonRpcProvider) {
-        providers.SetCurrentProvider(
-          quaisProvider,
-          indexOf(providers.providerCreators, provider)
-        )
-        return providers
-      }
-      logger.error("Provider is not a Quais provider")
-    }
-  }
-  logger.error(`No provider found for shard: ${shard}`)
-  return providers
 }
 
 export function ShardToMulticall(
