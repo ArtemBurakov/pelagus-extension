@@ -1,5 +1,5 @@
 // Disable parameter reassign rule to be able to modify the activities object freely
-// that way we can avoid nested object iteration and we can initialize object fields
+// that way we can avoid nested object iteration, and we can initialize object fields
 /* eslint-disable no-param-reassign */
 import { createSlice } from "@reduxjs/toolkit"
 import { AddressOnNetwork } from "../accounts"
