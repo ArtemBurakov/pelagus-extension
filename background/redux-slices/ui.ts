@@ -1,11 +1,13 @@
 import { createSlice, createSelector } from "@reduxjs/toolkit"
 import Emittery from "emittery"
-import { AddressOnNetwork } from "../accounts"
 import { AnalyticsEvent, OneTimeAnalyticsEvent } from "../lib/posthog"
 import { ChainIdWithError } from "../networks"
 import { AnalyticsPreferences } from "../services/preferences/types"
-import { AccountSignerWithId } from "../signing"
-import { AccountSignerSettings } from "../ui"
+import {
+  AddressOnNetwork,
+  AccountSignerWithId,
+  AccountSignerSettings,
+} from "../accounts"
 import { AccountState, addAddressNetwork } from "./accounts"
 import { createBackgroundAsyncThunk } from "./utils"
 import { getExtendedZoneForAddress } from "../services/chain/utils"
@@ -56,7 +58,7 @@ export type Events = {
   refreshBackgroundPage: null
   sendEvent: AnalyticsEvent | OneTimeAnalyticsEvent
   newSelectedAccount: AddressOnNetwork
-  newSelectedAccountSwitched: AddressOnNetwork
+  newSelectedAccountSwitched: never
   userActivityEncountered: AddressOnNetwork
   newSelectedNetwork: NetworkInterfaceGA
   updateAnalyticsPreferences: Partial<AnalyticsPreferences>
@@ -323,7 +325,7 @@ export const setNewSelectedAccount = createBackgroundAsyncThunk(
     // Once the default value has persisted, propagate to the store.
     dispatch(uiSlice.actions.setSelectedAccount(addressNetwork))
     // Do async work needed after the account is switched
-    await emitter.emit("newSelectedAccountSwitched", addressNetwork)
+    await emitter.emit("newSelectedAccountSwitched")
   }
 )
 

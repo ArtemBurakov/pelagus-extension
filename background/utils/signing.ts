@@ -6,8 +6,7 @@ import {
   toUtf8String,
 } from "quais"
 import { SiweMessage } from "siwe"
-import { AddressOnNetwork } from "../accounts"
-import { AccountSignerWithId } from "../signing"
+import { AddressOnNetwork, AccountSignerWithId } from "../accounts"
 import { EIP191Data, EIP712TypedData, HexString } from "../types"
 
 export interface EIP4361Data {

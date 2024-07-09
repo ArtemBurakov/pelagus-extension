@@ -1,26 +1,16 @@
-import { Shard } from "quais"
+import { LogParams, Shard, toBigInt } from "quais"
+import { AnyEVMBlock, isEIP1559TransactionRequest } from "../../networks"
 import {
-  AnyEVMBlock,
-  AnyEVMTransaction,
-  EVMLog,
-  isEIP1559TransactionRequest,
-} from "../../networks"
-import {
-  SmartContractFungibleAsset,
-  isSmartContractFungibleAsset,
   AnyAsset,
+  isSmartContractFungibleAsset,
+  SmartContractFungibleAsset,
 } from "../../assets"
 import { enrichAssetAmountWithDecimalValues } from "../../redux-slices/utils/asset-utils"
 import { sameQuaiAddress } from "../../lib/utils"
 import ChainService from "../chain"
 import IndexingService from "../indexing"
 import NameService from "../name"
-import {
-  TransactionAnnotation,
-  PartialTransactionRequestWithFrom,
-  EnrichedEVMTransactionRequest,
-  EnrichedAddressOnNetwork,
-} from "./types"
+import { TransactionAnnotation, EnrichedAddressOnNetwork } from "./types"
 import {
   getDistinctRecipentAddressesFromERC20Logs,
   getERC20LogsForAddresses,
@@ -36,6 +26,8 @@ import {
 import { isDefined, isFulfilledPromise } from "../../lib/utils/type-guards"
 import { getExtendedZoneForAddress } from "../chain/utils"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
+import { QuaiTransactionState } from "../chain/types"
+import { NetworksArray } from "../../constants/networks/networks"
 
 async function buildSubannotations(
   chainService: ChainService,
@@ -115,7 +107,7 @@ export async function annotationsFromLogs(
   chainService: ChainService,
   indexingService: IndexingService,
   nameService: NameService,
-  logs: EVMLog[],
+  logs: readonly LogParams[],
   network: NetworkInterfaceGA,
   desiredDecimals: number,
   resolvedTime: number,
@@ -187,44 +179,32 @@ export default async function resolveTransactionAnnotation(
   indexingService: IndexingService,
   nameService: NameService,
   network: NetworkInterfaceGA,
-  transaction:
-    | AnyEVMTransaction
-    | (PartialTransactionRequestWithFrom & {
-        blockHash?: string
-      })
-    | (EnrichedEVMTransactionRequest & {
-        blockHash?: string
-      }),
+  transaction: QuaiTransactionState,
   desiredDecimals: number
 ): Promise<TransactionAnnotation> {
   const assets = await indexingService.getCachedAssets(network)
-  const isExternalTransfer =
-    "type" in transaction &&
-    (transaction.type == 1 || transaction.type == 2) &&
-    "to" in transaction &&
-    transaction.to !== undefined
+  const isExternalTransfer = !!transaction.type && !!transaction.to
   const useDestinationShard = sameQuaiAddress(
     transaction.from,
     "0x0000000000000000000000000000000000000000"
   )
 
-  // By default, annotate all requests as contract interactions, unless they
-  // already carry additional metadata.
-  let txAnnotation: TransactionAnnotation =
-    "annotation" in transaction && transaction.annotation !== undefined
-      ? transaction.annotation
-      : {
-          blockTimestamp: undefined,
-          timestamp: Date.now(),
-          type: "contract-deployment",
-          transactionLogoURL: assets.find(
-            (asset) =>
-              asset.metadata?.logoURL &&
-              asset.symbol === transaction.network.baseAsset.symbol
-          )?.metadata?.logoURL,
-        }
+  let txAnnotation: TransactionAnnotation = {
+    blockTimestamp: undefined,
+    timestamp: Date.now(),
+    type: "contract-deployment",
+    transactionLogoURL: assets.find(
+      (asset) =>
+        asset.metadata?.logoURL &&
+        asset.symbol ===
+          NetworksArray.find(
+            (net) =>
+              toBigInt(net.chainID) === toBigInt(transaction.chainId ?? 0)
+          )?.baseAsset.symbol
+    )?.metadata?.logoURL,
+  }
   // We know this is an External Transfer, and transaction.to means not deployment
-  if (useDestinationShard && transaction.to !== undefined) {
+  if (useDestinationShard && transaction.to && transaction.from) {
     const recipient = await enrichAddressOnNetwork(chainService, nameService, {
       address: transaction.to,
       network,
@@ -242,7 +222,7 @@ export default async function resolveTransactionAnnotation(
       assetAmount: enrichAssetAmountWithDecimalValues(
         {
           asset: network.baseAsset,
-          amount: transaction.value ?? 0n,
+          amount: toBigInt(transaction.value ?? 0n),
         },
         desiredDecimals
       ),
@@ -250,16 +230,20 @@ export default async function resolveTransactionAnnotation(
   }
 
   if (numAsks > 10 && latestWorkedAsk + 5 * SECOND > Date.now()) {
+    // eslint-disable-next-line no-console
     console.log("Requesting tx annotations too often, skipping")
     return txAnnotation
   }
   if (numAsks > 10 && latestWorkedAsk + 5 * SECOND < Date.now()) {
     numAsks = 0
   }
+  // eslint-disable-next-line no-plusplus
   numAsks++
   latestWorkedAsk = Date.now()
 
   let block: AnyEVMBlock | undefined
+
+  if (!transaction.from) throw new Error("Transaction from not found")
 
   const {
     assetAmount: { amount: baseAssetBalance },
@@ -272,15 +256,15 @@ export default async function resolveTransactionAnnotation(
 
   const additionalL1Gas = 0n
   const gasFee: bigint = isEIP1559TransactionRequest(transaction)
-    ? (transaction?.maxFeePerGas ?? 0n) * (gasLimit ?? 0n) + additionalL1Gas
-    : (("gasPrice" in transaction && transaction?.gasPrice) || 0n) *
-        (gasLimit ?? 0n) +
+    ? toBigInt(transaction?.maxFeePerGas ?? 0n) * toBigInt(gasLimit ?? 0n) +
+      additionalL1Gas
+    : toBigInt(transaction?.gasPrice ?? 0n) * toBigInt(gasLimit ?? 0n) +
       additionalL1Gas
 
   txAnnotation.warnings ??= []
 
   // If the wallet doesn't have enough base asset to cover gas, push a warning
-  if (gasFee + (transaction.value ?? 0n) > baseAssetBalance) {
+  if (toBigInt(gasFee) + toBigInt(transaction.value ?? 0n) > baseAssetBalance) {
     if (!txAnnotation.warnings.includes("insufficient-funds")) {
       txAnnotation.warnings.push("insufficient-funds")
     }
@@ -312,7 +296,7 @@ export default async function resolveTransactionAnnotation(
 
   // If the tx has a recipient, its a contract interaction or another tx type
   // rather than a deployment.
-  if (typeof transaction.to !== "undefined") {
+  if (transaction.to) {
     const contractInfo = await enrichAddressOnNetwork(
       chainService,
       nameService,
@@ -336,14 +320,9 @@ export default async function resolveTransactionAnnotation(
               }
             ),
           }
-        : // Don't replace prepopulated annotations.
-          txAnnotation
+        : txAnnotation
 
-    if (
-      transaction.input === null ||
-      transaction.input === "0x" ||
-      typeof transaction.input === "undefined"
-    ) {
+    if (!transaction.data && transaction.value) {
       // If the tx has no data, it's either a simple ETH send, or it's relying
       // on a contract that's `payable` to execute code
       const recipient = contractInfo
@@ -380,14 +359,14 @@ export default async function resolveTransactionAnnotation(
           assetAmount: enrichAssetAmountWithDecimalValues(
             {
               asset: network.baseAsset,
-              amount: transaction.value,
+              amount: toBigInt(transaction.value),
             },
             desiredDecimals
           ),
         }
       }
     } else {
-      const erc20Tx = parseERC20Tx(transaction.input)
+      const erc20Tx = transaction?.data && parseERC20Tx(transaction.data)
 
       // See if the address matches a fungible asset.
       const matchingFungibleAsset = assets.find(
@@ -483,7 +462,7 @@ export default async function resolveTransactionAnnotation(
   }
 
   // Look up logs and resolve subannotations, if available.
-  if ("logs" in transaction && typeof transaction.logs !== "undefined") {
+  if ("logs" in transaction && transaction?.logs) {
     const subannotations = await annotationsFromLogs(
       chainService,
       indexingService,

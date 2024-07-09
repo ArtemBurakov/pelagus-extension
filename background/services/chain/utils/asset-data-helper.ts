@@ -3,17 +3,17 @@ import {
   AssetTransfer,
   SmartContractAmount,
   SmartContractFungibleAsset,
-} from "../../assets"
-import { AddressOnNetwork } from "../../accounts"
-import { HexString } from "../../types"
-import logger from "../../lib/logger"
-import { SmartContract } from "../../networks"
+} from "../../../assets"
+import { AddressOnNetwork } from "../../../accounts"
+import { HexString } from "../../../types"
+import logger from "../../../lib/logger"
+import { SmartContract } from "../../../networks"
 import {
   getBalance,
   getMetadata as getERC20Metadata,
   getTokenBalances,
-} from "../../lib/erc20"
-import { getExtendedZoneForAddress } from "./utils"
+} from "../../../lib/erc20"
+import { getExtendedZoneForAddress } from "./index"
 
 /**
  * AssetDataHelper is a wrapper for asset-related functionality like token

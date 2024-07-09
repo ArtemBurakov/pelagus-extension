@@ -8,6 +8,7 @@ import {
   Contract,
   ContractRunner,
   JsonRpcProvider,
+  LogParams,
 } from "quais"
 import logger from "./logger"
 import {
@@ -18,7 +19,7 @@ import {
 } from "../contracts/multicall"
 import { HexString } from "../types"
 import { ShardToMulticall } from "../constants"
-import { EVMLog, SmartContract } from "../networks"
+import { SmartContract } from "../networks"
 import { AddressOnNetwork } from "../accounts"
 import { getExtendedZoneForAddress } from "../services/chain/utils"
 import { SmartContractAmount, SmartContractFungibleAsset } from "../assets"
@@ -150,9 +151,11 @@ export type ERC20TransferLog = {
  *         events. This does _not_ mean they are guaranteed to be ERC20
  *         `Transfer` events, simply that they can be parsed as such.
  */
-export function parseLogsForERC20Transfers(logs: EVMLog[]): ERC20TransferLog[] {
+export function parseLogsForERC20Transfers(
+  logs: readonly LogParams[]
+): ERC20TransferLog[] {
   return logs
-    .map(({ contractAddress, data, topics }) => {
+    .map(({ address: contractAddress, data, topics }) => {
       try {
         const decoded = ERC20_INTERFACE.decodeEventLog(
           ERC20_EVENTS.Transfer,

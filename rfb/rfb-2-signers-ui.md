@@ -263,9 +263,9 @@ export type SigningFrame = (props: SigningFrameProps) => ReactElement
 // it and the details of signing data for user presentation.
 function resolveSignatureDetails(request: SigningRequest): ResolvedSignatureDetails {
   if ("transactionRequest" in request) {
-    return resolveTransactionSignatureDetails(request) // defined in SigningDataTransaction/index.ts
+    return resolveTransactionSignatureDetails(request) // defined in SigningDataTransaction/provider-factory.ts
   } else {
-    return resolveDataSignatureDetails(request) // defined in SigningDataMessage/index.ts
+    return resolveDataSignatureDetails(request) // defined in SigningDataMessage/provider-factory.ts
   }
 }
 
@@ -294,7 +294,7 @@ export function Signing(props: SigningProps): ReactElement {
 
   // Not shown: bail if signer account total is unresolved
 
-  const SigningFrameComponent = frameComponentForSigner[signer] // see Signer/index.ts
+  const SigningFrameComponent = frameComponentForSigner[signer] // see Signer/provider-factory.ts
 
   return (
     <section>
@@ -318,7 +318,7 @@ export function Signing(props: SigningProps): ReactElement {
 }
 ```
 
-`Signing/Signer/index.ts`
+`Signing/Signer/provider-factory.ts`
 
 ```typescript
 /**

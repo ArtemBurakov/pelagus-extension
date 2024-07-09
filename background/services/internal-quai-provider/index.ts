@@ -10,7 +10,7 @@ import logger from "../../lib/logger"
 import BaseService from "../base"
 import { ServiceCreatorFunction, ServiceLifecycleEvents } from "../types"
 import ChainService from "../chain"
-import { SignedTransactionGA, toHexChainID } from "../../networks"
+import { toHexChainID } from "../../networks"
 import { transactionRequestFromEthersTransactionRequest } from "../chain/utils"
 import PreferenceService from "../preferences"
 import { internalProviderPort } from "../../redux-slices/utils/contract-utils"
@@ -95,7 +95,7 @@ type Events = ServiceLifecycleEvents & {
       from: string
       network: NetworkInterfaceGA
     },
-    SignedTransactionGA // TODO-MIGRATION
+    QuaiTransaction
   >
   signTypedDataRequest: DAppRequestEvent<SignTypedDataRequest, string>
   signDataRequest: DAppRequestEvent<MessageSigningRequest, string>
@@ -357,7 +357,7 @@ export default class InternalQuaiProviderService extends BaseService<Events> {
   private async signTransaction(
     transactionRequest: JsonRpcTransactionRequest,
     origin: string
-  ): Promise<SignedTransactionGA> {
+  ): Promise<QuaiTransaction> {
     const annotation =
       origin === PELAGUS_INTERNAL_ORIGIN &&
       "annotation" in transactionRequest &&
@@ -390,7 +390,7 @@ export default class InternalQuaiProviderService extends BaseService<Events> {
       throw new Error("Transactions must have a from address for signing.")
     }
 
-    return new Promise<SignedTransactionGA>((resolve, reject) => {
+    return new Promise<QuaiTransaction>((resolve, reject) => {
       this.emitter.emit("transactionSignatureRequest", {
         payload: {
           ...convertedRequest,

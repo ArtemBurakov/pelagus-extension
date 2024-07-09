@@ -4,8 +4,8 @@ import {
   Interface,
   EventFragment,
   FunctionFragment,
+  LogParams,
 } from "quais"
-import { EVMLog } from "../networks"
 import { HexString } from "../types"
 import { ERC20_FUNCTIONS } from "./erc20"
 
@@ -51,10 +51,10 @@ export type WrappedAssetDepositLog = {
  *         `Deposit` or `Withdrawal` events, simply that they can be parsed as such.
  */
 export function parseLogsForWrappedDepositsAndWithdrawals(
-  logs: EVMLog[]
+  logs: readonly LogParams[]
 ): WrappedAssetDepositLog[] {
   return logs
-    .map(({ contractAddress, data, topics }) => {
+    .map(({ address: contractAddress, data, topics }) => {
       try {
         const decodedDeposit = WRAPPED_ASSET_INTERFACE.decodeEventLog(
           WRAPPED_ASSET_EVENTS.Deposit,

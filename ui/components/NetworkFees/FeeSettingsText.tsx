@@ -5,8 +5,8 @@ import {
 } from "@pelagus/pelagus-background/lib/utils"
 import { NetworkFeeSettings } from "@pelagus/pelagus-background/redux-slices/transaction-construction"
 import {
-  heuristicDesiredDecimalsForUnitPrice,
   enrichAssetAmountWithMainCurrencyValues,
+  heuristicDesiredDecimalsForUnitPrice,
 } from "@pelagus/pelagus-background/redux-slices/utils/asset-utils"
 import {
   selectDefaultNetworkFeeSettings,
@@ -17,13 +17,13 @@ import {
 import { selectCurrentNetwork } from "@pelagus/pelagus-background/redux-slices/selectors"
 import { useTranslation } from "react-i18next"
 import {
+  assetAmountToDesiredDecimals,
   PricePoint,
   unitPricePointForPricePoint,
-  assetAmountToDesiredDecimals,
 } from "@pelagus/pelagus-background/assets"
-import type { EnrichedEVMTransactionRequest } from "@pelagus/pelagus-background/services/enrichment"
-import { useBackgroundSelector } from "../../hooks"
 import { NetworkInterfaceGA } from "@pelagus/pelagus-background/constants/networks/networkTypes"
+import { QuaiTransactionRequestWithAnnotation } from "@pelagus/pelagus-background/services/chain/types"
+import { useBackgroundSelector } from "../../hooks"
 
 const getFeeDollarValue = (
   currencyPrice: PricePoint | undefined,
@@ -65,7 +65,7 @@ const estimateGweiAmount = (options: {
   baseFeePerGas: bigint
   networkSettings: NetworkFeeSettings
   network: NetworkInterfaceGA
-  transactionData?: EnrichedEVMTransactionRequest
+  transactionData?: QuaiTransactionRequestWithAnnotation
 }): string => {
   const { networkSettings, baseFeePerGas } = options
   const estimatedSpendPerGas =
@@ -78,12 +78,7 @@ const estimateGweiAmount = (options: {
     desiredDecimals,
     Number(estimatedSpendPerGasInGwei)
   )
-  const estimatedGweiAmount = truncateDecimalAmount(
-    estimatedSpendPerGasInGwei,
-    decimalLength
-  )
-
-  return estimatedGweiAmount
+  return truncateDecimalAmount(estimatedSpendPerGasInGwei, decimalLength)
 }
 
 export default function FeeSettingsText({
@@ -94,13 +89,12 @@ export default function FeeSettingsText({
   const { t } = useTranslation()
   const transactionData = useBackgroundSelector(selectTransactionData)
   const selectedNetwork = useBackgroundSelector(selectCurrentNetwork)
-  const currentNetwork = transactionData?.network || selectedNetwork
   const estimatedFeesPerGas = useBackgroundSelector(selectEstimatedFeesPerGas)
   let networkSettings = useBackgroundSelector(selectDefaultNetworkFeeSettings)
   networkSettings = customNetworkSetting ?? networkSettings
   const baseFeePerGas =
     useBackgroundSelector((state) => {
-      return state.networks.blockInfo[currentNetwork.chainID]?.baseFeePerGas
+      return state.networks.blockInfo[selectedNetwork.chainID]?.baseFeePerGas
     }) ??
     networkSettings.values?.baseFeePerGas ??
     0n
@@ -112,7 +106,7 @@ export default function FeeSettingsText({
     baseFeePerGas,
     networkSettings,
     transactionData,
-    network: currentNetwork,
+    network: selectedNetwork,
   })
 
   const gasLimit = networkSettings.gasLimit ?? networkSettings.suggestedGasLimit

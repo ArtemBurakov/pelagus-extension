@@ -1,5 +1,5 @@
 import dayjs from "dayjs"
-import { EIP2612SignTypedDataAnnotation, EnrichedEVMTransaction } from "./types"
+import { EIP2612SignTypedDataAnnotation } from "./types"
 import { EIP712TypedData, HexString } from "../../types"
 import { EIP2612TypedData } from "../../utils/signing"
 import { ERC20TransferLog } from "../../lib/erc20"
@@ -7,6 +7,7 @@ import { sameQuaiAddress } from "../../lib/utils"
 import { AddressOnNetwork } from "../../accounts"
 import { SmartContractFungibleAsset } from "../../assets"
 import { getExtendedZoneForAddress } from "../chain/utils"
+import { EnrichedQuaiTransaction, QuaiTransactionState } from "../chain/types"
 
 export function isEIP2612TypedData(
   typedData: EIP712TypedData
@@ -77,10 +78,16 @@ export const getERC20LogsForAddresses = (
   )
 }
 
-export function getRecipient(transaction: EnrichedEVMTransaction): {
+export function getRecipient(
+  transaction: QuaiTransactionState | EnrichedQuaiTransaction
+): {
   address?: HexString
   name?: string
 } {
+  if (!("annotation" in transaction)) {
+    return { address: transaction.from }
+  }
+
   const { annotation } = transaction
 
   switch (annotation?.type) {
@@ -92,7 +99,7 @@ export function getRecipient(transaction: EnrichedEVMTransaction): {
       }
     case "contract-interaction":
       return {
-        address: transaction.to,
+        address: transaction.to ?? "",
         name: annotation.contractInfo?.annotation.nameRecord?.resolved
           .nameOnNetwork.name,
       }
@@ -103,14 +110,20 @@ export function getRecipient(transaction: EnrichedEVMTransaction): {
           .name,
       }
     default:
-      return { address: transaction.to }
+      return { address: transaction.to ?? "" }
   }
 }
 
-export function getSender(transaction: EnrichedEVMTransaction): {
+export function getSender(
+  transaction: QuaiTransactionState | EnrichedQuaiTransaction
+): {
   address?: HexString
   name?: string
 } {
+  if (!("annotation" in transaction)) {
+    return { address: transaction.from }
+  }
+
   const { annotation } = transaction
 
   switch (annotation?.type) {
@@ -126,7 +139,7 @@ export function getSender(transaction: EnrichedEVMTransaction): {
 }
 
 export function getRelevantTransactionAddresses(
-  transaction: EnrichedEVMTransaction,
+  transaction: QuaiTransactionState | EnrichedQuaiTransaction,
   trackedAccounts: AddressOnNetwork[]
 ): string[] {
   const { address: recipientAddress } = getRecipient(transaction)

@@ -1,12 +1,14 @@
-import { TransactionRequest as EthersTransactionRequest } from "@quais/abstract-provider"
 import { Transaction } from "@quais/transactions"
-import { QuaiTransaction } from "quais"
 import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
 import { ChainData, Slip44CoinType } from "./constants"
 import { HexString, UNIXTime } from "./types"
 import type { FungibleAsset } from "./assets"
-import type { PartialTransactionRequestWithFrom } from "./services/enrichment"
 import { NetworkInterfaceGA } from "./constants/networks/networkTypes"
+import {
+  ConfirmedQuaiTransaction,
+  FailedQuaiTransaction,
+  PendingQuaiTransaction,
+} from "./services/chain/types"
 
 /**
  * Each supported network family is generally incompatible with others from a
@@ -182,13 +184,6 @@ export type LegacyEVMTransactionRequest = Pick<
  */
 export const KNOWN_TX_TYPES = [0, 1, 2, 100] as const
 export type KnownTxTypes = typeof KNOWN_TX_TYPES[number]
-export function isKnownTxType(arg: unknown): arg is KnownTxTypes {
-  return (
-    arg !== undefined &&
-    arg !== null &&
-    (KNOWN_TX_TYPES as unknown as number[]).includes(Number(arg))
-  )
-}
 
 /**
  * An EIP1559 EVM transaction, whose type is set to `1` or `2` per EIP1559 and
@@ -230,12 +225,11 @@ export type EIP1559TransactionRequest = Pick<
   nonce?: number
 }
 
-export type TransactionRequestGA = QuaiTransactionRequest // TODO-MIGRATION
-
 export type TransactionRequest =
   | EIP1559TransactionRequest
   | LegacyEVMTransactionRequest
 
+// TODO-MIGRATION remove
 export type TransactionRequestWithNonce = TransactionRequest & { nonce: number }
 
 /**
@@ -245,7 +239,7 @@ export type TransactionRequestWithNonce = TransactionRequest & { nonce: number }
 export type EVMLog = {
   contractAddress: HexString
   data: HexString
-  topics: HexString[]
+  // topics: HexString[]
 }
 
 /**
@@ -302,8 +296,6 @@ export type SignedLegacyEVMTransaction = LegacyEVMTransaction & {
   s: string
   v: number
 }
-
-export type SignedTransactionGA = QuaiTransaction // TODO-MIGRATION
 
 export type SignedTransaction =
   | SignedEIP1559Transaction
@@ -389,20 +381,13 @@ export function toHexChainID(chainID: string | number): string {
 
 // There is probably some clever way to combine the following type guards into one function
 export const isEIP1559TransactionRequest = (
-  transactionRequest:
-    | AnyEVMTransaction
-    | EthersTransactionRequest
-    | Partial<PartialTransactionRequestWithFrom>
+  transactionRequest: // TODO-MIGRATION we don`t need this in future - remove
+  | ConfirmedQuaiTransaction
+    | PendingQuaiTransaction
+    | FailedQuaiTransaction
+    | QuaiTransactionRequest
 ): transactionRequest is EIP1559TransactionRequest =>
   "maxFeePerGas" in transactionRequest &&
   transactionRequest.maxFeePerGas !== null &&
   "maxPriorityFeePerGas" in transactionRequest &&
   transactionRequest.maxPriorityFeePerGas !== null
-
-export const isEIP1559SignedTransaction = (
-  signedTransaction: SignedTransaction
-): signedTransaction is SignedEIP1559Transaction =>
-  "maxFeePerGas" in signedTransaction &&
-  "maxPriorityFeePerGas" in signedTransaction &&
-  signedTransaction.maxFeePerGas !== null &&
-  signedTransaction.maxPriorityFeePerGas !== null

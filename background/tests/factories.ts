@@ -36,9 +36,6 @@ import {
 } from "../services/chain"
 import { QuaiNetworkGA } from "../constants/networks/networks"
 
-// We don't want the chain service to use a real provider in tests
-jest.mock("../services/chain/serial-fallback-provider")
-
 const createRandom0xHash = () =>
   keccak256(Buffer.from(Math.random().toString()))
 
