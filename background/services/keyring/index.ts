@@ -1,5 +1,6 @@
 import {
   AddressLike,
+  getAddress,
   getBytes,
   Mnemonic,
   QuaiHDWallet,
@@ -490,10 +491,15 @@ export default class KeyringService extends BaseService<Events> {
    * @returns An object containing the signer and its type, or null if no signer is found.
    */
   private findSigner(address: AddressLike): InternalSignerWithType | null {
+    // we format the address because it can also come from a request from outside the wallet,
+    // which may be in the wrong format
+    const formatedAddress = getAddress(address as string)
+
     const HDWallet = this.findQuaiHDWalletByAddress(address)
     if (HDWallet) {
       return {
         signer: HDWallet,
+        address: formatedAddress,
         type: SignerSourceTypes.keyring,
       }
     }
@@ -502,6 +508,7 @@ export default class KeyringService extends BaseService<Events> {
     if (privateKey) {
       return {
         signer: privateKey,
+        address: formatedAddress,
         type: SignerSourceTypes.privateKey,
       }
     }
@@ -624,10 +631,12 @@ export default class KeyringService extends BaseService<Events> {
     }
 
     try {
+      const { address: formatedAddress } = signerWithType
+
       return isSignerPrivateKeyType(signerWithType)
         ? await signerWithType.signer.signTypedData(domain, types, message)
         : await signerWithType.signer.signTypedData(
-            address,
+            formatedAddress,
             domain,
             types,
             message
@@ -659,9 +668,11 @@ export default class KeyringService extends BaseService<Events> {
 
     try {
       const messageBytes = getBytes(signingData)
+      const { address: formatedAddress } = signerWithType
+
       return isSignerPrivateKeyType(signerWithType)
         ? await signerWithType.signer.signMessage(messageBytes)
-        : await signerWithType.signer.signMessage(address, messageBytes)
+        : await signerWithType.signer.signMessage(formatedAddress, messageBytes)
     } catch (error) {
       throw new Error("Signing data failed")
     }
