@@ -81,10 +81,12 @@ export type SignerImportMetadata =
 
 type InternalSignerHDKeyring = {
   signer: QuaiHDWallet
+  address: string
   type: SignerSourceTypes.keyring
 }
 export type InternalSignerPrivateKey = {
   signer: Wallet
+  address: string
   type: SignerSourceTypes.privateKey
 }
 export type InternalSignerWithType =
