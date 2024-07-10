@@ -26,7 +26,6 @@ export const createConfirmedQuaiTransaction = (
   receipt: TransactionReceiptParams
 ): ConfirmedQuaiTransaction => {
   const {
-    nonce,
     gasLimit,
     maxPriorityFeePerGas,
     maxFeePerGas,
@@ -39,7 +38,6 @@ export const createConfirmedQuaiTransaction = (
 
   return {
     status: QuaiTransactionStatus.CONFIRMED,
-    nonce,
     gasLimit,
     maxPriorityFeePerGas,
     maxFeePerGas,

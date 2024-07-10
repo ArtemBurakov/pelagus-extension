@@ -1,4 +1,4 @@
-import { Contract, getAddress } from "quais"
+import { Contract, getAddress, toBigInt } from "quais"
 import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
 import { createSelector, createSlice } from "@reduxjs/toolkit"
 import { QRC20_INTERFACE } from "../contracts/qrc-20"
@@ -24,7 +24,6 @@ import type { RootState } from "."
 import { emitter as transactionConstructionSliceEmitter } from "./transaction-construction"
 import { AccountSigner } from "../services/signing"
 import { setSnackbarMessage } from "./ui"
-import { getExtendedZoneForAddress } from "../services/chain/utils"
 import { NetworkInterfaceGA } from "../constants/networks/networkTypes"
 
 export type AssetWithRecentPrices<T extends AnyAsset = AnyAsset> = T & {
@@ -178,52 +177,35 @@ export const removeAssetData = createBackgroundAsyncThunk(
     },
     { dispatch }
   ) => {
-    await dispatch(removeAsset(asset))
-    await dispatch(removeAssetReferences(asset))
+    dispatch(removeAsset(asset))
+    dispatch(removeAssetReferences(asset))
   }
 )
 
-export const getAccountNonceAndGasPrice = createBackgroundAsyncThunk(
-  "assets/getAccountNonceAndGasPrice",
+export const getMaxFeeAndMaxPriorityFeePerGas = createBackgroundAsyncThunk(
+  "assets/getAccountGasPrice",
   async (
-    {
-      details,
-    }: {
-      details: {
-        network: NetworkInterfaceGA
-        address: string
-      }
-    },
+    _,
     { dispatch }
   ): Promise<{
-    nonce: number
-    maxFeePerGas: string
-    maxPriorityFeePerGas: string
+    maxFeePerGas: BigInt
+    maxPriorityFeePerGas: BigInt
   }> => {
-    const prevShard = globalThis.main.GetShard()
-    globalThis.main.SetShard(getExtendedZoneForAddress(details.address))
     const { jsonRpc: provider } =
       globalThis.main.chainService.getCurrentProvider()
-    const nonce = await provider.getTransactionCount(details.address, "pending")
     const feeData = await provider.getFeeData()
-    globalThis.main.SetShard(prevShard)
     if (
-      feeData.gasPrice == undefined ||
-      feeData.maxFeePerGas == undefined ||
-      feeData.maxPriorityFeePerGas == undefined
+      !feeData.gasPrice ||
+      !feeData.maxFeePerGas ||
+      !feeData.maxPriorityFeePerGas
     ) {
       dispatch(
         setSnackbarMessage("Failed to get gas price, please enter manually")
       )
     }
     return {
-      nonce,
-      maxFeePerGas: feeData.maxFeePerGas
-        ? feeData.maxFeePerGas.toString()
-        : "0",
-      maxPriorityFeePerGas: feeData.maxPriorityFeePerGas
-        ? feeData.maxPriorityFeePerGas.toString()
-        : "0",
+      maxFeePerGas: toBigInt(feeData.maxFeePerGas ?? 0),
+      maxPriorityFeePerGas: toBigInt(feeData.maxPriorityFeePerGas ?? 0),
     }
   }
 )
@@ -242,17 +224,15 @@ export const sendAsset = createBackgroundAsyncThunk(
     toAddressNetwork: AddressOnNetwork
     assetAmount: AnyAssetAmount
     gasLimit?: bigint
-    nonce?: number
     maxPriorityFeePerGas?: bigint & BigInt
     maxFeePerGas?: bigint & BigInt
     accountSigner: AccountSigner
   }): Promise<{ success: boolean; errorMessage?: string }> => {
-    let {
+    const {
       fromAddressNetwork: { address: fromAddress, network: fromNetwork },
       toAddressNetwork: { address: toAddress, network: toNetwork },
       assetAmount,
       gasLimit,
-      nonce,
       maxPriorityFeePerGas,
       maxFeePerGas,
       accountSigner,
@@ -285,7 +265,6 @@ export const sendAsset = createBackgroundAsyncThunk(
             assetAmount.amount
           )
 
-        toAddress = transactionDetails.to ? transactionDetails.to : ""
         transactionData = transactionDetails.data ? transactionDetails.data : ""
         transactionValue = 0n
       }
@@ -293,7 +272,6 @@ export const sendAsset = createBackgroundAsyncThunk(
       const request: QuaiTransactionRequest = {
         to: getAddress(toAddress),
         from: fromAddress,
-        nonce,
         gasLimit,
         maxPriorityFeePerGas,
         maxFeePerGas,

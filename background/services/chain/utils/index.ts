@@ -1,14 +1,6 @@
 import { getZoneForAddress, toBigInt, Zone, Block } from "quais"
-import { TransactionRequest as EthersTransactionRequest } from "@quais/abstract-provider"
-
-import {
-  AnyEVMBlock,
-  EIP1559TransactionRequest,
-  LegacyEVMTransactionRequest,
-  isEIP1559TransactionRequest,
-  TransactionRequest,
-  KnownTxTypes,
-} from "../../../networks"
+import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
+import { AnyEVMBlock, KnownTxTypes } from "../../../networks"
 import { NetworkInterfaceGA } from "../../../constants/networks/networkTypes"
 /**
  * Parse a block as returned by a polling provider.
@@ -63,99 +55,6 @@ export function blockFromProviderBlock(
       : undefined,
     network,
   }
-}
-
-export function ethersTransactionRequestFromEIP1559TransactionRequest(
-  transaction: EIP1559TransactionRequest
-): EthersTransactionRequest {
-  return {
-    to: transaction.to,
-    data: transaction.input ?? undefined,
-    from: transaction.from,
-    type: transaction.type,
-    nonce: transaction.nonce,
-    value: transaction.value,
-    chainId: parseInt(transaction.chainID, 10),
-    gasLimit: transaction.gasLimit,
-    maxFeePerGas: transaction.maxFeePerGas,
-    maxPriorityFeePerGas: transaction.maxPriorityFeePerGas,
-    externalGasLimit: transaction.externalGasLimit ?? undefined,
-    externalGasPrice: transaction.externalGasPrice ?? undefined,
-    externalGasTip: transaction.externalGasTip ?? undefined,
-  }
-}
-
-export function ethersTransactionRequestFromLegacyTransactionRequest(
-  transaction: LegacyEVMTransactionRequest
-): EthersTransactionRequest {
-  const { to, input, type, nonce, gasPrice, value, chainID, gasLimit, from } =
-    transaction
-
-  return {
-    from,
-    to,
-    data: input ?? undefined,
-    type: type ?? undefined,
-    nonce,
-    gasPrice,
-    value,
-    chainId: parseInt(chainID, 10),
-    gasLimit,
-  }
-}
-
-export function ethersTransactionFromTransactionRequest(
-  transactionRequest: TransactionRequest
-): EthersTransactionRequest {
-  if (isEIP1559TransactionRequest(transactionRequest))
-    return ethersTransactionRequestFromEIP1559TransactionRequest(
-      transactionRequest
-    )
-
-  // Legacy Transaction
-  return ethersTransactionRequestFromLegacyTransactionRequest(
-    transactionRequest
-  )
-}
-
-function eip1559TransactionRequestFromEthersTransactionRequest(
-  transaction: EthersTransactionRequest
-): Partial<EIP1559TransactionRequest> {
-  return {
-    to: transaction.to,
-    input: transaction.data?.toString() ?? null,
-    from: transaction.from,
-    type: transaction.type as KnownTxTypes,
-    nonce:
-      typeof transaction.nonce !== "undefined"
-        ? parseInt(transaction.nonce.toString(), 16)
-        : undefined,
-    value:
-      typeof transaction.value !== "undefined"
-        ? BigInt(transaction.value.toString())
-        : undefined,
-    chainID: transaction.chainId?.toString(16),
-    gasLimit:
-      typeof transaction.gasLimit !== "undefined"
-        ? BigInt(transaction.gasLimit.toString())
-        : undefined,
-    maxFeePerGas:
-      typeof transaction.maxFeePerGas !== "undefined"
-        ? BigInt(transaction.maxFeePerGas.toString())
-        : undefined,
-    maxPriorityFeePerGas:
-      typeof transaction.maxPriorityFeePerGas !== "undefined"
-        ? BigInt(transaction.maxPriorityFeePerGas.toString())
-        : undefined,
-  }
-}
-
-export function transactionRequestFromEthersTransactionRequest(
-  ethersTransactionRequest: EthersTransactionRequest
-): Partial<TransactionRequest> {
-  return eip1559TransactionRequestFromEthersTransactionRequest(
-    ethersTransactionRequest
-  )
 }
 
 export const getExtendedZoneForAddress = (

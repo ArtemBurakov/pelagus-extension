@@ -15,7 +15,6 @@ export interface EIP4361Data {
   address: string
   version: string
   chainId: number
-  nonce: string
   expiration?: string
   statement?: string
 }
@@ -48,7 +47,6 @@ type EIP2612Message = {
   owner: HexString
   spender: HexString
   value: number
-  nonce: number
   deadline: number
 }
 
@@ -72,7 +70,6 @@ const checkEIP4361: (message: string) => EIP4361Data | undefined = (
       version: siweMessage.version,
       chainId: siweMessage.chainId,
       expiration: siweMessage.expirationTime,
-      nonce: siweMessage.nonce,
     }
   } catch (err) {}
 

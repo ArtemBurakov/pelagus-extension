@@ -1,8 +1,8 @@
 import { webcrypto } from "crypto"
 import browser from "webextension-polyfill"
 import { Zone } from "quais"
+import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
 import { KeyringTypes } from "../types"
-import { EIP1559TransactionRequest } from "../networks"
 import { QUAI } from "../constants"
 import logger from "../lib/logger"
 import { KeyringService } from "../services"
@@ -46,25 +46,17 @@ const validPrivateKey = [
 ]
 
 const validTransactionRequests: {
-  [key: string]: EIP1559TransactionRequest & { nonce: number }
+  [key: string]: QuaiTransactionRequest
 } = {
   simple: {
     from: "0x0",
     nonce: 0,
     type: 2,
-    input: "0x",
     value: 0n,
     maxFeePerGas: 0n,
     maxPriorityFeePerGas: 0n,
     gasLimit: 0n,
-    chainID: "0",
-    network: {
-      chains: [],
-      rpcUrls: "",
-      chainID: "0",
-      baseAsset: QUAI,
-      family: "EVM",
-    },
+    chainId: "0",
   },
 }
 

@@ -32,7 +32,7 @@ type AccountAssetTransferLookup = {
 }
 
 // TODO keep track of blocks invalidated by a reorg
-// TODO keep track of transaction replacement / nonce invalidation
+// TODO keep track of transaction replacement
 export class ChainDatabase extends Dexie {
   /*
    * Accounts whose transaction and balances should be tracked on a particular
@@ -91,7 +91,7 @@ export class ChainDatabase extends Dexie {
       balances:
         "++id,address,assetAmount.amount,assetAmount.asset.symbol,network.baseAsset.name,blockHeight,retrievedAt",
       quaiTransactions:
-        "&[hash+network.chainID],hash,from,[from+network.chainID],to,[to+network.chainID],nonce,[nonce+from+network.chainID],blockHash,blockNumber,network.chainId,firstSeen,dataSource",
+        "&[hash+network.chainID],hash,from,[from+network.chainID],to,[to+network.chainID],blockHash,blockNumber,network.chainId,firstSeen,dataSource",
       blocks:
         "&[hash+network.baseAsset.name],[network.baseAsset.name+timestamp],hash,network.baseAsset.name,timestamp,parentHash,blockHeight,[blockHeight+network.baseAsset.name]",
       networks: "&chainID,baseAsset.name,family",
