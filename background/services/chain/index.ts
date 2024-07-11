@@ -753,6 +753,50 @@ export default class ChainService extends BaseService<Events> {
     return (estimate * 11n) / 10n
   }
 
+  async signAndSendQuaiTransaction(
+    request: QuaiTransactionRequest
+  ): Promise<QuaiTransactionResponse | null> {
+    try {
+      const transactionResponse =
+        await this.keyringService.signAndSendQuaiTransaction(request)
+
+      const network = NetworksArray.find(
+        (net) =>
+          toBigInt(net.chainID) === toBigInt(transactionResponse.chainId ?? 0)
+      )
+      if (!network) {
+        throw new Error("Network is null.")
+      }
+
+      this.emitter.emit("transactionSend", transactionResponse.hash)
+
+      const pendingQuaiTransaction = createPendingQuaiTransaction(
+        transactionResponse as QuaiTransactionResponse
+      )
+      this.saveTransaction(pendingQuaiTransaction, "local")
+      this.subscribeToTransactionConfirmation(network, pendingQuaiTransaction)
+
+      return transactionResponse
+    } catch (error) {
+      logger.debug(
+        "Broadcast error caught, saving failed status...",
+        request,
+        error
+      )
+
+      // TODO
+      // const failedTransaction = createFailedQuaiTransaction(
+      //   request,
+      //   error.toString()
+      // )
+      // this.saveTransaction(failedTransaction, "local")
+
+      this.emitter.emit("transactionSendFailure")
+
+      return null
+    }
+  }
+
   /**
    * Broadcast a signed EVM transaction.
    *

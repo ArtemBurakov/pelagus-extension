@@ -43,7 +43,7 @@ const cleanActivitiesArray = (activitiesArray: Activity[] = []) => {
 
 const addActivityToState =
   (activities: Activities) =>
-  async (
+  (
     address: string,
     chainID: string,
     transaction: QuaiTransactionState | EnrichedQuaiTransaction
@@ -68,7 +68,7 @@ const addActivityToState =
       return
     }
 
-    const activity = await getActivity(transaction)
+    const activity = getActivity(transaction)
 
     activities[address] ??= {}
     activities[address][chainID] ??= []

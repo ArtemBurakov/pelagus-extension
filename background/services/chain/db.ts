@@ -384,7 +384,7 @@ export class ChainDatabase extends Dexie {
     const existingTx = await this.getQuaiTransactionByHash(tx.hash)
     const updatedTx = { ...tx, ...existingTx } as QuaiTransactionState
 
-    if (!existingTx || !updatedTx)
+    if (!updatedTx)
       throw new Error("Failed get quai transaction by hash from DB")
 
     await this.transaction("rw", this.quaiTransactions, () => {

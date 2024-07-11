@@ -8,7 +8,10 @@ import {
   Wallet,
   Zone,
 } from "quais"
-import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
+import {
+  QuaiTransactionRequest,
+  QuaiTransactionResponse,
+} from "quais/lib/commonjs/providers"
 import { SerializedHDWallet } from "quais/lib/commonjs/wallet/hdwallet"
 import { DataHexString } from "quais/lib/commonjs/utils"
 import {
@@ -606,6 +609,28 @@ export default class KeyringService extends BaseService<Events> {
     }
 
     return signerWithType.signer.signTransaction(txRequest)
+  }
+
+  public async signAndSendQuaiTransaction(
+    transactionRequest: QuaiTransactionRequest
+  ): Promise<QuaiTransactionResponse> {
+    this.requireUnlocked()
+
+    const { from: fromAddress } = transactionRequest
+
+    const signerWithType = this.findSigner(fromAddress)
+    if (!signerWithType) {
+      throw new Error(
+        `Signing transaction failed. Signer for address ${fromAddress} was not found.`
+      )
+    }
+
+    const provider = globalThis.main.chainService.getCurrentProvider().jsonRpc
+    signerWithType.signer.connect(provider)
+
+    return (await signerWithType.signer.sendTransaction(
+      transactionRequest
+    )) as QuaiTransactionResponse
   }
 
   /**

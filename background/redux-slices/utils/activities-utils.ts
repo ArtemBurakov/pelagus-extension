@@ -170,18 +170,19 @@ const getAnnotationType = (transaction: QuaiTransactionState) => {
   return annotation
 }
 
-export const getActivity = async (
+export const getActivity = (
   transaction: QuaiTransactionState | EnrichedQuaiTransaction
-): Promise<Activity> => {
+): Activity => {
   const { to, from, nonce, hash, blockHash, chainId } = transaction
 
   const txNetwork = globalThis.main.chainService.supportedNetworks.find(
     (net) => toBigInt(net.chainID) === toBigInt(chainId ?? 0)
   )
 
-  const blockHeight = await globalThis.main.chainService
-    .getCurrentProvider()
-    .jsonRpc.getBlockNumber()
+  // TODO
+  // const blockHeight = await globalThis.main.chainService
+  //   .getCurrentProvider()
+  //   .jsonRpc.getBlockNumber()
 
   if (!txNetwork)
     throw new Error("Failed find a tx network fot getting activity")
@@ -192,7 +193,8 @@ export const getActivity = async (
     from: from ?? "",
     recipient: { address: to ?? "" },
     sender: { address: from },
-    blockHeight,
+    // TODO
+    blockHeight: 0,
     assetSymbol: txNetwork?.baseAsset.symbol,
     nonce: nonce ?? 0,
     hash: hash ?? "",

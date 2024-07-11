@@ -1,5 +1,8 @@
 import { QuaiTransaction } from "quais"
-import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
+import {
+  QuaiTransactionRequest,
+  QuaiTransactionResponse,
+} from "quais/lib/commonjs/providers"
 import KeyringService from "../keyring"
 import { EIP712TypedData, HexString } from "../../types"
 import BaseService from "../base"
@@ -126,6 +129,42 @@ export default class SigningService extends BaseService<Events> {
   }
 
   /// /////////////////////////////////////////Sign Methods////////////////////////////////////////////
+  async signAndSendQuaiTransaction(
+    transactionRequest: QuaiTransactionRequest,
+    accountSigner: AccountSigner
+  ): Promise<QuaiTransactionResponse> {
+    try {
+      let transactionResponse: QuaiTransactionResponse | null
+
+      switch (accountSigner.type) {
+        case "private-key":
+        case "keyring": {
+          transactionResponse =
+            await this.chainService.signAndSendQuaiTransaction(
+              transactionRequest
+            )
+          break
+        }
+        case "read-only":
+          throw new Error("Read-only signers cannot sign.")
+        default:
+          return assertUnreachable(accountSigner)
+      }
+
+      if (!transactionResponse) {
+        throw new Error("Transaction response is null.")
+      }
+
+      return transactionResponse
+    } catch (err) {
+      await this.emitter.emit("signTransactionResponse", {
+        type: "error",
+        reason: getSigningErrorReason(err),
+      })
+      throw err
+    }
+  }
+
   async signTransaction(
     transactionRequest: QuaiTransactionRequest,
     accountSigner: AccountSigner

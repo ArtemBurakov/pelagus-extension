@@ -77,7 +77,6 @@ import {
   rejectTransactionSignature,
   TransactionConstructionStatus,
   transactionRequest,
-  transactionSigned,
   updateTransactionData,
 } from "./redux-slices/transaction-construction"
 import { allAliases } from "./redux-slices/utils"
@@ -879,19 +878,20 @@ export default class Main extends BaseService<never> {
       "signTransaction",
       async ({ request, accountSigner }) => {
         try {
-          const signedTransaction = await this.signingService.signTransaction(
-            request,
-            accountSigner
-          )
-
-          this.store.dispatch(transactionSigned(signedTransaction))
-
-          await this.analyticsService.sendAnalyticsEvent(
-            AnalyticsEvent.TRANSACTION_SIGNED,
-            {
-              chainId: signedTransaction.chainId,
-            }
-          )
+          // TODO
+          // const signedTransaction = await this.signingService.signTransaction(
+          //   request,
+          //   accountSigner
+          // )
+          //
+          // this.store.dispatch(transactionSigned(signedTransaction))
+          //
+          // await this.analyticsService.sendAnalyticsEvent(
+          //   AnalyticsEvent.TRANSACTION_SIGNED,
+          //   {
+          //     chainId: signedTransaction.chainId,
+          //   }
+          // )
         } catch (exception) {
           logger.error("Error signing transaction", exception)
           this.store.dispatch(
@@ -905,19 +905,20 @@ export default class Main extends BaseService<never> {
       "requestSignature",
       async ({ request, accountSigner }) => {
         try {
-          const signedTransaction = await this.signingService.signTransaction(
-            request,
-            accountSigner
-          )
-
-          this.store.dispatch(transactionSigned(signedTransaction))
-
-          await this.analyticsService.sendAnalyticsEvent(
-            AnalyticsEvent.TRANSACTION_SIGNED,
-            {
-              chainId: signedTransaction.chainId,
-            }
-          )
+          // TODO
+          // const signedTransaction = await this.signingService.signTransaction(
+          //   request,
+          //   accountSigner
+          // )
+          //
+          // this.store.dispatch(transactionSigned(signedTransaction))
+          //
+          // await this.analyticsService.sendAnalyticsEvent(
+          //   AnalyticsEvent.TRANSACTION_SIGNED,
+          //   {
+          //     chainId: signedTransaction.chainId,
+          //   }
+          // )
         } catch (exception) {
           logger.error("Error signing transaction", exception)
           this.store.dispatch(
@@ -926,6 +927,31 @@ export default class Main extends BaseService<never> {
         }
       }
     )
+
+    transactionConstructionSliceEmitter.on(
+      "signAndSendQuaiTransaction",
+      async ({ request, accountSigner }) => {
+        try {
+          const transactionResponse =
+            await this.signingService.signAndSendQuaiTransaction(
+              request,
+              accountSigner
+            )
+
+          await this.analyticsService.sendAnalyticsEvent(
+            AnalyticsEvent.TRANSACTION_SIGNED,
+            {
+              chainId: transactionResponse.chainId,
+            }
+          )
+        } catch (exception) {
+          this.store.dispatch(
+            clearTransactionState(TransactionConstructionStatus.Idle)
+          )
+        }
+      }
+    )
+
     signingSliceEmitter.on(
       "requestSignTypedData",
       async ({ typedData, account, accountSigner }) => {
@@ -962,12 +988,6 @@ export default class Main extends BaseService<never> {
         )
       }
     )
-
-    // TODO-MIGRATION we dont need to duplicate addActivity, because enrichment service already doing it
-    // // Report on transactions for basic activity. Fancier stuff is handled via connectEnrichmentService
-    // this.chainService.emitter.on("transaction", async (transactionInfo) => {
-    //   this.store.dispatch(addActivity(transactionInfo))
-    // })
 
     uiSliceEmitter.on("userActivityEncountered", (addressOnNetwork) => {
       this.chainService.markAccountActivity(addressOnNetwork)

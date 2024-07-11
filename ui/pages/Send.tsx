@@ -75,8 +75,10 @@ export default function Send(): ReactElement {
 
   const [assetType, setAssetType] = useState<"token">("token")
 
-  const [maxFeePerGas, setMaxFeePerGas] = useState(toBigInt(0))
-  const [maxPriorityFeePerGas, setMaxPriorityFeePerGas] = useState(toBigInt(0))
+  const [maxFeePerGas, setMaxFeePerGas] = useState(toBigInt(2000000000))
+  const [maxPriorityFeePerGas, setMaxPriorityFeePerGas] = useState(
+    toBigInt(2000000000)
+  )
   const [gasLimit, setGasLimit] = useState<number>(100000)
 
   const [advancedVisible, setAdvancedVisible] = useState(false)
