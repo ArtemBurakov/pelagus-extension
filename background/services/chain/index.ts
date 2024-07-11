@@ -785,11 +785,10 @@ export default class ChainService extends BaseService<Events> {
       )
 
       // TODO
-      // const failedTransaction = createFailedQuaiTransaction(
-      //   request,
-      //   error.toString()
-      // )
-      // this.saveTransaction(failedTransaction, "local")
+      const temporary = request as QuaiTransactionResponse
+
+      const failedTransaction = createFailedQuaiTransaction(temporary)
+      this.saveTransaction(failedTransaction, "local")
 
       this.emitter.emit("transactionSendFailure")
 

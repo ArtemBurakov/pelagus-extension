@@ -9,7 +9,7 @@ import {
 } from "../types"
 
 export const createFailedQuaiTransaction = (
-  transaction: QuaiTransactionLike,
+  transaction: QuaiTransactionResponse | QuaiTransactionLike,
   error?: string
 ): FailedQuaiTransaction => {
   return {
