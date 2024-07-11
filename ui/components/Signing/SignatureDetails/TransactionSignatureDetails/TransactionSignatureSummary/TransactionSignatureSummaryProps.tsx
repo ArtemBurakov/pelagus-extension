@@ -1,7 +1,4 @@
-import {
-  EnrichedEVMTransactionRequest,
-  TransactionAnnotation,
-} from "@pelagus/pelagus-background/services/enrichment"
+import { TransactionAnnotation } from "@pelagus/pelagus-background/services/enrichment"
 import { QuaiTransactionRequestWithAnnotation } from "@pelagus/pelagus-background/services/chain/types"
 
 export type TransactionSignatureSummaryProps<

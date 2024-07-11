@@ -51,9 +51,9 @@ export async function enrichEIP2612SignTypedDataRequest(
       owner,
       spender,
       tokenContract: domain.verifyingContract || "unknown",
+      nonce,
       value: formattedValue,
       ...(token ? { token } : {}),
-      nonce,
       expiry: dayjs.unix(Number(message.deadline)).format("DD MMM YYYY"),
     },
   }

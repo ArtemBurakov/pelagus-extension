@@ -1,9 +1,6 @@
+import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
 import { AnyAssetAmount, SmartContractFungibleAsset } from "../../assets"
 import { AccountBalance, AddressOnNetwork } from "../../accounts"
-import {
-  EIP1559TransactionRequest,
-  LegacyEVMTransactionRequest,
-} from "../../networks"
 import { AssetDecimalAmount } from "../../redux-slices/utils/asset-utils"
 import { UNIXTime } from "../../types"
 import { SignTypedDataRequest } from "../../utils/signing"
@@ -83,39 +80,14 @@ export type TransactionAnnotation =
 // ---------------------------------------------------------
 
 export type EnrichedEVMTransactionSignatureRequest =
-  | EnrichedEIP1559TransactionSignatureRequest
-  | EnrichedLegacyTransactionSignatureRequest
+  EnrichedEIP1559TransactionSignatureRequest
 
 export type EnrichedEIP1559TransactionSignatureRequest =
-  Partial<EIP1559TransactionRequest> & {
+  Partial<QuaiTransactionRequest> & {
     from: string
     annotation?: TransactionAnnotation
     network: NetworkInterfaceGA
   }
-
-export type EnrichedLegacyTransactionSignatureRequest =
-  Partial<LegacyEVMTransactionRequest> & {
-    from: string
-    annotation?: TransactionAnnotation
-    network: NetworkInterfaceGA
-  }
-
-export type EnrichedEIP1559TransactionRequest = EIP1559TransactionRequest & {
-  annotation?: TransactionAnnotation
-}
-
-export type EnrichedLegacyTransactionRequest = LegacyEVMTransactionRequest & {
-  annotation?: TransactionAnnotation
-}
-
-export type EnrichedEVMTransactionRequest =
-  | EnrichedEIP1559TransactionRequest
-  | EnrichedLegacyTransactionRequest
-
-export type TypedDataField = {
-  value: string
-  type: "address" | "string"
-}
 
 export type EIP2612SignTypedDataAnnotation = {
   type: "EIP-2612"

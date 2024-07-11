@@ -104,75 +104,6 @@ export type EIP1559Block = EVMBlock & {
 export type AnyEVMBlock = EVMBlock | EIP1559Block
 
 /**
- * Base EVM transaction fields; these are further specialized by particular
- * subtypes.
- */
-export type EVMTransaction = {
-  hash: string
-  from: HexString
-  to?: HexString
-  gasLimit: bigint
-  gasPrice: bigint | null
-  maxFeePerGas: bigint | null
-  maxPriorityFeePerGas: bigint | null
-  input: string | null
-  nonce: number
-  value: bigint
-  blockHash: string | null
-  blockHeight: number | null
-  asset: NetworkBaseAsset
-  network: NetworkInterfaceGA
-  type: KnownTxTypes | null
-  externalGasLimit?: bigint
-  externalGasPrice?: bigint
-  externalGasTip?: bigint
-}
-
-/**
- * A legacy (pre-EIP1559) EVM transaction, whose type is fixed to `0` and whose
- * EIP1559-related fields are mandated to be `null`, while `gasPrice` must be
- * set.
- */
-export type LegacyEVMTransaction = EVMTransaction & {
-  gasPrice: bigint
-  type: 0 | null
-  maxFeePerGas: null
-  maxPriorityFeePerGas: null
-}
-
-/**
- * A legacy (pre-EIP1559) EVM transaction _request_, meaning only fields that
- * are used to post a transaction for inclusion are required, including the gas
- * limit used to limit the gas expenditure on a transaction. This is used to
- * request a signed transaction, and does not include signature fields.
- *
- * Nonce is permitted to be `undefined` as Pelagus internals can and often do
- * populate the nonce immediately before a request is signed.
- *
- * On networks that roll up to ethereum - the rollup fee is directly proportional
- * to the size (in bytes) of the input of a given transaction.  Networks that do
- * not roll up will have a rollup fee of 0.
- *
- * There is some intentional tech debt here in that we are adding both estimatedRollupFee
- * and estimatedRollupGwei as mandatory properties of LegacyEVMTransactionRequests.
- *
- * This is not strictly true - since there are networks that implement LegacyEVMTransactions
- * which do not roll up to Ethereum. Once we choose to support one of those networks -
- * we'll probably need to split this type into something like LegacyEVMTransactionRequest and
- * LegacyEvmRollupTransactionRequest.
- */
-export type LegacyEVMTransactionRequest = Pick<
-  LegacyEVMTransaction,
-  "gasPrice" | "type" | "from" | "to" | "input" | "value" | "network"
-> & {
-  chainID: LegacyEVMTransaction["network"]["chainID"]
-  gasLimit: bigint
-  estimatedRollupFee: bigint
-  estimatedRollupGwei: bigint
-  nonce?: number
-}
-
-/**
  * Transaction types attributes are expanded in the https://eips.ethereum.org/EIPS/eip-2718 standard which
  * is backward compatible. This means that it's enough for us to expand only the accepted tx types.
  * On the other hand we have yet to find other types from the range being used, so let's be restrictive,
@@ -184,132 +115,6 @@ export type LegacyEVMTransactionRequest = Pick<
  */
 export const KNOWN_TX_TYPES = [0, 1, 2, 100] as const
 export type KnownTxTypes = typeof KNOWN_TX_TYPES[number]
-
-/**
- * An EIP1559 EVM transaction, whose type is set to `1` or `2` per EIP1559 and
- * whose EIP1559-related fields are required, while `gasPrice` (pre-EIP1559) is
- * mandated to be `null`.
- */
-export type EIP1559Transaction = EVMTransaction & {
-  gasPrice: null
-  type: KnownTxTypes
-  maxFeePerGas: bigint & BigInt
-  maxPriorityFeePerGas: bigint & BigInt
-}
-
-/**
- * An EIP1559 EVM transaction _request_, meaning only fields used to post a
- * transaction for inclusion are required, including the gas limit used to
- * limit the gas expenditure on a transaction. This is used to request a signed
- * transaction, and does not include signature fields.
- *
- * Nonce is permitted to be `undefined` as Pelagus internals can and often do
- * populate the nonce immediately before a request is signed.
- */
-export type EIP1559TransactionRequest = Pick<
-  EIP1559Transaction,
-  | "from"
-  | "to"
-  | "type"
-  | "input"
-  | "value"
-  | "maxFeePerGas"
-  | "maxPriorityFeePerGas"
-  | "network"
-> & {
-  externalGasLimit?: bigint
-  externalGasPrice?: bigint
-  externalGasTip?: bigint
-  gasLimit: bigint
-  chainID: EIP1559Transaction["network"]["chainID"]
-  nonce?: number
-}
-
-export type TransactionRequest =
-  | EIP1559TransactionRequest
-  | LegacyEVMTransactionRequest
-
-// TODO-MIGRATION remove
-export type TransactionRequestWithNonce = TransactionRequest & { nonce: number }
-
-/**
- * EVM log metadata, including the contract address that generated the log, the
- * full log data, and the indexed log topics.
- */
-export type EVMLog = {
-  contractAddress: HexString
-  data: HexString
-  // topics: HexString[]
-}
-
-/**
- * A confirmed EVM transaction that has been included in a block. Includes
- * information about the gas actually used to execute the transaction, as well
- * as the block hash and block height at which the transaction was included.
- */
-export type ConfirmedEVMTransaction = EVMTransaction & {
-  gasUsed: bigint
-  status: number
-  blockHash: string
-  blockHeight: number
-  etxs: Transaction[]
-  logs: EVMLog[] | undefined
-}
-
-/**
- * An EVM transaction that failed to be confirmed. Includes information about
- * the error if available.
- */
-export type FailedConfirmationEVMTransaction = EVMTransaction & {
-  status: 0
-  error?: string
-  blockHash: null
-  blockHeight: null
-}
-
-/**
- * An almost-signed EVM transaction, meaning a transaction that knows about the
- * signature fields but may not have them all populated yet.
- */
-export type AlmostSignedEVMTransaction = EVMTransaction & {
-  r?: string
-  s?: string
-  v?: number
-}
-
-/**
- * An EVM transaction with signature fields filled in and ready for broadcast
- * to the network.
- */
-type SignedEIP1559Transaction = EVMTransaction & {
-  r: string
-  s: string
-  v: number
-}
-
-/**
- * A Legacy EVM transaction with signature fields filled in and ready for broadcast
- * to the network.
- */
-export type SignedLegacyEVMTransaction = LegacyEVMTransaction & {
-  r: string
-  s: string
-  v: number
-}
-
-export type SignedTransaction =
-  | SignedEIP1559Transaction
-  | SignedLegacyEVMTransaction
-
-/**
- * Any EVM transaction, confirmed or unconfirmed and signed or unsigned.
- */
-export type AnyEVMTransaction =
-  | EVMTransaction
-  | ConfirmedEVMTransaction
-  | AlmostSignedEVMTransaction
-  | SignedTransaction
-  | FailedConfirmationEVMTransaction
 
 /**
  * The estimated gas prices for including a transaction in the next block.
@@ -386,7 +191,7 @@ export const isEIP1559TransactionRequest = (
     | PendingQuaiTransaction
     | FailedQuaiTransaction
     | QuaiTransactionRequest
-): transactionRequest is EIP1559TransactionRequest =>
+): transactionRequest is QuaiTransactionRequest =>
   "maxFeePerGas" in transactionRequest &&
   transactionRequest.maxFeePerGas !== null &&
   "maxPriorityFeePerGas" in transactionRequest &&
