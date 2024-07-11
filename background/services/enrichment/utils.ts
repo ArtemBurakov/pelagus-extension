@@ -18,7 +18,7 @@ export function isEIP2612TypedData(
       typedData.primaryType === "Permit" &&
       // Must have all expected fields
       // @TODO use AJV validation
-      ["owner", "spender", "value", "deadline"].every(
+      ["owner", "spender", "value", "nonce", "deadline"].every(
         (key) => key in typedData.message
       )
     ) {
@@ -33,7 +33,7 @@ export async function enrichEIP2612SignTypedDataRequest(
   asset: SmartContractFungibleAsset | undefined
 ): Promise<EIP2612SignTypedDataAnnotation> {
   const { message, domain } = typedData
-  const { value, owner, spender } = message
+  const { value, owner, spender, nonce } = message
 
   // If we have a corresponding asset - use known decimals to display a human-friendly
   // amount e.g. 10 USDC.  Otherwise just display the value e.g. 10000000
@@ -51,6 +51,7 @@ export async function enrichEIP2612SignTypedDataRequest(
       owner,
       spender,
       tokenContract: domain.verifyingContract || "unknown",
+      nonce,
       value: formattedValue,
       ...(token ? { token } : {}),
       expiry: dayjs.unix(Number(message.deadline)).format("DD MMM YYYY"),

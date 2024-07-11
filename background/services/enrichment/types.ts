@@ -89,11 +89,6 @@ export type EnrichedEIP1559TransactionSignatureRequest =
     network: NetworkInterfaceGA
   }
 
-export type TypedDataField = {
-  value: string
-  type: "address" | "string"
-}
-
 export type EIP2612SignTypedDataAnnotation = {
   type: "EIP-2612"
   source: string
@@ -102,6 +97,7 @@ export type EIP2612SignTypedDataAnnotation = {
     tokenContract: string
     spender: string
     value: string
+    nonce: number
     expiry: string
     token?: string
   }

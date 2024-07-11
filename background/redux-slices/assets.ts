@@ -248,6 +248,7 @@ export const sendAsset = createBackgroundAsyncThunk(
 
       let transactionData = "0x"
       let transactionValue = assetAmount.amount
+      let toAddressData = toAddress
 
       if (isSmartContractFungibleAsset(assetAmount.asset)) {
         const provider = getProvider()
@@ -265,12 +266,13 @@ export const sendAsset = createBackgroundAsyncThunk(
             assetAmount.amount
           )
 
-        transactionData = transactionDetails.data ? transactionDetails.data : ""
+        toAddressData = transactionDetails.to
+        transactionData = transactionDetails.data
         transactionValue = 0n
       }
 
       const request: QuaiTransactionRequest = {
-        to: getAddress(toAddress),
+        to: getAddress(toAddressData),
         from: fromAddress,
         gasLimit,
         maxPriorityFeePerGas,

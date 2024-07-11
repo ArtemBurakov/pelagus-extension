@@ -27,6 +27,7 @@ export type Activity = {
   from: string
   blockHeight: number | null
   value: string
+  nonce: number
   hash: string
   blockHash: string | null
   blockTimestamp?: number
@@ -172,7 +173,7 @@ const getAnnotationType = (transaction: QuaiTransactionState) => {
 export const getActivity = async (
   transaction: QuaiTransactionState | EnrichedQuaiTransaction
 ): Promise<Activity> => {
-  const { to, from, hash, blockHash, chainId } = transaction
+  const { to, from, nonce, hash, blockHash, chainId } = transaction
 
   const txNetwork = globalThis.main.chainService.supportedNetworks.find(
     (net) => toBigInt(net.chainID) === toBigInt(chainId ?? 0)
@@ -193,6 +194,7 @@ export const getActivity = async (
     sender: { address: from },
     blockHeight,
     assetSymbol: txNetwork?.baseAsset.symbol,
+    nonce: nonce ?? 0,
     hash: hash ?? "",
     blockHash,
     value: getValue(transaction),
@@ -223,6 +225,25 @@ export const getActivity = async (
 }
 
 export const sortActivities = (a: Activity, b: Activity): number => {
+  if (
+    a.blockHeight === null ||
+    b.blockHeight === null ||
+    a.blockHeight === b.blockHeight
+  ) {
+    // Sort dropped transactions after their corresponding successful ones.
+    if (a.nonce === b.nonce) {
+      if (a.blockHeight === null) {
+        return 1
+      }
+      if (b.blockHeight === null) {
+        return -1
+      }
+    }
+    // Sort by nonce if a block height is missing or equal between two
+    // transactions, as long as the two activities are on the same network;
+    // otherwise, sort as before.
+    return b.nonce - a.nonce
+  }
   // null means pending or dropped, these are always sorted above everything
   // if networks don't match.
   if (a.blockHeight === null && b.blockHeight === null) {
@@ -269,13 +290,14 @@ export async function getActivityDetails(
           })
           .filter(isDefined)
 
-  const { maxFeePerGas, gasPrice, hash } = tx
+  const { maxFeePerGas, gasPrice, nonce, hash } = tx
   return [
     { label: "Block Height", value: await getBlockHeight(tx) },
     { label: "Amount", value: getAmount(tx) ?? "" },
     { label: "Max Fee/Gas", value: getGweiPrice(toBigInt(maxFeePerGas ?? 0)) },
     { label: "Gas Price", value: getGweiPrice(toBigInt(gasPrice ?? 0)) },
     { label: "Gas", value: "gasUsed" in tx ? tx.gasUsed.toString() : "" },
+    { label: "Nonce", value: String(nonce) },
     { label: "Timestamp", value: getTimestamp(annotation?.blockTimestamp) },
     { label: "Hash", value: hash },
   ].concat(
