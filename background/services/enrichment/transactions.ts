@@ -322,7 +322,7 @@ export default async function resolveTransactionAnnotation(
           }
         : txAnnotation
 
-    if (!transaction.data && transaction.value) {
+    if (transaction.data === "0x" && transaction.value) {
       // If the tx has no data, it's either a simple ETH send, or it's relying
       // on a contract that's `payable` to execute code
       const recipient = contractInfo
