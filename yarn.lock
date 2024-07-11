@@ -11465,10 +11465,10 @@ quais@0.1.14:
     "@quais/web" "0.1.0"
     "@quais/wordlists" "0.1.0"
 
-quais@^1.2.0-pre:
-  version "1.2.0-pre"
-  resolved "https://registry.yarnpkg.com/quais/-/quais-1.2.0-pre.tgz#943ee1b873a84cea3b70f3cc498a8dba9afbaa5a"
-  integrity sha512-A7KLhERKRCP2HG/xF45k2ymZI1h8P6JuKwXxbl8j9uYWfACWImNb1xZIr9xk0u6FCbqqxmZUxUfkctPeQm1QxA==
+quais@^1.0.0-alpha.5:
+  version "1.0.0-alpha.5"
+  resolved "https://registry.yarnpkg.com/quais/-/quais-1.0.0-alpha.5.tgz#7ba5c51c65ffc43dc272ccfde3e35acb7f93e926"
+  integrity sha512-rWxzsrHhuxyotBaTgM/GSrQQf/xvcyqG8r0JT4nOMZL4y6CyioOf6g7dXzCGRQPHpyznxIDG5hdMNKj1+0mW9g==
   dependencies:
     "@brandonblack/musig" "^0.0.1-alpha.1"
     "@noble/curves" "1.2.0"
@@ -13921,9 +13921,9 @@ ws@^7.5.0:
   integrity sha512-KMvVuFzpKBuiIXW3E4u3mySRO2/mCHSyZDJQM5NQ9Q9KHWHWh0NHgfbRMLLrceUK5qAL4ytALJbpRMjixFZh8A==
 
 ws@^8.17.1:
-  version "8.17.1"
-  resolved "https://registry.yarnpkg.com/ws/-/ws-8.17.1.tgz#9293da530bb548febc95371d90f9c878727d919b"
-  integrity sha512-6XQFvXTkbfUOZOKKILFG1PDK2NDQs4azKQl26T0YS5CxqWLgXajbPZ+h4gZekJyRqFU8pvnbAbbs/3TgRPy+GQ==
+  version "8.18.0"
+  resolved "https://registry.yarnpkg.com/ws/-/ws-8.18.0.tgz#0d7505a6eafe2b0e712d232b42279f53bc289bbc"
+  integrity sha512-8VbfWfHLbbwu3+N6OKsOMpBdT4kXPDDB9cJk2bJ6mh9ucxdlnNvH1e+roYkKmN9Nxw2yjz7VzeO9oOz2zJ04Pw==
 
 xml-name-validator@^3.0.0:
   version "3.0.0"

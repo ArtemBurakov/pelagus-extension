@@ -331,7 +331,7 @@ export default class KeyringService extends BaseService<Events> {
 
     this.quaiHDWallets.push(newQuaiHDWallet)
 
-    const { address } = newQuaiHDWallet.getNextAddress(
+    const { address } = await newQuaiHDWallet.getNextAddress(
       this.quaiHDWalletAccountIndex,
       Zone.Cyprus1
     )
@@ -427,7 +427,7 @@ export default class KeyringService extends BaseService<Events> {
       throw new Error("QuaiHDWallet not found.")
     }
 
-    const { address } = quaiHDWallet.getNextAddress(
+    const { address } = await quaiHDWallet.getNextAddress(
       this.quaiHDWalletAccountIndex,
       zone
     )
