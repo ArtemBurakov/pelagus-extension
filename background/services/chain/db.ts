@@ -32,7 +32,7 @@ type AccountAssetTransferLookup = {
 }
 
 // TODO keep track of blocks invalidated by a reorg
-// TODO keep track of transaction replacement / nonce invalidation
+// TODO keep track of transaction replacement
 export class ChainDatabase extends Dexie {
   /*
    * Accounts whose transaction and balances should be tracked on a particular

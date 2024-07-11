@@ -2,7 +2,7 @@ import { QuaiHDWallet, Wallet, Zone } from "quais"
 import { SerializedHDWallet } from "quais/lib/commonjs/wallet/hdwallet"
 import { HexString, KeyringTypes } from "../../types"
 import { ServiceLifecycleEvents } from "../types"
-import { SignedTransaction } from "../../networks"
+import { QuaiTransactionState } from "../chain/types"
 
 export type Keyring = {
   type: KeyringTypes
@@ -51,7 +51,7 @@ export interface Events extends ServiceLifecycleEvents {
     }
   }
   address: string
-  signedTx: SignedTransaction
+  signedTx: QuaiTransactionState
   signedData: string
 }
 

@@ -22,7 +22,7 @@ import {
   parseToFixedPointNumber,
 } from "@pelagus/pelagus-background/lib/fixed-point"
 import {
-  getAccountNonceAndGasPrice,
+  getMaxFeeAndMaxPriorityFeePerGas,
   selectAssetPricePoint,
   sendAsset,
 } from "@pelagus/pelagus-background/redux-slices/assets"
@@ -57,6 +57,8 @@ export default function Send(): ReactElement {
   const { t: confirmationLocales } = useTranslation("translation", {
     keyPrefix: "drawers.transactionConfirmation",
   })
+  const dispatch = useBackgroundDispatch()
+
   const isMounted = useRef(false)
   const location = useLocation<FungibleAsset>()
   const currentNetwork = useBackgroundSelector(selectCurrentNetwork)
@@ -73,7 +75,6 @@ export default function Send(): ReactElement {
 
   const [assetType, setAssetType] = useState<"token">("token")
 
-  const [nonce, setNonce] = useState<number>(0)
   const [maxFeePerGas, setMaxFeePerGas] = useState(toBigInt(0))
   const [maxPriorityFeePerGas, setMaxPriorityFeePerGas] = useState(toBigInt(0))
   const [gasLimit, setGasLimit] = useState<number>(100000)
@@ -86,18 +87,15 @@ export default function Send(): ReactElement {
   }
 
   useEffect(() => {
-    dispatch(
-      getAccountNonceAndGasPrice({
-        details: {
-          address: currentAccount.address,
-          network: currentAccount.network,
-        },
-      })
-    ).then(({ nonce, maxFeePerGas, maxPriorityFeePerGas }) => {
-      setNonce(nonce)
-      setMaxFeePerGas(toBigInt(maxFeePerGas))
-      setMaxPriorityFeePerGas(toBigInt(maxPriorityFeePerGas))
-    })
+    dispatch(getMaxFeeAndMaxPriorityFeePerGas()).then(
+      ({
+        maxFeePerGas: maxFeePerGasFromRedux,
+        maxPriorityFeePerGas: maxPriorityFeePerGasFromRedux,
+      }) => {
+        setMaxFeePerGas(maxFeePerGasFromRedux)
+        setMaxPriorityFeePerGas(maxPriorityFeePerGasFromRedux)
+      }
+    )
   }, [])
 
   // Switch the asset being sent when switching between networks, but still use
@@ -125,7 +123,6 @@ export default function Send(): ReactElement {
 
   const history = useHistory()
 
-  const dispatch = useBackgroundDispatch()
   const balanceData = useBackgroundSelector(selectCurrentAccountBalances)
   const mainCurrencySymbol = useBackgroundSelector(selectMainCurrencySymbol)
   const { signedTransaction } = useBackgroundSelector(
@@ -194,7 +191,6 @@ export default function Send(): ReactElement {
         assetAmount,
         accountSigner: currentAccountSigner,
         gasLimit: BigInt(gasLimit),
-        nonce,
         maxFeePerGas,
         maxPriorityFeePerGas,
       }
@@ -338,20 +334,6 @@ export default function Send(): ReactElement {
             )}
             {advancedVisible && (
               <div>
-                <label style={{ paddingTop: "5px" }} htmlFor="nonce">
-                  Nonce
-                </label>
-                <input
-                  id="send_address_alt"
-                  type="number"
-                  placeholder={nonce.toString()}
-                  spellCheck={false}
-                  onChange={(event) => setNonce(parseInt(event.target.value))}
-                  className={classNames({
-                    error: addressErrorMessage !== undefined,
-                    resolved_address: resolvedNameToAddress,
-                  })}
-                />
                 <label style={{ paddingTop: "5px" }} htmlFor="gasLimit">
                   Gas Limit
                 </label>

@@ -1,17 +1,22 @@
-import { TypedDataEncoder, QuaiTransaction, hexlify, toUtf8Bytes } from "quais"
-import { TransactionRequest as QuaiTransactionRequest } from "@quais/abstract-provider"
+import {
+  TypedDataEncoder,
+  QuaiTransaction,
+  hexlify,
+  toUtf8Bytes,
+  AddressLike,
+} from "quais"
 import {
   EIP1193_ERROR_CODES,
   EIP1193Error,
   RPCRequest,
 } from "@pelagus-provider/provider-bridge-shared"
 import { normalizeHexAddress } from "@pelagus/hd-keyring"
+import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
 import logger from "../../lib/logger"
 import BaseService from "../base"
 import { ServiceCreatorFunction, ServiceLifecycleEvents } from "../types"
 import ChainService from "../chain"
 import { toHexChainID } from "../../networks"
-import { transactionRequestFromEthersTransactionRequest } from "../chain/utils"
 import PreferenceService from "../preferences"
 import { internalProviderPort } from "../../redux-slices/utils/contract-utils"
 import {
@@ -21,15 +26,12 @@ import {
 } from "../../utils/signing"
 import { getOrCreateDB, InternalQuaiProviderDatabase } from "./db"
 import { PELAGUS_INTERNAL_ORIGIN } from "./constants"
-import {
-  EnrichedEVMTransactionRequest,
-  TransactionAnnotation,
-} from "../enrichment"
+import { TransactionAnnotation } from "../enrichment"
 import type { ValidatedAddEthereumChainParameter } from "../provider-bridge/utils"
 import { decodeJSON } from "../../lib/utils"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
 import { NetworksArray } from "../../constants/networks/networks"
-import networks from "../../redux-slices/networks"
+import { QuaiTransactionRequestWithAnnotation } from "../chain/types"
 
 // A type representing the transaction requests that come in over JSON-RPC
 // requests like eth_sendTransaction and eth_signTransaction. These are very
@@ -91,8 +93,8 @@ type DAppRequestEvent<T, E> = {
 
 type Events = ServiceLifecycleEvents & {
   transactionSignatureRequest: DAppRequestEvent<
-    Partial<EnrichedEVMTransactionRequest> & {
-      from: string
+    Partial<QuaiTransactionRequestWithAnnotation> & {
+      from: AddressLike
       network: NetworkInterfaceGA
     },
     QuaiTransaction
@@ -373,28 +375,18 @@ export default class InternalQuaiProviderService extends BaseService<Events> {
     const currentNetwork =
       globalThis.main.store.getState().ui.selectedAccount.network
 
-    const { from, ...convertedRequest } =
-      transactionRequestFromEthersTransactionRequest({
-        // Convert input -> data if necessary; if transactionRequest uses data
-        // directly, it will be overwritten below. If someone sends both and
-        // they differ, may devops199 have mercy on their soul (but we will
-        // prefer the explicit `data` rather than the copied `input`).
-        data: transactionRequest.input,
-        ...transactionRequest,
-        gasLimit: transactionRequest.gas, // convert gas -> gasLimit
-        from: transactionRequest.from,
-        to: transactionRequest.to,
-      })
-
-    if (typeof from === "undefined") {
-      throw new Error("Transactions must have a from address for signing.")
-    }
-
     return new Promise<QuaiTransaction>((resolve, reject) => {
       this.emitter.emit("transactionSignatureRequest", {
         payload: {
-          ...convertedRequest,
-          from,
+          to: transactionRequest.to,
+          data: transactionRequest.input,
+          from: transactionRequest.from,
+          type: transactionRequest.type,
+          value: transactionRequest.value,
+          chainId: transactionRequest.chainId,
+          gasLimit: transactionRequest.gas,
+          maxFeePerGas: transactionRequest.maxFeePerGas,
+          maxPriorityFeePerGas: transactionRequest.maxPriorityFeePerGas,
           network: currentNetwork,
           annotation,
         },

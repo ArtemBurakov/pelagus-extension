@@ -47,8 +47,8 @@ export type MessageSigningRequest<
 type EIP2612Message = {
   owner: HexString
   spender: HexString
-  value: number
   nonce: number
+  value: number
   deadline: number
 }
 

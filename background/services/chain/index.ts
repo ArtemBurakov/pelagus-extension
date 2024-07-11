@@ -11,7 +11,10 @@ import {
   TransactionResponse,
   WebSocketProvider,
 } from "quais"
-import { QuaiTransactionResponse } from "quais/lib/commonjs/providers"
+import {
+  QuaiTransactionRequest,
+  QuaiTransactionResponse,
+} from "quais/lib/commonjs/providers"
 import { NetworksArray } from "../../constants/networks/networks"
 import ProviderFactory from "./provider-factory"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
@@ -19,12 +22,7 @@ import logger from "../../lib/logger"
 import getBlockPrices from "../../lib/gas"
 import { HexString, UNIXTime } from "../../types"
 import { AccountBalance, AddressOnNetwork } from "../../accounts"
-import {
-  AnyEVMBlock,
-  BlockPrices,
-  toHexChainID,
-  TransactionRequest,
-} from "../../networks"
+import { AnyEVMBlock, BlockPrices, toHexChainID } from "../../networks"
 import {
   AnyAssetAmount,
   AssetTransfer,
@@ -38,7 +36,6 @@ import BaseService from "../base"
 import {
   blockFromEthersBlock,
   blockFromProviderBlock,
-  ethersTransactionFromTransactionRequest,
   getExtendedZoneForAddress,
 } from "./utils"
 import { sameQuaiAddress } from "../../lib/utils"
@@ -189,16 +186,6 @@ export default class ChainService extends BaseService<Events> {
 
   private lastUserActivityOnAddress: {
     [address: HexString]: UNIXTime
-  } = {}
-
-  /**
-   * For each chain id, track an address's last seen nonce. The tracked nonce
-   * should generally not be allocated to a new transaction, nor should any
-   * nonce's that precede it, unless the intent is deliberately to replace an
-   * unconfirmed transaction sharing the same nonce.
-   */
-  private evmChainLastSeenNoncesByNormalizedAddress: {
-    [chainID: string]: { [normalizedAddress: string]: number }
   } = {}
 
   /**
@@ -741,10 +728,10 @@ export default class ChainService extends BaseService<Events> {
    * the base estimate returned by the provider.
    */
   async estimateGasLimit(
-    transactionRequest: TransactionRequest
+    transactionRequest: QuaiTransactionRequest
   ): Promise<bigint> {
     const estimate = await this.currentProvider.jsonRpc?.estimateGas(
-      ethersTransactionFromTransactionRequest(transactionRequest)
+      transactionRequest
     )
 
     if (!estimate) throw new Error("Failed to estimate gas")
@@ -758,7 +745,7 @@ export default class ChainService extends BaseService<Events> {
    * Estimate the gas needed to make a transaction. Adds 10% as a safety net to
    * the base estimate returned by the provider.
    */
-  private async estimateGasPrice(tx: TransactionRequest): Promise<bigint> {
+  private async estimateGasPrice(tx: QuaiTransactionRequest): Promise<bigint> {
     const estimate = await this.currentProvider.jsonRpc?.estimateGas(tx)
 
     if (!estimate) throw new Error("Failed to estimate gas")
@@ -1443,20 +1430,6 @@ export default class ChainService extends BaseService<Events> {
       // nonce, and the pending transaction has a higher nonce, update our
       // view of it. This helps reduce the number of times when a
       // transaction submitted outside of this wallet causes this wallet to
-      // produce bad transactions with reused nonce's.
-      if (
-        typeof network.chainID !== "undefined" &&
-        typeof this.evmChainLastSeenNoncesByNormalizedAddress[
-          network.chainID
-        ]?.[transaction.from] !== "undefined" &&
-        this.evmChainLastSeenNoncesByNormalizedAddress[network.chainID]?.[
-          transaction.from
-        ] <= transaction.nonce
-      ) {
-        this.evmChainLastSeenNoncesByNormalizedAddress[network.chainID][
-          transaction.from
-        ] = transaction.nonce
-      }
       await this.saveTransaction(transaction, "local")
 
       // Wait for confirmation/receipt information.

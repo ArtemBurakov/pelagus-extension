@@ -159,8 +159,6 @@ export default class SigningService extends BaseService<Events> {
         reason: getSigningErrorReason(err),
       })
 
-      // this.chainService.releaseEVMTransactionNonce(transactionRequest)
-
       throw err
     }
   }

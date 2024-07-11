@@ -61,11 +61,11 @@ describe("Chain Database ", () => {
   })
   describe("addOrUpdateTransaction", () => {
     const addTransactionEth = createAnyEVMTransaction({
-      network: QuaiNetworkGA,
+      chainId: QuaiNetworkGA.chainID,
     })
 
     const addTransactionOpt = createAnyEVMTransaction({
-      network: QuaiNetworkGA,
+      chainId: QuaiNetworkGA.chainID,
     })
     it("should correctly persist transactions to indexedDB", async () => {
       const getEthTransaction = await db.getQuaiTransactionByHash(

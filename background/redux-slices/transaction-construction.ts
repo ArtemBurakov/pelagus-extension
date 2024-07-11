@@ -8,12 +8,14 @@ import {
   BlockEstimate,
   BlockPrices,
   isEIP1559TransactionRequest,
-  SignedTransaction,
 } from "../networks"
 import { createBackgroundAsyncThunk } from "./utils"
 import { SignOperation } from "./signing"
 import { NetworkInterfaceGA } from "../constants/networks/networkTypes"
-import { QuaiTransactionRequestWithAnnotation } from "../services/chain/types"
+import {
+  QuaiTransactionRequestWithAnnotation,
+  QuaiTransactionState,
+} from "../services/chain/types"
 import { AccountSigner } from "../services/signing"
 
 export const enum TransactionConstructionStatus {
@@ -86,7 +88,7 @@ export type Events = {
   requestSignature: SignOperation<QuaiTransactionRequestWithAnnotation>
   signatureRejected: never
   broadcastSignedTransaction: QuaiTransaction
-  signedTransactionResult: SignedTransaction
+  signedTransactionResult: QuaiTransactionState
 }
 
 export type GasOption = {
@@ -201,16 +203,19 @@ const transactionSlice = createSlice({
           transactionRequest.maxPriorityFeePerGas
 
         // Gas minimums
-        if (newState.transactionRequest.maxPriorityFeePerGas < 1000000000n) {
+        if (
+          newState.transactionRequest.maxPriorityFeePerGas ??
+          0n < 1000000000n
+        ) {
           newState.transactionRequest.maxPriorityFeePerGas = 1000000000n
         }
 
         if (
-          newState.transactionRequest.maxFeePerGas <
-          newState.transactionRequest.maxPriorityFeePerGas + 1000000000n
+          (newState.transactionRequest.maxFeePerGas ?? 0n) <
+          (newState.transactionRequest.maxPriorityFeePerGas ?? 0n) + 1000000000n
         ) {
           newState.transactionRequest.maxFeePerGas =
-            newState.transactionRequest.maxPriorityFeePerGas + 1000000000n
+            newState.transactionRequest.maxPriorityFeePerGas ?? 0n + 1000000000n
         }
       }
 
