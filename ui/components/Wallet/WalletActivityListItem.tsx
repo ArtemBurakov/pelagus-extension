@@ -77,7 +77,7 @@ export default function WalletActivityListItem(props: Props): ReactElement {
             ) : (
               <></>
             )}
-            {activity.status == 2 ||
+            {activity.status === 2 ||
             (activity.blockHash !== null &&
               activity.to &&
               getExtendedZoneForAddress(activity.from, false) ===
@@ -88,7 +88,7 @@ export default function WalletActivityListItem(props: Props): ReactElement {
             )}
             {activity.blockHash !== null &&
             activity.to &&
-            activity.status == 1 &&
+            activity.status === 1 &&
             getExtendedZoneForAddress(activity.from, false) !==
               getExtendedZoneForAddress(activity.to, false) ? (
               <div className="status approved">{t("transactionApproved")}</div>
