@@ -274,16 +274,21 @@ export const sendAsset = createBackgroundAsyncThunk(
       const request: QuaiTransactionRequest = {
         to: getAddress(toAddressData),
         from: fromAddress,
+        // TODO
+        chainId: "9000",
         gasLimit,
         maxPriorityFeePerGas,
         maxFeePerGas,
         data: transactionData,
         value: transactionValue,
       }
-      await transactionConstructionSliceEmitter.emit("signTransaction", {
-        request,
-        accountSigner,
-      })
+      await transactionConstructionSliceEmitter.emit(
+        "signAndSendQuaiTransaction",
+        {
+          request,
+          accountSigner,
+        }
+      )
 
       return { success: true }
     } catch (error) {

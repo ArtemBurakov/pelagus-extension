@@ -85,6 +85,12 @@ export type Events = {
     request: QuaiTransactionRequest
     accountSigner: AccountSigner
   }
+
+  signAndSendQuaiTransaction: {
+    request: QuaiTransactionRequest
+    accountSigner: AccountSigner
+  }
+
   requestSignature: SignOperation<QuaiTransactionRequestWithAnnotation>
   signatureRejected: never
   broadcastSignedTransaction: QuaiTransaction
