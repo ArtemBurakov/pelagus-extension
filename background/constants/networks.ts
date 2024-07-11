@@ -10,26 +10,28 @@ import { NetworkInterfaceGA } from "./networks/networkTypes"
 
 export const VALID_ZONES: Array<Zone> = [
   Zone.Cyprus1,
-  Zone.Cyprus2,
-  Zone.Cyprus3,
-  Zone.Paxos1,
-  Zone.Paxos2,
-  Zone.Paxos3,
-  Zone.Hydra1,
-  Zone.Hydra2,
-  Zone.Hydra3,
+  // TODO-MIGRATION temporary
+  // Zone.Cyprus2,
+  // Zone.Cyprus3,
+  // Zone.Paxos1,
+  // Zone.Paxos2,
+  // Zone.Paxos3,
+  // Zone.Hydra1,
+  // Zone.Hydra2,
+  // Zone.Hydra3,
 ]
 
 export const VALID_ZONES_NAMES: Array<string> = [
   "Cyprus 1",
-  "Cyprus 2",
-  "Cyprus 3",
-  "Paxos 1",
-  "Paxos 2",
-  "Paxos 3",
-  "Hydra 1",
-  "Hydra 2",
-  "Hydra 3",
+  // TODO-MIGRATION temporary
+  // "Cyprus 2",
+  // "Cyprus 3",
+  // "Paxos 1",
+  // "Paxos 2",
+  // "Paxos 3",
+  // "Hydra 1",
+  // "Hydra 2",
+  // "Hydra 3",
 ]
 
 export const DEFAULT_QUAI_TESTNET = {
