@@ -197,7 +197,7 @@ export default function Send(): ReactElement {
         maxPriorityFeePerGas,
       }
       await dispatch(sendAsset(transferDetails)).then((data) =>
-        setIsTransactionError(data?.success)
+        setIsTransactionError(!data.success)
       )
     } catch (e) {
       setIsTransactionError(true)
