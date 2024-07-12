@@ -183,7 +183,10 @@ export default async function resolveTransactionAnnotation(
   desiredDecimals: number
 ): Promise<TransactionAnnotation> {
   const assets = await indexingService.getCachedAssets(network)
-  const isExternalTransfer = !!transaction.type && !!transaction.to
+  const isExternalTransfer =
+    !!transaction.type &&
+    (transaction.type === 1 || transaction.type === 2) &&
+    !!transaction.to
   const useDestinationShard = sameQuaiAddress(
     transaction.from,
     "0x0000000000000000000000000000000000000000"
