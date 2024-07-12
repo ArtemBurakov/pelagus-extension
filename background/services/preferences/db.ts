@@ -37,6 +37,7 @@ export interface Preferences {
     hasDefaultOnBeenTurnedOn: boolean
   }
   showDefaultWalletBanner: boolean
+  showAlphaWalletBanner: boolean
 }
 
 export class PreferenceDatabase extends Dexie {
@@ -358,6 +359,18 @@ export class PreferenceDatabase extends Dexie {
       .modify((storedPreferences: Preferences) => {
         const update: Partial<Preferences> = {
           showDefaultWalletBanner: newValue,
+        }
+
+        Object.assign(storedPreferences, update)
+      })
+  }
+
+  async setShowAlphaWalletBanner(newValue: boolean): Promise<void> {
+    await this.preferences
+      .toCollection()
+      .modify((storedPreferences: Preferences) => {
+        const update: Partial<Preferences> = {
+          showAlphaWalletBanner: newValue,
         }
 
         Object.assign(storedPreferences, update)

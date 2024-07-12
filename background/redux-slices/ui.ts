@@ -24,6 +24,7 @@ export const defaultSettings = {
   showUnverifiedAssets: false,
   hideBanners: false,
   showDefaultWalletBanner: true,
+  showAlphaWalletBanner: true,
 }
 
 export type UIState = {
@@ -43,6 +44,7 @@ export type UIState = {
     showUnverifiedAssets: boolean
     hideBanners: boolean
     showDefaultWalletBanner: boolean
+    showAlphaWalletBanner: boolean
   }
   snackbarMessage: string
   routeHistoryEntries?: Partial<Location>[]
@@ -64,6 +66,7 @@ export type Events = {
   updateAnalyticsPreferences: Partial<AnalyticsPreferences>
   addCustomNetworkResponse: [string, boolean]
   showDefaultWalletBanner: boolean
+  showAlphaWalletBanner: boolean
 }
 
 export const emitter = new Emittery<Events>()
@@ -225,6 +228,12 @@ const uiSlice = createSlice({
         settings: { ...state.settings, showDefaultWalletBanner: payload },
       }
     },
+    setShowAlphaWalletBanner: (state, { payload }: { payload: boolean }) => {
+      return {
+        ...state,
+        settings: { ...state.settings, showAlphaWalletBanner: payload },
+      }
+    },
   },
 })
 
@@ -248,6 +257,7 @@ export const {
   setSlippageTolerance,
   setAccountsSignerSettings,
   setShowDefaultWalletBanner,
+  setShowAlphaWalletBanner,
 } = uiSlice.actions
 
 export default uiSlice.reducer
@@ -401,6 +411,13 @@ export const updateShowDefaultWalletBanner = createBackgroundAsyncThunk(
   }
 )
 
+export const updateAlphaWalletBanner = createBackgroundAsyncThunk(
+  "ui/showAlphaWalletBanner",
+  async (newValue: boolean) => {
+    await emitter.emit("showAlphaWalletBanner", newValue)
+  }
+)
+
 export const selectUI = createSelector(
   (state: { ui: UIState }): UIState => state.ui,
   (uiState) => uiState
@@ -464,4 +481,8 @@ export const selectHideBanners = createSelector(
 export const selectShowDefaultWalletBanner = createSelector(
   selectSettings,
   (settings) => settings.showDefaultWalletBanner
+)
+export const selectShowAlphaWalletBanner = createSelector(
+  selectSettings,
+  (settings) => settings.showAlphaWalletBanner
 )
