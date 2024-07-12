@@ -80,11 +80,6 @@ export const initialState: TransactionConstruction = {
 
 export type Events = {
   updateTransaction: QuaiTransactionRequestWithAnnotation
-  // TODO-MIGRATION
-  signTransaction: {
-    request: QuaiTransactionRequest
-    accountSigner: AccountSigner
-  }
 
   signAndSendQuaiTransaction: {
     request: QuaiTransactionRequest

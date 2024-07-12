@@ -78,6 +78,7 @@ import {
   rejectTransactionSignature,
   TransactionConstructionStatus,
   transactionRequest,
+  transactionSigned,
   updateTransactionData,
 } from "./redux-slices/transaction-construction"
 import { allAliases } from "./redux-slices/utils"
@@ -876,50 +877,22 @@ export default class Main extends BaseService<never> {
     )
 
     transactionConstructionSliceEmitter.on(
-      "signTransaction",
-      async ({ request, accountSigner }) => {
-        try {
-          // TODO
-          // const signedTransaction = await this.signingService.signTransaction(
-          //   request,
-          //   accountSigner
-          // )
-          //
-          // this.store.dispatch(transactionSigned(signedTransaction))
-          //
-          // await this.analyticsService.sendAnalyticsEvent(
-          //   AnalyticsEvent.TRANSACTION_SIGNED,
-          //   {
-          //     chainId: signedTransaction.chainId,
-          //   }
-          // )
-        } catch (exception) {
-          logger.error("Error signing transaction", exception)
-          this.store.dispatch(
-            clearTransactionState(TransactionConstructionStatus.Idle)
-          )
-        }
-      }
-    )
-
-    transactionConstructionSliceEmitter.on(
       "requestSignature",
       async ({ request, accountSigner }) => {
         try {
-          // TODO
-          // const signedTransaction = await this.signingService.signTransaction(
-          //   request,
-          //   accountSigner
-          // )
-          //
-          // this.store.dispatch(transactionSigned(signedTransaction))
-          //
-          // await this.analyticsService.sendAnalyticsEvent(
-          //   AnalyticsEvent.TRANSACTION_SIGNED,
-          //   {
-          //     chainId: signedTransaction.chainId,
-          //   }
-          // )
+          const signedTransaction = await this.signingService.signTransaction(
+            request,
+            accountSigner
+          )
+
+          this.store.dispatch(transactionSigned(signedTransaction))
+
+          await this.analyticsService.sendAnalyticsEvent(
+            AnalyticsEvent.TRANSACTION_SIGNED,
+            {
+              chainId: signedTransaction.chainId,
+            }
+          )
         } catch (exception) {
           logger.error("Error signing transaction", exception)
           this.store.dispatch(
