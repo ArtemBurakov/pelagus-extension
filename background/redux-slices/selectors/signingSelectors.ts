@@ -1,10 +1,11 @@
 import { createSelector } from "@reduxjs/toolkit"
+import { getZoneForAddress } from "quais"
 import { RootState } from ".."
 import { isDefined } from "../../lib/utils/type-guards"
 import {
   KeyringAccountSigner,
   PrivateKeyAccountSigner,
-} from "../../services/keyring"
+} from "../../services/keyring/types"
 import { AccountSigner, ReadOnlyAccountSigner } from "../../services/signing"
 import { HexString } from "../../types"
 import {
@@ -12,8 +13,6 @@ import {
   selectPrivateKeyWalletsByAddress,
 } from "./keyringsSelectors"
 import { selectCurrentAccount } from "./uiSelectors"
-import { QUAI_CONTEXTS } from "../../constants"
-import { getExtendedZoneForAddress } from "../../services/chain/utils"
 
 // FIXME: importing causes a dependency cycle
 const getAllAddresses = createSelector(
@@ -40,13 +39,14 @@ export const selectAccountSignersByAddress = createSelector(
           if (keyring.id === null) return undefined
 
           allAccountsSeen.add(address)
-          const shard = getExtendedZoneForAddress(address)
+          const zone = getZoneForAddress(address)
           return [
             address,
             {
               type: "keyring",
               keyringID: keyring.id,
-              shard,
+              // @ts-ignore TODO-MIGRATION
+              zone,
             },
           ]
         }
@@ -61,14 +61,15 @@ export const selectAccountSignersByAddress = createSelector(
           if (wallet.id === null) return undefined
 
           allAccountsSeen.add(address)
-          const shard = getExtendedZoneForAddress(address)
+          const zone = getZoneForAddress(address)
 
           return [
             address,
             {
               type: "private-key",
               walletID: wallet.id,
-              shard,
+              // @ts-ignore TODO-MIGRATION
+              zone,
             },
           ]
         }

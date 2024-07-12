@@ -7,7 +7,6 @@ import React, {
 } from "react"
 import { useTranslation } from "react-i18next"
 import {
-  getAssetsState,
   selectCurrentAccount,
   selectCurrentAccountBalances,
   selectCurrentAccountSigner,
@@ -23,9 +22,9 @@ import {
   parseToFixedPointNumber,
 } from "@pelagus/pelagus-background/lib/fixed-point"
 import {
-  getAccountNonceAndGasPrice,
+  getMaxFeeAndMaxPriorityFeePerGas,
   selectAssetPricePoint,
-  transferAsset,
+  sendAsset,
 } from "@pelagus/pelagus-background/redux-slices/assets"
 import { CompleteAssetAmount } from "@pelagus/pelagus-background/redux-slices/accounts"
 import {
@@ -34,10 +33,10 @@ import {
 } from "@pelagus/pelagus-background/redux-slices/utils/asset-utils"
 import { useHistory, useLocation } from "react-router-dom"
 import classNames from "classnames"
-import { ReadOnlyAccountSigner } from "@pelagus/pelagus-background/services/signing"
 import { setSnackbarMessage } from "@pelagus/pelagus-background/redux-slices/ui"
-import { sameEVMAddress } from "@pelagus/pelagus-background/lib/utils"
+import { sameQuaiAddress } from "@pelagus/pelagus-background/lib/utils"
 import { toBigInt } from "quais"
+import { ReadOnlyAccountSigner } from "@pelagus/pelagus-background/services/signing"
 import SharedAssetInput from "../components/Shared/SharedAssetInput"
 import SharedBackButton from "../components/Shared/SharedBackButton"
 import SharedButton from "../components/Shared/SharedButton"
@@ -58,6 +57,8 @@ export default function Send(): ReactElement {
   const { t: confirmationLocales } = useTranslation("translation", {
     keyPrefix: "drawers.transactionConfirmation",
   })
+  const dispatch = useBackgroundDispatch()
+
   const isMounted = useRef(false)
   const location = useLocation<FungibleAsset>()
   const currentNetwork = useBackgroundSelector(selectCurrentNetwork)
@@ -74,9 +75,10 @@ export default function Send(): ReactElement {
 
   const [assetType, setAssetType] = useState<"token">("token")
 
-  const [nonce, setNonce] = useState<number>(0)
-  const [maxFeePerGas, setMaxFeePerGas] = useState(toBigInt(0))
-  const [maxPriorityFeePerGas, setMaxPriorityFeePerGas] = useState(toBigInt(0))
+  const [maxFeePerGas, setMaxFeePerGas] = useState(toBigInt(2000000000))
+  const [maxPriorityFeePerGas, setMaxPriorityFeePerGas] = useState(
+    toBigInt(2000000000)
+  )
   const [gasLimit, setGasLimit] = useState<number>(100000)
 
   const [advancedVisible, setAdvancedVisible] = useState(false)
@@ -87,18 +89,15 @@ export default function Send(): ReactElement {
   }
 
   useEffect(() => {
-    dispatch(
-      getAccountNonceAndGasPrice({
-        details: {
-          address: currentAccount.address,
-          network: currentAccount.network,
-        },
-      })
-    ).then(({ nonce, maxFeePerGas, maxPriorityFeePerGas }) => {
-      setNonce(nonce)
-      setMaxFeePerGas(toBigInt(maxFeePerGas))
-      setMaxPriorityFeePerGas(toBigInt(maxPriorityFeePerGas))
-    })
+    dispatch(getMaxFeeAndMaxPriorityFeePerGas()).then(
+      ({
+        maxFeePerGas: maxFeePerGasFromRedux,
+        maxPriorityFeePerGas: maxPriorityFeePerGasFromRedux,
+      }) => {
+        setMaxFeePerGas(maxFeePerGasFromRedux)
+        setMaxPriorityFeePerGas(maxPriorityFeePerGasFromRedux)
+      }
+    )
   }, [])
 
   // Switch the asset being sent when switching between networks, but still use
@@ -126,7 +125,6 @@ export default function Send(): ReactElement {
 
   const history = useHistory()
 
-  const dispatch = useBackgroundDispatch()
   const balanceData = useBackgroundSelector(selectCurrentAccountBalances)
   const mainCurrencySymbol = useBackgroundSelector(selectMainCurrencySymbol)
   const { signedTransaction } = useBackgroundSelector(
@@ -180,31 +178,26 @@ export default function Send(): ReactElement {
       )
       return
     }
-    if (assetAmount === undefined || destinationAddress === undefined) {
-      return
-    }
+
+    if (!assetAmount || !destinationAddress) return
 
     try {
       setIsSendingTransactionRequest(true)
-      getAssetsState
-      await dispatch(
-        transferAsset({
-          fromAddressNetwork: currentAccount,
-          toAddressNetwork: {
-            address: destinationAddress,
-            network: currentAccount.network,
-          },
-          assetAmount,
-          accountSigner: currentAccountSigner,
-          gasLimit: BigInt(gasLimit),
-          nonce,
-          maxFeePerGas: maxFeePerGas,
-          maxPriorityFeePerGas: maxPriorityFeePerGas,
-        })
-      ).then((data) =>
-        data?.success
-          ? setIsTransactionError(false)
-          : setIsTransactionError(true)
+
+      const transferDetails = {
+        fromAddressNetwork: currentAccount,
+        toAddressNetwork: {
+          address: destinationAddress,
+          network: currentAccount.network,
+        },
+        assetAmount,
+        accountSigner: currentAccountSigner,
+        gasLimit: BigInt(gasLimit),
+        maxFeePerGas,
+        maxPriorityFeePerGas,
+      }
+      await dispatch(sendAsset(transferDetails)).then((data) =>
+        setIsTransactionError(!data.success)
       )
     } catch (e) {
       setIsTransactionError(true)
@@ -237,7 +230,7 @@ export default function Send(): ReactElement {
   const resolvedNameToAddress =
     addressErrorMessage === undefined &&
     destinationAddress !== undefined &&
-    !sameEVMAddress(destinationAddress, userAddressValue)
+    !sameQuaiAddress(destinationAddress, userAddressValue)
 
   if (isOpenConfirmationModal) {
     const onCloseConfirmationModal = () => {
@@ -343,20 +336,6 @@ export default function Send(): ReactElement {
             )}
             {advancedVisible && (
               <div>
-                <label style={{ paddingTop: "5px" }} htmlFor="nonce">
-                  Nonce
-                </label>
-                <input
-                  id="send_address_alt"
-                  type="number"
-                  placeholder={nonce.toString()}
-                  spellCheck={false}
-                  onChange={(event) => setNonce(parseInt(event.target.value))}
-                  className={classNames({
-                    error: addressErrorMessage !== undefined,
-                    resolved_address: resolvedNameToAddress,
-                  })}
-                />
                 <label style={{ paddingTop: "5px" }} htmlFor="gasLimit">
                   Gas Limit
                 </label>

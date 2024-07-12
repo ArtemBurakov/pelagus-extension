@@ -1,15 +1,18 @@
 import { createSlice, createSelector } from "@reduxjs/toolkit"
 import Emittery from "emittery"
-import { AddressOnNetwork } from "../accounts"
-import { QUAI_NETWORK } from "../constants"
 import { AnalyticsEvent, OneTimeAnalyticsEvent } from "../lib/posthog"
-import { EVMNetwork, ChainIdWithError } from "../networks"
+import { ChainIdWithError } from "../networks"
 import { AnalyticsPreferences } from "../services/preferences/types"
-import { AccountSignerWithId } from "../signing"
-import { AccountSignerSettings } from "../ui"
+import {
+  AddressOnNetwork,
+  AccountSignerWithId,
+  AccountSignerSettings,
+} from "../accounts"
 import { AccountState, addAddressNetwork } from "./accounts"
 import { createBackgroundAsyncThunk } from "./utils"
 import { getExtendedZoneForAddress } from "../services/chain/utils"
+import { NetworkInterfaceGA } from "../constants/networks/networkTypes"
+import { QuaiNetworkGA } from "../constants/networks/networks"
 
 export const defaultSettings = {
   hideDust: false,
@@ -21,6 +24,7 @@ export const defaultSettings = {
   showUnverifiedAssets: false,
   hideBanners: false,
   showDefaultWalletBanner: true,
+  showAlphaWalletBanner: true,
 }
 
 export type UIState = {
@@ -40,6 +44,7 @@ export type UIState = {
     showUnverifiedAssets: boolean
     hideBanners: boolean
     showDefaultWalletBanner: boolean
+    showAlphaWalletBanner: boolean
   }
   snackbarMessage: string
   routeHistoryEntries?: Partial<Location>[]
@@ -55,12 +60,13 @@ export type Events = {
   refreshBackgroundPage: null
   sendEvent: AnalyticsEvent | OneTimeAnalyticsEvent
   newSelectedAccount: AddressOnNetwork
-  newSelectedAccountSwitched: AddressOnNetwork
+  newSelectedAccountSwitched: never
   userActivityEncountered: AddressOnNetwork
-  newSelectedNetwork: EVMNetwork
+  newSelectedNetwork: NetworkInterfaceGA
   updateAnalyticsPreferences: Partial<AnalyticsPreferences>
   addCustomNetworkResponse: [string, boolean]
   showDefaultWalletBanner: boolean
+  showAlphaWalletBanner: boolean
 }
 
 export const emitter = new Emittery<Events>()
@@ -71,7 +77,7 @@ export const initialState: UIState = {
   showingAddAccountModal: false,
   selectedAccount: {
     address: "",
-    network: QUAI_NETWORK,
+    network: QuaiNetworkGA,
   },
   initializationLoadingTimeExpired: false,
   settings: defaultSettings,
@@ -222,6 +228,12 @@ const uiSlice = createSlice({
         settings: { ...state.settings, showDefaultWalletBanner: payload },
       }
     },
+    setShowAlphaWalletBanner: (state, { payload }: { payload: boolean }) => {
+      return {
+        ...state,
+        settings: { ...state.settings, showAlphaWalletBanner: payload },
+      }
+    },
   },
 })
 
@@ -245,6 +257,7 @@ export const {
   setSlippageTolerance,
   setAccountsSignerSettings,
   setShowDefaultWalletBanner,
+  setShowAlphaWalletBanner,
 } = uiSlice.actions
 
 export default uiSlice.reducer
@@ -322,7 +335,7 @@ export const setNewSelectedAccount = createBackgroundAsyncThunk(
     // Once the default value has persisted, propagate to the store.
     dispatch(uiSlice.actions.setSelectedAccount(addressNetwork))
     // Do async work needed after the account is switched
-    await emitter.emit("newSelectedAccountSwitched", addressNetwork)
+    await emitter.emit("newSelectedAccountSwitched")
   }
 )
 
@@ -359,9 +372,7 @@ export const userActivityEncountered = createBackgroundAsyncThunk(
 
 export const setSelectedNetwork = createBackgroundAsyncThunk(
   "ui/setSelectedNetwork",
-  async (network: EVMNetwork, { getState, dispatch }) => {
-    if (network.name == "Ethereum") return
-
+  async (network: NetworkInterfaceGA, { getState, dispatch }) => {
     const state = getState() as { ui: UIState; account: AccountState }
     const { ui, account } = state
     const currentlySelectedChainID = ui.selectedAccount.network.chainID
@@ -397,6 +408,13 @@ export const updateShowDefaultWalletBanner = createBackgroundAsyncThunk(
   "ui/showDefaultWalletBanner",
   async (newValue: boolean) => {
     await emitter.emit("showDefaultWalletBanner", newValue)
+  }
+)
+
+export const updateAlphaWalletBanner = createBackgroundAsyncThunk(
+  "ui/showAlphaWalletBanner",
+  async (newValue: boolean) => {
+    await emitter.emit("showAlphaWalletBanner", newValue)
   }
 )
 
@@ -463,4 +481,8 @@ export const selectHideBanners = createSelector(
 export const selectShowDefaultWalletBanner = createSelector(
   selectSettings,
   (settings) => settings.showDefaultWalletBanner
+)
+export const selectShowAlphaWalletBanner = createSelector(
+  selectSettings,
+  (settings) => settings.showAlphaWalletBanner
 )

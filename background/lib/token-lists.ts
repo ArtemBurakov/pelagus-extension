@@ -6,14 +6,13 @@ import {
   SmartContractFungibleAsset,
   TokenListAndReference,
 } from "../assets"
-import { EVMNetwork } from "../networks"
 import {
   findClosestAssetIndex,
   prioritizedAssetSimilarityKeys,
 } from "./asset-similarity"
 import { SECOND } from "../constants"
-import { normalizeEVMAddress } from "./utils"
 import { DeepWriteable } from "../types"
+import { NetworkInterfaceGA } from "../constants/networks/networkTypes"
 
 // We allow `any` here because we don't know what we'll get back from a 3rd party api.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -53,7 +52,7 @@ export async function fetchAndValidateTokenList(
 }
 
 function tokenListToFungibleAssetsForNetwork(
-  network: EVMNetwork,
+  network: NetworkInterfaceGA,
   { url: tokenListURL, tokenList }: TokenListAndReference
 ): SmartContractFungibleAsset[] {
   const networkChainID = Number(network.chainID)
@@ -78,7 +77,7 @@ function tokenListToFungibleAssetsForNetwork(
         symbol: tokenMetadata.symbol,
         decimals: tokenMetadata.decimals,
         homeNetwork: network,
-        contractAddress: normalizeEVMAddress(tokenMetadata.address),
+        contractAddress: tokenMetadata.address,
       }
     })
 }
@@ -163,7 +162,7 @@ export const memoizedMergeAssets = memoize(mergeAssets, (...assetLists) => {
  * in.
  */
 export function networkAssetsFromLists(
-  network: EVMNetwork,
+  network: NetworkInterfaceGA,
   tokenLists: TokenListAndReference[]
 ): SmartContractFungibleAsset[] {
   const fungibleAssets = tokenLists.map((tokenListAndReference) =>

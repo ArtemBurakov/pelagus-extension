@@ -7,6 +7,8 @@ import {
   EventFragment,
   Contract,
   ContractRunner,
+  JsonRpcProvider,
+  LogParams,
 } from "quais"
 import logger from "./logger"
 import {
@@ -17,11 +19,11 @@ import {
 } from "../contracts/multicall"
 import { HexString } from "../types"
 import { ShardToMulticall } from "../constants"
-import { EVMLog, SmartContract } from "../networks"
+import { SmartContract } from "../networks"
 import { AddressOnNetwork } from "../accounts"
 import { getExtendedZoneForAddress } from "../services/chain/utils"
 import { SmartContractAmount, SmartContractFungibleAsset } from "../assets"
-import SerialFallbackProvider from "../services/chain/serial-fallback-provider"
+import { isQuaiHandle } from "../constants/networks/networkUtils"
 
 export const ERC20_FUNCTIONS = {
   allowance: FunctionFragment.from(
@@ -149,9 +151,11 @@ export type ERC20TransferLog = {
  *         events. This does _not_ mean they are guaranteed to be ERC20
  *         `Transfer` events, simply that they can be parsed as such.
  */
-export function parseLogsForERC20Transfers(logs: EVMLog[]): ERC20TransferLog[] {
+export function parseLogsForERC20Transfers(
+  logs: readonly LogParams[]
+): ERC20TransferLog[] {
   return logs
-    .map(({ contractAddress, data, topics }) => {
+    .map(({ address: contractAddress, data, topics }) => {
       try {
         const decoded = ERC20_INTERFACE.decodeEventLog(
           ERC20_EVENTS.Transfer,
@@ -182,12 +186,12 @@ export function parseLogsForERC20Transfers(logs: EVMLog[]): ERC20TransferLog[] {
 export const getTokenBalances = async (
   { address, network }: AddressOnNetwork,
   tokenAddresses: HexString[],
-  provider: SerialFallbackProvider
+  provider: JsonRpcProvider
 ): Promise<SmartContractAmount[]> => {
   let multicallAddress =
     CHAIN_SPECIFIC_MULTICALL_CONTRACT_ADDRESSES[network.chainID] ||
     MULTICALL_CONTRACT_ADDRESS
-  if (network.isQuai) {
+  if (isQuaiHandle(network)) {
     multicallAddress = ShardToMulticall(
       getExtendedZoneForAddress(address),
       network
