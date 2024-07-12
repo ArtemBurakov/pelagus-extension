@@ -36,6 +36,7 @@ interface Events extends ServiceLifecycleEvents {
   addressBookEntryModified: AddressBookEntry
   updatedSignerSettings: AccountSignerSettings[]
   showDefaultWalletBanner: boolean
+  showAlphaWalletBanner: boolean
 }
 
 /*
@@ -176,5 +177,10 @@ export default class PreferenceService extends BaseService<Events> {
   async setShowDefaultWalletBanner(newValue: boolean): Promise<void> {
     await this.db.setShowDefaultWalletBanner(newValue)
     await this.emitter.emit("showDefaultWalletBanner", newValue)
+  }
+
+  async setShowAlphaWalletBanner(newValue: boolean): Promise<void> {
+    await this.db.setShowAlphaWalletBanner(newValue)
+    await this.emitter.emit("showAlphaWalletBanner", newValue)
   }
 }

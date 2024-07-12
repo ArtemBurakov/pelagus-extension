@@ -64,6 +64,7 @@ import {
   setNewNetworkConnectError,
   setSelectedAccount,
   setSelectedNetwork,
+  setShowAlphaWalletBanner,
   setShowAnalyticsNotification,
   setShowDefaultWalletBanner,
   setSnackbarMessage,
@@ -1489,6 +1490,13 @@ export default class Main extends BaseService<never> {
     )
 
     this.preferenceService.emitter.on(
+      "showAlphaWalletBanner",
+      async (isHiddenAlphaWalletBanner: boolean) => {
+        this.store.dispatch(setShowAlphaWalletBanner(isHiddenAlphaWalletBanner))
+      }
+    )
+
+    this.preferenceService.emitter.on(
       "initializeSelectedAccount",
       async (dbAddressNetwork: AddressOnNetwork) => {
         if (dbAddressNetwork) {
@@ -1521,6 +1529,15 @@ export default class Main extends BaseService<never> {
       async (isHiddenDefaultWalletBanner: boolean) => {
         await this.preferenceService.setShowDefaultWalletBanner(
           isHiddenDefaultWalletBanner
+        )
+      }
+    )
+
+    uiSliceEmitter.on(
+      "showAlphaWalletBanner",
+      async (isHiddenAlphaWalletBanner: boolean) => {
+        await this.preferenceService.setShowAlphaWalletBanner(
+          isHiddenAlphaWalletBanner
         )
       }
     )
