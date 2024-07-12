@@ -11465,10 +11465,10 @@ quais@0.1.14:
     "@quais/web" "0.1.0"
     "@quais/wordlists" "0.1.0"
 
-quais@^1.0.0-alpha.5:
-  version "1.0.0-alpha.5"
-  resolved "https://registry.yarnpkg.com/quais/-/quais-1.0.0-alpha.5.tgz#7ba5c51c65ffc43dc272ccfde3e35acb7f93e926"
-  integrity sha512-rWxzsrHhuxyotBaTgM/GSrQQf/xvcyqG8r0JT4nOMZL4y6CyioOf6g7dXzCGRQPHpyznxIDG5hdMNKj1+0mW9g==
+quais@^1.0.0-alpha.6:
+  version "1.0.0-alpha.6"
+  resolved "https://registry.yarnpkg.com/quais/-/quais-1.0.0-alpha.6.tgz#eee2d956f1aae5f0939d9f99656073558ebfc72d"
+  integrity sha512-2lt6qZkKPN4F1d8mtUqLxOuPrTA0PqqyhAqw0jWVxr4Vi7xhVDFbeyxcQfYIGKITN+lho2+rcgG+2pWRadWKHQ==
   dependencies:
     "@brandonblack/musig" "^0.0.1-alpha.1"
     "@noble/curves" "1.2.0"
