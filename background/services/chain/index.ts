@@ -15,7 +15,7 @@ import {
   QuaiTransactionRequest,
   QuaiTransactionResponse,
 } from "quais/lib/commonjs/providers"
-import { NetworksArray } from "../../constants/networks/networks"
+import { NetworksArray, QuaiNetworkGA } from "../../constants/networks/networks"
 import ProviderFactory from "./provider-factory"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
 import logger from "../../lib/logger"
@@ -47,6 +47,7 @@ import {
   createConfirmedQuaiTransaction,
   createFailedQuaiTransaction,
   createPendingQuaiTransaction,
+  createSerializedQuaiTransaction,
 } from "./utils/quai-transactions"
 import {
   PendingQuaiTransaction,
@@ -286,6 +287,7 @@ export default class ChainService extends BaseService<Events> {
     this.subscribedAccounts = []
     this.subscribedNetworks = []
     this.transactionsToRetrieve = []
+    this.currentNetwork = QuaiNetworkGA
   }
 
   override async internalStartService(): Promise<void> {
@@ -300,6 +302,7 @@ export default class ChainService extends BaseService<Events> {
     const { network: networkFromPreferences } =
       await this.preferenceService.getSelectedAccount()
 
+    this.currentNetwork = networkFromPreferences
     this.currentProvider = this.providerFactory.getProvider(
       networkFromPreferences
     )
@@ -621,7 +624,9 @@ export default class ChainService extends BaseService<Events> {
     )) as QuaiTransactionResponse | null
 
     if (!transactionResponse) {
-      const cachedTx = await this.db.getQuaiTransactionByHash(txHash)
+      const cachedTx = (await this.db.getQuaiTransactionByHash(
+        txHash
+      )) as QuaiTransactionState | null // TODO: Need fix type for redux
       if (cachedTx) return cachedTx
       throw new Error("Failed get transaction")
     }
@@ -1293,18 +1298,16 @@ export default class ChainService extends BaseService<Events> {
     transaction: QuaiTransactionState,
     dataSource: "local"
   ): Promise<void> {
-    const network = NetworksArray.find(
-      (net) => toBigInt(net.chainID) === toBigInt(transaction.chainId ?? 0)
-    )
+    const network = this.currentNetwork
     if (!network) throw new Error("Failed find network before save transaction")
 
     let error: unknown = null
-
+    const serializedTx = createSerializedQuaiTransaction(transaction)
     try {
-      await this.db.addOrUpdateQuaiTransaction(transaction, dataSource)
+      await this.db.addOrUpdateQuaiTransaction(serializedTx, dataSource)
     } catch (err) {
       error = err
-      logger.error(`Error saving tx ${transaction}`, error)
+      logger.error(`Error saving tx ${serializedTx}`, error)
     }
 
     try {
@@ -1335,7 +1338,7 @@ export default class ChainService extends BaseService<Events> {
     const { address, network } = account
     const transactionsForNetwork = (await this.db.getQuaiTransactionsByNetwork(
       network
-    )) as QuaiTransactionState[]
+    )) as QuaiTransactionState[] // TODO: Need fix type for redux
 
     const transactions = transactionsForNetwork.filter(
       (transaction) =>
