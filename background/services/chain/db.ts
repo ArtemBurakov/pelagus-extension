@@ -6,23 +6,15 @@ import { FungibleAsset } from "../../assets"
 import { BASE_ASSETS } from "../../constants"
 import { NetworkInterfaceGA } from "../../constants/networks/networkTypes"
 import { NetworksArray } from "../../constants/networks/networks"
-import {
-  PendingQuaiTransaction,
-  ConfirmedQuaiTransaction,
-  FailedQuaiTransaction,
-  QuaiTransactionStatus,
-  QuaiTransactionState,
-} from "./types"
+import { QuaiTransactionStatus, SerializedTransactionForHistory } from "./types"
 
 type AdditionalTransactionFieldsForDB = {
   dataSource: "local"
   firstSeen: UNIXTime
 }
 
-export type QuaiTransactionDBEntry =
-  | (PendingQuaiTransaction & AdditionalTransactionFieldsForDB)
-  | (ConfirmedQuaiTransaction & AdditionalTransactionFieldsForDB)
-  | (FailedQuaiTransaction & AdditionalTransactionFieldsForDB)
+export type QuaiTransactionDBEntry = SerializedTransactionForHistory &
+  AdditionalTransactionFieldsForDB
 
 type AccountAssetTransferLookup = {
   addressNetwork: AddressOnNetwork
@@ -91,7 +83,7 @@ export class ChainDatabase extends Dexie {
       balances:
         "++id,address,assetAmount.amount,assetAmount.asset.symbol,network.baseAsset.name,blockHeight,retrievedAt",
       quaiTransactions:
-        "&[hash+network.chainID],hash,from,[from+network.chainID],to,[to+network.chainID],nonce,[nonce+from+network.chainID],blockHash,blockNumber,network.chainId,firstSeen,dataSource",
+        "&[hash+chainId],hash,from,[from+chainId],to,[to+chainId],nonce,[nonce+from+chainId],blockHash,blockNumber,chainId,firstSeen,dataSource",
       blocks:
         "&[hash+network.baseAsset.name],[network.baseAsset.name+timestamp],hash,network.baseAsset.name,timestamp,parentHash,blockHeight,[blockHeight+network.baseAsset.name]",
       networks: "&chainID,baseAsset.name,family",
@@ -350,9 +342,8 @@ export class ChainDatabase extends Dexie {
     if (!txHash) return null
 
     return (
-      (
-        await this.quaiTransactions.where("[hash]").equals([txHash]).toArray()
-      )[0] || null
+      (await this.quaiTransactions.where("hash").equals(txHash).toArray())[0] ||
+      null
     )
   }
 
@@ -360,8 +351,8 @@ export class ChainDatabase extends Dexie {
     network: NetworkInterfaceGA
   ): Promise<QuaiTransactionDBEntry[]> {
     const transactions = this.quaiTransactions
-      .where("[network.chainID]")
-      .equals([network.chainID])
+      .where("chainId")
+      .equals(network.chainID)
 
     return transactions.toArray()
   }
@@ -371,29 +362,44 @@ export class ChainDatabase extends Dexie {
     status: QuaiTransactionStatus
   ): Promise<QuaiTransactionDBEntry[]> {
     const transactions = this.quaiTransactions
-      .where("[network.chainID+status]")
+      .where("[chainId+status]")
       .equals([network.chainID, status])
 
     return transactions.toArray()
   }
 
   async addOrUpdateQuaiTransaction(
-    tx: QuaiTransactionState,
+    tx: SerializedTransactionForHistory,
     dataSource: QuaiTransactionDBEntry["dataSource"]
   ): Promise<void> {
-    const existingTx = await this.getQuaiTransactionByHash(tx.hash)
-    const updatedTx = { ...tx, ...existingTx } as QuaiTransactionState
+    try {
+      const existingTx = await this.getQuaiTransactionByHash(tx.hash)
 
-    if (!updatedTx)
-      throw new Error("Failed get quai transaction by hash from DB")
+      console.log("existingTx", existingTx)
 
-    await this.transaction("rw", this.quaiTransactions, () => {
-      return this.quaiTransactions.put({
-        ...updatedTx,
-        firstSeen: Date.now(),
-        dataSource,
+      const mergedTx = {
+        ...tx,
+        ...existingTx,
+      } as SerializedTransactionForHistory
+
+      console.log("updatedTx", mergedTx)
+
+      if (!mergedTx) {
+        throw new Error("Failed to get quai transaction by hash from DB")
+      }
+
+      await this.transaction("rw", this.quaiTransactions, async () => {
+        await this.quaiTransactions.put({
+          ...mergedTx,
+          dataSource,
+          firstSeen: Date.now(),
+        })
       })
-    })
+
+      console.log("Transaction successfully added or updated")
+    } catch (error: any) {
+      throw new Error(`Failed to add or update quai transaction: ${error}`)
+    }
   }
 
   async deleteQuaiTransactionsByAddress(address: string): Promise<void> {
