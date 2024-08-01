@@ -59,7 +59,9 @@
     "minimist": "^1.2.8",
     "electron": "^31.3.1",
     "ws": "^7.5.10",
-    "axios": "^0.28.0"
+    "axios": "^0.28.0",
+    "knex": "^3.1.0",
+    "jsonwebtoken": "^9.0.2"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^5.15.2",
