@@ -54,6 +54,9 @@
     "provider-bridge-shared",
     "window-provider"
   ],
+  "resolutions": {
+    "semver": "^7.6.3"
+  },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^5.15.2",
     "@pelagus-provider/provider-bridge": "1.0.3",
