@@ -61,7 +61,8 @@
     "ws": "^7.5.10",
     "axios": "^0.28.0",
     "knex": "^3.1.0",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "babel-loader/loader-utils/json5": "^2.2.3"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^5.15.2",
