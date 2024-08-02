@@ -1,4 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit"
+import { toBigInt } from "quais"
 import { createBackgroundAsyncThunk } from "./utils"
 import { AccountBalance, AddressOnNetwork, NameOnNetwork } from "../accounts"
 import {
@@ -153,10 +154,23 @@ function newAccountData(
 
   const defaultAccountAvatar = `./images/avatars/${defaultAccountName.toLowerCase()}@2x.png`
 
+  const defaultAccountBalances: { [p: string]: AccountBalance } = {
+    [network.baseAsset.symbol]: {
+      address,
+      network,
+      assetAmount: {
+        asset: network.baseAsset,
+        amount: toBigInt(0),
+      },
+      dataSource: "local",
+      retrievedAt: Date.now(),
+    },
+  }
+
   return {
     address,
     network,
-    balances: {},
+    balances: defaultAccountBalances,
     customAccountData: {},
     defaultName: defaultAccountName,
     defaultAvatar: defaultAccountAvatar,
@@ -247,7 +261,9 @@ const accountSlice = createSlice({
 
       immerState.accountsData.evm[network.chainID] = {
         ...immerState.accountsData.evm[network.chainID],
-        [address]: "loading",
+        [address]: {
+          ...newAccountData(address, network, immerState),
+        },
       }
     },
     deleteAccount: (
