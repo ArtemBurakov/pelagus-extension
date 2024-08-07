@@ -3,14 +3,13 @@ const BuildTimeFlag = {
 } as const
 
 export const RuntimeFlag = {
-  USE_MAINNET_FORK: process.env.USE_MAINNET_FORK === "true",
+  ENABLE_CONSOLE_LOGGING: process.env.ENABLE_CONSOLE_LOGGING === "true",
   HIDE_IMPORT_DERIVATION_PATH:
     process.env.HIDE_IMPORT_DERIVATION_PATH === "true",
   USE_UPDATED_SIGNING_UI: process.env.USE_UPDATED_SIGNING_UI === "true",
   SUPPORT_MULTIPLE_LANGUAGES: process.env.SUPPORT_MULTIPLE_LANGUAGES === "true",
   SUPPORT_ACHIEVEMENTS_BANNER:
     process.env.SUPPORT_ACHIEVEMENTS_BANNER === "true",
-  SUPPORT_CUSTOM_RPCS: process.env.SUPPORT_CUSTOM_RPCS === "true",
   SUPPORT_UNVERIFIED_ASSET: process.env.SUPPORT_UNVERIFIED_ASSET === "true",
   ENABLE_UPDATED_DAPP_CONNECTIONS:
     process.env.ENABLE_UPDATED_DAPP_CONNECTIONS === "true",
