@@ -5,6 +5,7 @@ import SharedButton from "../../../../components/Shared/SharedButton"
 import { useBackgroundDispatch } from "../../../../hooks"
 import { clearClipboard } from "../../../../utils/textUtils"
 import SharedBanner from "../../../../components/Shared/SharedBanner"
+import { clearRecoveryPhraseTimeout } from "../../../../utils/constants"
 
 export default function NewSeedReview({
   onReview,
@@ -29,7 +30,7 @@ export default function NewSeedReview({
     setTimeout(async () => {
       await clearClipboard()
       window.removeEventListener("beforeunload", () => clearClipboard())
-    }, 30000)
+    }, clearRecoveryPhraseTimeout)
   }
 
   return (
