@@ -11,6 +11,7 @@ import {
   QuaiTransaction,
   WebSocketProvider,
 } from "quais"
+import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
 import { decodeJSON, encodeJSON, sameQuaiAddress } from "./lib/utils"
 import {
   AnalyticsService,
@@ -149,7 +150,6 @@ import {
 } from "./constants/networks/networks"
 import ProviderFactory from "./services/provider-factory/provider-factory"
 import { LocalNodeNetworkStatusEventTypes } from "./services/provider-factory/events"
-import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
 
 // This sanitizer runs on store and action data before serializing for remote
 // redux devtools. The goal is to end up with an object that is directly
@@ -499,10 +499,10 @@ export default class Main extends BaseService<never> {
           continue
         }
         isSmartContractFungibleAsset(asset)
-          ? console.log(
+          ? logger.info(
               `Balance checker: ${asset.symbol} ${newBalance} ${asset.contractAddress}`
             )
-          : console.log(`Balance checker: ${asset.symbol} ${newBalance}`)
+          : logger.info(`Balance checker: ${asset.symbol} ${newBalance}`)
         await this.store.dispatch(
           updateAccountBalance({
             balances: [
@@ -563,10 +563,10 @@ export default class Main extends BaseService<never> {
         continue
       }
       isSmartContractFungibleAsset(asset)
-        ? console.log(
+        ? logger.info(
             `Balance checker: ${asset.symbol} ${newBalance} ${asset.contractAddress}`
           )
-        : console.log(`Balance checker: ${asset.symbol} ${newBalance}`)
+        : logger.info(`Balance checker: ${asset.symbol} ${newBalance}`)
       await this.store.dispatch(
         updateAccountBalance({
           balances: [
@@ -669,7 +669,7 @@ export default class Main extends BaseService<never> {
   public SetCorrectShard(): void {
     const selectedAddress = this.store.getState().ui.selectedAccount.address
     if (selectedAddress === undefined || selectedAddress === "") {
-      console.error("No selected address")
+      logger.error("No selected address")
       this.SelectedShard = "cyprus-1"
       return
     }
@@ -773,11 +773,11 @@ export default class Main extends BaseService<never> {
     const transaction = await this.chainService.getTransaction(txHash)
 
     if (transaction?.blockHash && !transaction?.etxs?.length) {
-      console.warn("No ETXs emitted for tx: ", transaction?.hash)
+      logger.warn("No ETXs emitted for tx: ", transaction?.hash)
       return
     }
 
-    console.log("Enriching again because status has changed")
+    logger.info("Enriching again because status has changed")
 
     const enrichedTransaction = await this.enrichmentService.enrichTransaction(
       transaction,
@@ -794,6 +794,7 @@ export default class Main extends BaseService<never> {
       })
     )
   }
+
   async signAndSendQuaiTransaction({
     request,
     accountSigner,
@@ -1780,7 +1781,7 @@ export default class Main extends BaseService<never> {
     runtime.onConnect.addListener((port) => {
       if (port.name !== popupMonitorPortName) return
 
-      console.log("Pelagus Connected")
+      logger.info("Pelagus Connected")
       walletOpen = true
       this.manuallyCheckBalances()
 
@@ -1803,7 +1804,7 @@ export default class Main extends BaseService<never> {
           unit: "s",
         })
         walletOpen = false
-        console.log("Pelagus Disconnected")
+        logger.info("Pelagus Disconnected")
         this.onPopupDisconnected()
       })
     })
