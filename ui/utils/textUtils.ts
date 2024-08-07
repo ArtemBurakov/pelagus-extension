@@ -7,3 +7,7 @@ export function trimWithEllipsis(text: string, maxLength: number): string {
     ? `${text.slice(0, maxLength).trim()}...`
     : text
 }
+
+export async function clearClipboard(): Promise<void> {
+  await navigator.clipboard.writeText("")
+}
