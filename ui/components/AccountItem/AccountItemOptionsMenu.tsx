@@ -13,7 +13,7 @@ import AccountitemOptionLabel from "./AccountItemOptionLabel"
 import AccountHistoryRemovalConfirm from "./AccountHistoryRemovalConfirm"
 import { clearClipboard } from "../../utils/textUtils"
 import SharedBanner from "../Shared/SharedBanner"
-import { clearPrivateKeyTimeout } from "../../utils/constants"
+import { CLEAR_PRIVATE_KEY_TIMEOUT } from "../../utils/constants"
 
 type AccountItemOptionsMenuProps = {
   accountTotal: AccountTotal
@@ -55,7 +55,7 @@ export default function AccountItemOptionsMenu({
 
     setTimeout(async () => {
       await clearClipboard()
-    }, clearPrivateKeyTimeout)
+    }, CLEAR_PRIVATE_KEY_TIMEOUT)
   }
 
   const onClosePrivateKeyModal = () => {
