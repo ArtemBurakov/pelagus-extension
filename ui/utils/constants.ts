@@ -37,5 +37,5 @@ export const NETWORK_FEE_CHOSEN_TYPE_TO_HUMAN_READABLE_TYPE: {
   [NetworkFeeTypeChosen.Custom]: i18n.t("networkFees.types.custom"),
 }
 
-export const clearPrivateKeyTimeout = 30000
-export const clearRecoveryPhraseTimeout = 60000
+export const CLEAR_PRIVATE_KEY_TIMEOUT = 30000
+export const CLEAR_RECOVERY_PHRASE_TIMEOUT = 60000
