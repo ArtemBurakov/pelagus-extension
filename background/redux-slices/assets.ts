@@ -25,6 +25,7 @@ import { AccountSigner } from "../services/signing"
 import { setSnackbarMessage } from "./ui"
 import { NetworkInterface } from "../constants/networks/networkTypes"
 import logger from "../lib/logger"
+import { useLocation } from "react-router-dom"
 
 export type AssetWithRecentPrices<T extends AnyAsset = AnyAsset> = T & {
   recentPrices: {
@@ -192,7 +193,7 @@ export const getMaxFeeAndMaxPriorityFeePerGas = createBackgroundAsyncThunk(
     maxPriorityFeePerGas: BigInt
   }> => {
     const { jsonRpcProvider } = globalThis.main.chainService
-
+    const location = useLocation()
     try {
       const feeData = await jsonRpcProvider.getFeeData()
       if (
@@ -209,9 +210,11 @@ export const getMaxFeeAndMaxPriorityFeePerGas = createBackgroundAsyncThunk(
       }
     } catch (e) {
       logger.error(e)
-      dispatch(
-        setSnackbarMessage("Failed to get gas price, please enter manually")
-      )
+      if (location.pathname.includes("/send")) {
+        dispatch(
+          setSnackbarMessage("Failed to get gas price, please enter manually")
+        )
+      }
       return {
         maxFeePerGas: toBigInt(6000000000),
         maxPriorityFeePerGas: toBigInt(2000000000),
