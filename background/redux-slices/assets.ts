@@ -1,6 +1,7 @@
 import { Contract, getAddress, toBigInt } from "quais"
 import { QuaiTransactionRequest } from "quais/lib/commonjs/providers"
 import { createSelector, createSlice } from "@reduxjs/toolkit"
+import { useLocation } from "react-router-dom"
 import { QRC20_INTERFACE } from "../contracts/qrc-20"
 
 import {
@@ -21,10 +22,10 @@ import { sameNetwork } from "../networks"
 import { convertFixedPoint } from "../lib/fixed-point"
 import { removeAssetReferences, updateAssetReferences } from "./accounts"
 import type { RootState } from "."
-import { emitter as transactionConstructionSliceEmitter } from "./transaction-construction"
 import { AccountSigner } from "../services/signing"
 import { setSnackbarMessage } from "./ui"
 import { NetworkInterface } from "../constants/networks/networkTypes"
+import logger from "../lib/logger"
 
 export type AssetWithRecentPrices<T extends AnyAsset = AnyAsset> = T & {
   recentPrices: {
@@ -192,7 +193,7 @@ export const getMaxFeeAndMaxPriorityFeePerGas = createBackgroundAsyncThunk(
     maxPriorityFeePerGas: BigInt
   }> => {
     const { jsonRpcProvider } = globalThis.main.chainService
-
+    const location = useLocation()
     try {
       const feeData = await jsonRpcProvider.getFeeData()
       if (
@@ -208,10 +209,12 @@ export const getMaxFeeAndMaxPriorityFeePerGas = createBackgroundAsyncThunk(
         ),
       }
     } catch (e) {
-      console.error(e)
-      dispatch(
-        setSnackbarMessage("Failed to get gas price, please enter manually")
-      )
+      logger.error(e)
+      if (location.pathname.includes("/send")) {
+        dispatch(
+          setSnackbarMessage("Failed to get gas price, please enter manually")
+        )
+      }
       return {
         maxFeePerGas: toBigInt(6000000000),
         maxPriorityFeePerGas: toBigInt(2000000000),
@@ -426,7 +429,7 @@ export const checkTokenContractDetails = createBackgroundAsyncThunk(
         network,
       })
     } catch (error) {
-      console.log(error)
+      logger.error(error)
       return null
     }
   }
