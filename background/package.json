@@ -26,7 +26,6 @@
   "dependencies": {
     "@pelagus-provider/provider-bridge-shared": "1.0.3",
     "@pelagus-provider/window-provider": "1.0.3",
-    "@pelagus/hd-keyring": "0.2.0-pre.0",
     "@redux-devtools/remote": "^0.7.4",
     "@types/w3c-web-usb": "^1.0.5",
     "@uniswap/token-lists": "^1.0.0-beta.30",
