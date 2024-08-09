@@ -63,7 +63,6 @@
     "knex": "^3.1.0",
     "jsonwebtoken": "^9.0.2",
     "babel-loader/loader-utils/json5": "^2.2.3",
-    "async": "^2.6.4",
     "ansi-regex": "^3.0.1"
   },
   "dependencies": {
