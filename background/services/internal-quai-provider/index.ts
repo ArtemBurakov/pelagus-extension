@@ -41,6 +41,11 @@ import { NetworksArray } from "../../constants/networks/networks"
 import { normalizeHexAddress } from "../../utils/addresses"
 import TransactionService from "../transactions"
 import { QuaiTransactionRequestWithAnnotation } from "../transactions/types"
+import { ValidatedAddEthereumChainParameter } from "../provider-bridge/utils"
+
+export type SwitchEthereumChainParameter = {
+  chainId: string
+}
 
 // https://eips.ethereum.org/EIPS/eip-747
 type WatchAssetParameters = {
@@ -176,9 +181,9 @@ export default class InternalQuaiProviderService extends BaseService<Events> {
           params[0] as Shard
         )
       case "quai_estimateGas":
-        return this.chainService.jsonRpcProvider.estimateGas(
-          params[0] as TransactionRequest
-        )
+        return this.chainService.jsonRpcProvider
+          .estimateGas(params[0] as TransactionRequest)
+          .then((estimatedGas) => estimatedGas.toString())
       case "quai_getTransactionReceipt":
         return this.chainService.jsonRpcProvider.getTransactionReceipt(
           params[0] as string
@@ -201,12 +206,6 @@ export default class InternalQuaiProviderService extends BaseService<Events> {
           params[0] as QuaiTransactionRequestWithAnnotation,
           origin
         ).then((transactionResponse) => transactionResponse.hash)
-      // TODO
-      // case "quai_signTransaction":
-      // return this.signTransaction(
-      //   params[0] as QuaiTransactionRequestWithAnnotation,
-      //   origin
-      // ).then((signedTransaction) => signedTransaction) // TODO return string
       case "quai_sign":
         return this.signData(
           {
@@ -290,6 +289,32 @@ export default class InternalQuaiProviderService extends BaseService<Events> {
           params[0] as Zone,
           params[1] as string
         )
+      // will just switch to a chain if we already support it - but not add a new one
+      case "wallet_addEthereumChain": {
+        const chainInfo = params[0] as ValidatedAddEthereumChainParameter
+        const { chainId } = chainInfo
+        const supportedNetwork = NetworksArray.find(
+          (network) => network.chainID === chainId
+        )
+        if (supportedNetwork) {
+          await this.switchToSupportedNetwork(origin, supportedNetwork)
+          this.emitter.emit("selectedNetwork", supportedNetwork)
+          return null
+        }
+        break
+      }
+      case "wallet_switchEthereumChain": {
+        const newChainId = (params[0] as SwitchEthereumChainParameter).chainId
+        const supportedNetwork = NetworksArray.find(
+          (network) => network.chainID === newChainId
+        )
+        if (supportedNetwork) {
+          this.switchToSupportedNetwork(origin, supportedNetwork)
+          return null
+        }
+
+        throw new EIP1193Error(EIP1193_ERROR_CODES.chainDisconnected)
+      }
 
       // just "proxying" requests to quais
       case "quai_gasPrice":

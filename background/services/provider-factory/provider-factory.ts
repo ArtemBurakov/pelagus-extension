@@ -37,7 +37,7 @@ export default class ProviderFactory extends BaseService<ProviderFactoryEvents> 
   private initializeProvidersForNetworks(networks: NetworkInterface[]) {
     networks.forEach(
       ({ chainID, jsonRpcUrls, webSocketRpcUrls, isTestNetwork }) => {
-        // if (isTestNetwork) return
+        if (isTestNetwork) return
 
         const jsonRpcProvider = new JsonRpcProvider(jsonRpcUrls)
         const webSocketProvider = new WebSocketProvider(webSocketRpcUrls)
