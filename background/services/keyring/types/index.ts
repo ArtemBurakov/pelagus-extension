@@ -1,7 +1,6 @@
 import { QuaiHDWallet, Wallet, Zone } from "quais"
 import { SerializedHDWallet } from "quais/lib/commonjs/wallet/hdwallet"
-import { HexString, KeyringTypes } from "../../types"
-import { ServiceLifecycleEvents } from "../types"
+import { HexString, KeyringTypes } from "../../../types"
 
 export type KeyringMetadata = {
   [keyringId: string]: { source: SignerImportSource }
@@ -73,19 +72,6 @@ export interface SerializedVaultData {
   quaiHDWallets: SerializedHDWallet[]
   metadata: { [keyringId: string]: { source: SignerImportSource } }
   hiddenAccounts: { [address: HexString]: boolean }
-}
-
-export interface Events extends ServiceLifecycleEvents {
-  locked: boolean
-  keyrings: {
-    privateKeys: PrivateKey[]
-    keyrings: Keyring[]
-    keyringMetadata: {
-      [keyringId: string]: { source: SignerImportSource }
-    }
-  }
-  address: string
-  signedData: string
 }
 
 export enum SignerSourceTypes {
