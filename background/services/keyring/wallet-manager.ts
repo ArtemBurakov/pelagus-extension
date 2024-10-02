@@ -16,6 +16,7 @@ import {
   KeyringTypes,
   PrivateKey,
   PublicWalletsData,
+  QiWallet,
   SignerImportMetadata,
   SignerImportSource,
   SignerSourceTypes,
@@ -34,7 +35,7 @@ import QiHDWalletManager from "./wallets/qi-hd-wallet-manager"
 export default class WalletManager {
   public privateKeys: PrivateKey[] = []
 
-  public qiHDWallets: Keyring[] = []
+  public qiHDWallets: QiWallet[] = []
 
   public quaiHDWallets: Keyring[] = []
 
@@ -73,21 +74,26 @@ export default class WalletManager {
     const deserializedQiHDWallets = await Promise.all(
       qiHDWallets.map((qiHDWallet) => QiHDWallet.deserialize(qiHDWallet))
     )
-    this.qiHDWallets = deserializedQiHDWallets.map((qiHDWallet) => {
-      return {
-        type: KeyringTypes.mnemonicBIP47,
-        addresses: [
-          ...qiHDWallet
-            .getAddressesForAccount(
-              this.qiHDWalletManager.qiHDWalletAccountIndex
-            )
-            .filter(({ address }) => !this.hiddenAccounts[address])
-            .map(({ address }) => address),
-        ],
-        id: qiHDWallet.xPub,
-        path: null,
-      }
-    })
+    this.qiHDWallets = await Promise.all(
+      deserializedQiHDWallets.map(async (qiHDWallet) => {
+        return {
+          id: qiHDWallet.xPub,
+          path: null,
+          type: KeyringTypes.mnemonicBIP47,
+          addresses: [
+            ...qiHDWallet
+              .getAddressesForAccount(
+                this.qiHDWalletManager.qiHDWalletAccountIndex
+              )
+              .filter(({ address }) => !this.hiddenAccounts[address])
+              .map(({ address }) => address),
+          ],
+          paymentCode: await qiHDWallet.getPaymentCode(
+            this.qiHDWalletManager.qiHDWalletAccountIndex
+          ),
+        }
+      })
+    )
 
     const deserializedQuaiHDWallets = await Promise.all(
       quaiHDWallets.map((quaiHDWallet) =>
@@ -299,6 +305,9 @@ export default class WalletManager {
     // if there is no qi wallets we are creating one as default qi wallet when user onboards
     const { phrase } = Mnemonic.fromEntropy(generateRandomBytes(24))
     const { address, qiHDWallet } = await this.qiHDWalletManager.create(phrase)
+    const paymentCode = await qiHDWallet.getPaymentCode(
+      this.qiHDWalletManager.qiHDWalletAccountIndex
+    )
 
     this.qiHDWallets = [
       ...this.qiHDWallets,
@@ -307,6 +316,7 @@ export default class WalletManager {
         addresses: [address],
         id: qiHDWallet.xPub,
         path: null,
+        paymentCode,
       },
     ]
     this.keyringMetadata[qiHDWallet.xPub] = {
