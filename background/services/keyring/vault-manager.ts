@@ -4,9 +4,9 @@ import {
   EncryptedVault,
   encryptVault,
   SaltedKey,
-} from "./encryption"
+} from "./utils/encryption"
 import { AddOptions, DeleteProps, SerializedVaultData } from "./types"
-import { getEncryptedVaults, writeLatestEncryptedVault } from "./storage"
+import { getEncryptedVaults, writeLatestEncryptedVault } from "./utils/storage"
 
 export interface IVaultManager {
   get(): Promise<SerializedVaultData>
