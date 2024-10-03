@@ -57,6 +57,8 @@ export default class WalletManager {
   }
 
   public async initializeState(): Promise<void> {
+    await this.initializeQiHDWallet(SignerImportSource.internal)
+
     const { wallets, qiHDWallets, quaiHDWallets, metadata, hiddenAccounts } =
       await this.vault.get()
 
@@ -94,6 +96,7 @@ export default class WalletManager {
         }
       })
     )
+    console.log("qiHDWallets", this.qiHDWallets)
 
     const deserializedQuaiHDWallets = await Promise.all(
       quaiHDWallets.map((quaiHDWallet) =>
@@ -289,36 +292,18 @@ export default class WalletManager {
       {}
     )
 
-    // FIXME better to import qi wallet from ui
-    //  or create it for user like we do with quai wallet
-    //  for now we just creating qi wallet on import of others wallets
-    this.importQiHDWallet(SignerImportSource.internal)
-
     return address
   }
 
-  private async importQiHDWallet(source: SignerImportSource): Promise<void> {
-    // FIXME looking if qi wallet already exists
+  private async initializeQiHDWallet(
+    source: SignerImportSource
+  ): Promise<void> {
     const { qiHDWallets } = await this.vault.get()
     if (qiHDWallets.length > 0) return
 
-    // if there is no qi wallets we are creating one as default qi wallet when user onboards
-    const { phrase } = Mnemonic.fromEntropy(generateRandomBytes(24))
-    const { address, qiHDWallet } = await this.qiHDWalletManager.create(phrase)
-    const paymentCode = await qiHDWallet.getPaymentCode(
-      this.qiHDWalletManager.qiHDWalletAccountIndex
-    )
+    // if there is no qi wallets we will create one as default
+    const { qiHDWallet } = await this.qiHDWalletManager.create()
 
-    this.qiHDWallets = [
-      ...this.qiHDWallets,
-      {
-        type: KeyringTypes.mnemonicBIP47,
-        addresses: [address],
-        id: qiHDWallet.xPub,
-        path: null,
-        paymentCode,
-      },
-    ]
     this.keyringMetadata[qiHDWallet.xPub] = {
       source,
     }
@@ -369,11 +354,6 @@ export default class WalletManager {
       },
       {}
     )
-
-    // FIXME better to import qi wallet from ui
-    //  or create it for user like we do with quai wallet
-    //  for now we just creating qi wallet on import of others wallets
-    this.importQiHDWallet(SignerImportSource.internal)
 
     return address
   }
