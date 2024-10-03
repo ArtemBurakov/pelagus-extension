@@ -78,6 +78,7 @@ export default class TransactionService extends BaseService<TransactionServiceEv
     await super.internalStartService()
     await this.initializeQuaiTransactions()
     this.checkPendingQuaiTransactions()
+    this.syncQiWalletPaymentCodes()
     this.subscribeToMailboxContractEvents()
   }
 
@@ -213,7 +214,7 @@ export default class TransactionService extends BaseService<TransactionServiceEv
       Zone.Cyprus1,
       Zone.Cyprus1
     )
-    // await tx.wait()
+    // const tx = await tx.wait()
   }
 
   // ------------------------------------ private methods ------------------------------------
@@ -376,11 +377,34 @@ export default class TransactionService extends BaseService<TransactionServiceEv
 
     mailboxContract.on(
       MAILBOX_EVENTS.NotificationSent.name,
-      (senderPaymentCode: string, receiverPaymentCode: string) => {
+      async (senderPaymentCode: string, receiverPaymentCode: string) => {
         console.log("Notification Sent Event Detected!")
         console.log("Sender Payment Code:", senderPaymentCode)
         console.log("Receiver Payment Code:", receiverPaymentCode)
+
+        const qiWallet = await this.keyringService.getQiHDWallet()
+        qiWallet.openChannel(senderPaymentCode, "sender")
+        qiWallet.sync(Zone.Cyprus1, 0) // FIXME
       }
     )
+  }
+
+  private async syncQiWalletPaymentCodes(): Promise<void> {
+    const qiWallet = await this.keyringService.getQiHDWallet()
+    const receiverPaymentCode = await qiWallet.getPaymentCode(0) // FIXME hardcoded value
+
+    const provider = this.chainService.jsonRpcProvider
+    const mailboxContract = new Contract(
+      this.MAILBOX_CONTRACT_ADDRESS,
+      MAILBOX_INTERFACE,
+      provider
+    )
+    const paymentCodesToOpenChannelsTo: string[] =
+      await mailboxContract.getNotifications(receiverPaymentCode)
+
+    paymentCodesToOpenChannelsTo.forEach((paymentCode) => {
+      qiWallet.openChannel(paymentCode, "sender")
+    })
+    qiWallet.sync(Zone.Cyprus1, 0)
   }
 }
