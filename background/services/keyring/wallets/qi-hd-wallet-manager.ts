@@ -1,12 +1,11 @@
 import { Contract, Mnemonic, QiHDWallet, Zone } from "quais"
-import { generateRandomBytes } from "../utils"
 import { IVaultManager } from "../vault-manager"
 import { AddressWithQiHDWallet } from "../types"
 import { MAILBOX_INTERFACE } from "../../../contracts/payment-channel-mailbox"
 
 export interface IQiHDWalletManager {
   get(): Promise<QiHDWallet | null>
-  create(): Promise<AddressWithQiHDWallet>
+  create(mnemonic: string): Promise<AddressWithQiHDWallet>
   deriveAddress(zone: Zone): Promise<AddressWithQiHDWallet>
 }
 
@@ -16,10 +15,9 @@ export default class QiHDWalletManager implements IQiHDWalletManager {
   constructor(private vaultManager: IVaultManager) {}
 
   // -------------------------- public methods --------------------------
-  public async create(): Promise<AddressWithQiHDWallet> {
-    const { phrase } = Mnemonic.fromEntropy(generateRandomBytes(24))
-    const mnemonic = Mnemonic.fromPhrase(phrase)
-    const qiHDWallet = QiHDWallet.fromMnemonic(mnemonic)
+  public async create(mnemonic: string): Promise<AddressWithQiHDWallet> {
+    const mnemonicFromPhrase = Mnemonic.fromPhrase(mnemonic)
+    const qiHDWallet = QiHDWallet.fromMnemonic(mnemonicFromPhrase)
 
     const existingQiHDWallet = await this.get()
     if (existingQiHDWallet) {
@@ -56,14 +54,14 @@ export default class QiHDWalletManager implements IQiHDWalletManager {
   }
 
   public async syncQiWalletPaymentCodes(): Promise<void> {
+    console.log("1. syncing QI wallet payment codes...")
     const qiWallet = await this.get()
-    if (!qiWallet) {
-      throw new Error("QiHDWallet was not found.")
-    }
+    if (!qiWallet) return
 
     const receiverPaymentCode = await qiWallet.getPaymentCode(
       this.qiHDWalletAccountIndex
     )
+    console.log("2. receiverPaymentCode", receiverPaymentCode)
 
     const { jsonRpcProvider } = globalThis.main.chainService
     const mailboxContract = new Contract(
@@ -71,13 +69,15 @@ export default class QiHDWalletManager implements IQiHDWalletManager {
       MAILBOX_INTERFACE,
       jsonRpcProvider
     )
-    const paymentCodesToOpenChannelsTo: string[] =
-      await mailboxContract.getNotifications(receiverPaymentCode)
-    console.log("paymentCodesToOpenChannelsTo", paymentCodesToOpenChannelsTo)
+    const notifications: string[] = await mailboxContract.getNotifications(
+      receiverPaymentCode
+    )
+    console.log("3. notifications", notifications)
 
-    // paymentCodesToOpenChannelsTo.forEach((paymentCode) => {
-    //   qiWallet.openChannel(paymentCode, "sender")
-    // })
+    notifications.forEach((paymentCode) => {
+      // qiWallet.openChannel(paymentCode, "sender")
+      console.log("paymentCode", paymentCode)
+    })
     // qiWallet.sync(Zone.Cyprus1, 0)
   }
 }

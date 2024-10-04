@@ -195,25 +195,37 @@ export default class TransactionService extends BaseService<TransactionServiceEv
     senderPaymentCode: string,
     receiverPaymentCode: string
   ): Promise<void> {
+    console.log("1. sending qi transaction...")
+    console.log("amount", amount)
+    console.log("quaiFrom", quaiFrom)
+    console.log("senderPaymentCode", senderPaymentCode)
+    console.log("receiverPaymentCode", receiverPaymentCode)
+
     const { signer } = await this.keyringService.getSigner(quaiFrom)
+    signer.connect(this.chainService.jsonRpcProvider)
+
     const mailboxContract = new Contract(
       this.MAILBOX_CONTRACT_ADDRESS,
       MAILBOX_INTERFACE,
       signer as ContractRunner
     )
+    console.log("2. mailboxContract", mailboxContract)
+
+    console.log("3. smart contract notify...")
     await mailboxContract.notify(senderPaymentCode, receiverPaymentCode)
+    console.log("3. notified")
 
-    const { jsonRpcProvider } = this.chainService
-    const qiWallet = await this.keyringService.getQiHDWallet()
-    qiWallet.connect(jsonRpcProvider)
-
-    const tx = await qiWallet.sendTransaction(
-      receiverPaymentCode,
-      amount,
-      Zone.Cyprus1,
-      Zone.Cyprus1
-    )
-    // const tx = await tx.wait()
+    // const { jsonRpcProvider } = this.chainService
+    // const qiWallet = await this.keyringService.getQiHDWallet()
+    // qiWallet.connect(jsonRpcProvider)
+    //
+    // const tx = await qiWallet.sendTransaction(
+    //   receiverPaymentCode,
+    //   amount,
+    //   Zone.Cyprus1,
+    //   Zone.Cyprus1
+    // )
+    // // const tx = await tx.wait()
   }
 
   // ------------------------------------ private methods ------------------------------------
