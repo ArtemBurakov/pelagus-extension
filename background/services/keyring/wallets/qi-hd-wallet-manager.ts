@@ -1,7 +1,8 @@
-import { Mnemonic, QiHDWallet, Zone } from "quais"
+import { Contract, Mnemonic, QiHDWallet, Zone } from "quais"
 import { generateRandomBytes } from "../utils"
 import { IVaultManager } from "../vault-manager"
 import { AddressWithQiHDWallet } from "../types"
+import { MAILBOX_INTERFACE } from "../../../contracts/payment-channel-mailbox"
 
 export interface IQiHDWalletManager {
   get(): Promise<QiHDWallet | null>
@@ -52,5 +53,31 @@ export default class QiHDWalletManager implements IQiHDWalletManager {
     )
 
     return { address, qiHDWallet }
+  }
+
+  public async syncQiWalletPaymentCodes(): Promise<void> {
+    const qiWallet = await this.get()
+    if (!qiWallet) {
+      throw new Error("QiHDWallet was not found.")
+    }
+
+    const receiverPaymentCode = await qiWallet.getPaymentCode(
+      this.qiHDWalletAccountIndex
+    )
+
+    const { jsonRpcProvider } = globalThis.main.chainService
+    const mailboxContract = new Contract(
+      process.env.MAILBOX_CONTRACT_ADDRESS || "",
+      MAILBOX_INTERFACE,
+      jsonRpcProvider
+    )
+    const paymentCodesToOpenChannelsTo: string[] =
+      await mailboxContract.getNotifications(receiverPaymentCode)
+    console.log("paymentCodesToOpenChannelsTo", paymentCodesToOpenChannelsTo)
+
+    // paymentCodesToOpenChannelsTo.forEach((paymentCode) => {
+    //   qiWallet.openChannel(paymentCode, "sender")
+    // })
+    // qiWallet.sync(Zone.Cyprus1, 0)
   }
 }

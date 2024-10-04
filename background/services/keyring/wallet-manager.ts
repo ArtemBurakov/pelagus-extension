@@ -58,6 +58,7 @@ export default class WalletManager {
 
   public async initializeState(): Promise<void> {
     await this.initializeQiHDWallet(SignerImportSource.internal)
+    await this.qiHDWalletManager.syncQiWalletPaymentCodes()
 
     const { wallets, qiHDWallet, quaiHDWallets, metadata, hiddenAccounts } =
       await this.vault.get()
