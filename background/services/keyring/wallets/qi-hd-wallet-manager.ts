@@ -1,12 +1,16 @@
 import { Contract, Mnemonic, QiHDWallet, Zone } from "quais"
 import { IVaultManager } from "../vault-manager"
 import { AddressWithQiHDWallet } from "../types"
-import { MAILBOX_INTERFACE } from "../../../contracts/payment-channel-mailbox"
+import {
+  MAILBOX_EVENTS,
+  MAILBOX_INTERFACE,
+} from "../../../contracts/payment-channel-mailbox"
 
 export interface IQiHDWalletManager {
   get(): Promise<QiHDWallet | null>
   create(mnemonic: string): Promise<AddressWithQiHDWallet>
   deriveAddress(zone: Zone): Promise<AddressWithQiHDWallet>
+  syncQiWalletPaymentCodes(qiWallet: QiHDWallet): Promise<void>
 }
 
 export default class QiHDWalletManager implements IQiHDWalletManager {
@@ -16,18 +20,25 @@ export default class QiHDWalletManager implements IQiHDWalletManager {
 
   // -------------------------- public methods --------------------------
   public async create(mnemonic: string): Promise<AddressWithQiHDWallet> {
-    const mnemonicFromPhrase = Mnemonic.fromPhrase(mnemonic)
-    const qiHDWallet = QiHDWallet.fromMnemonic(mnemonicFromPhrase)
+    const { jsonRpcProvider } = globalThis.main.chainService
 
     const existingQiHDWallet = await this.get()
     if (existingQiHDWallet) {
       throw new Error("Qi HD Wallet already in use")
     }
 
+    const mnemonicFromPhrase = Mnemonic.fromPhrase(mnemonic)
+    const qiHDWallet = QiHDWallet.fromMnemonic(mnemonicFromPhrase)
+
     const { address } = await qiHDWallet.getNextAddress(
       this.qiHDWalletAccountIndex,
       Zone.Cyprus1
     )
+
+    qiHDWallet.connect(jsonRpcProvider)
+    await qiHDWallet.scan(Zone.Cyprus1, 0)
+
+    this.syncQiWalletPaymentCodes(qiHDWallet)
 
     return { address, qiHDWallet }
   }
@@ -53,31 +64,33 @@ export default class QiHDWalletManager implements IQiHDWalletManager {
     return { address, qiHDWallet }
   }
 
-  public async syncQiWalletPaymentCodes(): Promise<void> {
-    console.log("1. syncing QI wallet payment codes...")
-    const qiWallet = await this.get()
-    if (!qiWallet) return
+  public async syncQiWalletPaymentCodes(qiWallet: QiHDWallet): Promise<void> {
+    const { webSocketProvider } = globalThis.main.chainService
+    const thisQiWalletPaymentCode = await qiWallet.getPaymentCode()
 
-    const receiverPaymentCode = await qiWallet.getPaymentCode(
-      this.qiHDWalletAccountIndex
-    )
-    console.log("2. receiverPaymentCode", receiverPaymentCode)
-
-    const { jsonRpcProvider } = globalThis.main.chainService
     const mailboxContract = new Contract(
       process.env.MAILBOX_CONTRACT_ADDRESS || "",
       MAILBOX_INTERFACE,
-      jsonRpcProvider
+      webSocketProvider
     )
     const notifications: string[] = await mailboxContract.getNotifications(
-      receiverPaymentCode
+      thisQiWalletPaymentCode
     )
-    console.log("3. notifications", notifications)
 
+    qiWallet.connect(webSocketProvider)
     notifications.forEach((paymentCode) => {
-      // qiWallet.openChannel(paymentCode, "sender")
-      console.log("paymentCode", paymentCode)
+      qiWallet.openChannel(paymentCode, "sender")
     })
-    // qiWallet.sync(Zone.Cyprus1, 0)
+    await qiWallet.sync(Zone.Cyprus1, 0)
+
+    mailboxContract.on(
+      MAILBOX_EVENTS.NotificationSent.name,
+      async (senderPaymentCode: string, receiverPaymentCode: string) => {
+        if (thisQiWalletPaymentCode === receiverPaymentCode) {
+          qiWallet.openChannel(senderPaymentCode, "sender")
+          qiWallet.sync(Zone.Cyprus1, 0)
+        }
+      }
+    )
   }
 }
