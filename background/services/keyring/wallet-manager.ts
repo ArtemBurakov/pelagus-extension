@@ -57,8 +57,6 @@ export default class WalletManager {
   }
 
   public async initializeState(): Promise<void> {
-    await this.qiHDWalletManager.syncQiWalletPaymentCodes()
-
     const { wallets, qiHDWallet, quaiHDWallets, metadata, hiddenAccounts } =
       await this.vault.get()
 
@@ -74,6 +72,7 @@ export default class WalletManager {
 
     if (qiHDWallet) {
       const deserializedQiHDWallet = await QiHDWallet.deserialize(qiHDWallet)
+      this.qiHDWalletManager.syncQiWalletPaymentCodes(deserializedQiHDWallet)
       const paymentCode = await deserializedQiHDWallet.getPaymentCode(
         this.qiHDWalletManager.qiHDWalletAccountIndex
       )
@@ -354,7 +353,7 @@ export default class WalletManager {
       {}
     )
 
-    await this.initializeQiHDWallet(mnemonic)
+    this.initializeQiHDWallet(mnemonic)
 
     return address
   }
