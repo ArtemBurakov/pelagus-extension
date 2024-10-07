@@ -73,6 +73,7 @@ import {
   setShowAlphaWalletBanner,
   setShowAnalyticsNotification,
   setShowDefaultWalletBanner,
+  setShowPaymentChannelModal,
   setSnackbarConfig,
   toggleCollectAnalytics,
   toggleTestNetworks,
@@ -1522,6 +1523,15 @@ export default class Main extends BaseService<never> {
     )
 
     this.preferenceService.emitter.on(
+      "showPaymentChannelModal",
+      async (isShowPaymentChannelModal: boolean) => {
+        this.store.dispatch(
+          setShowPaymentChannelModal(isShowPaymentChannelModal)
+        )
+      }
+    )
+
+    this.preferenceService.emitter.on(
       "initializeSelectedAccount",
       async (dbAddressNetwork: AddressOnNetwork) => {
         if (dbAddressNetwork) {
@@ -1571,6 +1581,15 @@ export default class Main extends BaseService<never> {
       "showTestNetworks",
       async (isShowTestNetworks: boolean) => {
         await this.preferenceService.setShowTestNetworks(isShowTestNetworks)
+      }
+    )
+
+    uiSliceEmitter.on(
+      "showPaymentChannelModal",
+      async (isShowPaymentChannelModal: boolean) => {
+        await this.preferenceService.setShowPaymentChannelModal(
+          isShowPaymentChannelModal
+        )
       }
     )
 
