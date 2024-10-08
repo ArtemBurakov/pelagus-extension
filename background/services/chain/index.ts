@@ -270,14 +270,13 @@ export default class ChainService extends BaseService<Events> {
 
   async getLatestQiWalletBalance(): Promise<void> {
     try {
-      console.log("Loading qi wallet balances...")
-
       const qiWallet = await this.keyringService.getQiHDWallet()
+      qiWallet.connect(this.jsonRpcProvider)
+      await qiWallet.scan(Zone.Cyprus1)
+
       const balance = qiWallet.getBalanceForZone(Zone.Cyprus1)
-      console.log("Balance: ", balance)
 
       const paymentCode = await qiWallet.getPaymentCode(0)
-      console.log("Payment code: ", paymentCode)
 
       const accountBalance: AccountBalance = {
         address: paymentCode, // FIXME
@@ -298,7 +297,6 @@ export default class ChainService extends BaseService<Events> {
           network: NetworksArray[0], // FIXME
         },
       })
-
       await this.db.addBalance(accountBalance)
     } catch (error) {
       logger.error("Error getting qi wallet balance for address", error)
