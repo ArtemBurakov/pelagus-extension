@@ -106,6 +106,8 @@ export default class ChainService extends BaseService<Events> {
 
   public webSocketProvider: WebSocketProvider
 
+  public selectedNetwork: NetworkInterface
+
   public supportedNetworks = NetworksArray
 
   subscribedAccounts: {
@@ -207,6 +209,7 @@ export default class ChainService extends BaseService<Events> {
 
     this.jsonRpcProvider = jsonRpcProvider
     this.webSocketProvider = webSocketProvider
+    this.selectedNetwork = networkFromPreferences
 
     this.assetData = new AssetDataHelper(jsonRpcProvider)
 
@@ -221,6 +224,7 @@ export default class ChainService extends BaseService<Events> {
     const { jsonRpcProvider, webSocketProvider } =
       this.providerFactory.getProvidersForNetwork(network.chainID)
 
+    this.selectedNetwork = network
     this.jsonRpcProvider = jsonRpcProvider
     this.webSocketProvider = webSocketProvider
 
@@ -279,6 +283,7 @@ export default class ChainService extends BaseService<Events> {
 
   async getLatestQiWalletBalance(): Promise<void> {
     try {
+      const network = this.selectedNetwork
       const qiWallet = await this.keyringService.getQiHDWallet()
       qiWallet.connect(this.jsonRpcProvider)
       await qiWallet.scan(Zone.Cyprus1)
@@ -288,7 +293,7 @@ export default class ChainService extends BaseService<Events> {
 
       const qiWalletBalance: QiWalletBalance = {
         paymentCode,
-        network: NetworksArray[0], // FIXME
+        network,
         assetAmount: {
           asset: QI,
           amount: balance,
@@ -301,7 +306,7 @@ export default class ChainService extends BaseService<Events> {
         balances: [qiWalletBalance],
         addressOnNetwork: {
           paymentCode,
-          network: NetworksArray[0], // FIXME
+          network,
         },
       })
       await this.db.addQiLedgerBalance(qiWalletBalance)
