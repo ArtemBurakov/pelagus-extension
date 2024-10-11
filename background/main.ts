@@ -44,7 +44,7 @@ import {
   loadUtxoAccount,
   updateAccountBalance,
   updateAccountName,
-  updateUtxoAccountBalance,
+  updateUtxoAccountsBalances,
 } from "./redux-slices/accounts"
 import {
   assetsLoaded,
@@ -912,7 +912,7 @@ export default class Main extends BaseService<never> {
     this.chainService.emitter.on(
       "updatedQiLedgerBalance",
       (accountWithBalance) => {
-        this.store.dispatch(updateUtxoAccountBalance(accountWithBalance))
+        this.store.dispatch(updateUtxoAccountsBalances(accountWithBalance))
       }
     )
 
