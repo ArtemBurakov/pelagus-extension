@@ -153,7 +153,7 @@ import { NetworkInterface } from "./constants/networks/networkTypes"
 import { SignerImportMetadata } from "./services/keyring/types"
 import {
   DEFAULT_PELAGUS_NETWORK,
-  NetworksArray,
+  PELAGUS_NETWORKS,
 } from "./constants/networks/networks"
 import ProviderFactory from "./services/provider-factory/provider-factory"
 import { LocalNodeNetworkStatusEventTypes } from "./services/provider-factory/events"
@@ -632,11 +632,13 @@ export default class Main extends BaseService<never> {
   protected override async internalStartService(): Promise<void> {
     await super.internalStartService()
 
+    // Sequential initialization for services that depend on others
+    await this.preferenceService.startService()
+    await this.providerFactoryService.startService()
+    await this.chainService.startService()
+
     // Concurrent initialization for services that don't depend on other services
     const independentServices = [
-      this.preferenceService.startService(),
-      this.providerFactoryService.startService(),
-      this.chainService.startService(),
       this.indexingService.startService(),
       this.enrichmentService.startService(),
       this.keyringService.startService(),
@@ -1167,7 +1169,7 @@ export default class Main extends BaseService<never> {
     })
 
     this.keyringService.emitter.on("address", (address) => {
-      NetworksArray.forEach((network) => {
+      PELAGUS_NETWORKS.forEach((network) => {
         this.store.dispatch(
           loadAccount({
             address,
@@ -1185,7 +1187,7 @@ export default class Main extends BaseService<never> {
     })
 
     this.keyringService.emitter.on("loadQiWallet", (qiWallet) => {
-      NetworksArray.forEach((network) => {
+      PELAGUS_NETWORKS.forEach((network) => {
         this.store.dispatch(
           loadUtxoAccount({
             qiWallet,
@@ -1552,9 +1554,9 @@ export default class Main extends BaseService<never> {
         this.store.dispatch(toggleTestNetworks(isShowTestNetworks))
 
         if (isShowTestNetworks) {
-          this.providerFactoryService.startLocalNodeCheckingInterval()
+          this.providerFactoryService.onShowTestNetworks()
         } else {
-          this.providerFactoryService.stopLocalNodeCheckingInterval()
+          this.providerFactoryService.onDisableTestNetworks()
         }
       }
     )
