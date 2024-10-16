@@ -3,9 +3,13 @@ import {
   QuaiTransactionResponse,
 } from "quais/lib/commonjs/providers"
 import { OutpointInfo } from "quais/lib/commonjs/wallet/qi-hdwallet"
-import { NeuteredAddressInfo } from "quais/lib/commonjs/wallet/hdwallet"
 
-import { QiTransactionDB, QuaiTransactionDB, TransactionStatus } from "../types"
+import {
+  QiTransactionDB,
+  QuaiTransactionDB,
+  TransactionStatus,
+  UtxoActivityType,
+} from "../types"
 
 export const quaiTransactionFromResponse = (
   transactionResponse: QuaiTransactionResponse,
@@ -33,50 +37,53 @@ export const quaiTransactionFromResponse = (
   }
 }
 
-export const qiTransactionFromResponse = (
-  response: QiTransactionResponse,
-  amountSent: number,
-  changeAddresses: NeuteredAddressInfo[],
-  status: TransactionStatus
-): QiTransactionDB => {
-  const { txOutputs } = response
-
-  const initialChange = 0
-  const outputsChange = txOutputs?.reduce((accumulator, txOutput) => {
-    const { address, denomination } = txOutput
-
-    const isMatch = changeAddresses.some(
-      (changeAddress) => changeAddress.address === address
-    )
-    if (isMatch) {
-      return accumulator + denomination
-    }
-
-    return accumulator
-  }, initialChange)
-
-  const value = amountSent - (outputsChange ?? initialChange)
-
-  return {
-    hash: response.hash,
-    chainId: Number(response.chainId),
-    value,
-    status,
-    blockHash: response.blockHash || null,
-    blockNumber: response.blockNumber || null,
-  }
-}
+// export const qiTransactionFromResponse = (
+//   response: QiTransactionResponse,
+//   amountSent: number,
+//   changeAddresses: NeuteredAddressInfo[],
+//   status: TransactionStatus
+// ): QiTransactionDB => {
+//   const { txOutputs } = response
+//
+//   const initialChange = 0
+//   const outputsChange = txOutputs?.reduce((accumulator, txOutput) => {
+//     const { address, denomination } = txOutput
+//
+//     const isMatch = changeAddresses.some(
+//       (changeAddress) => changeAddress.address === address
+//     )
+//     if (isMatch) {
+//       return accumulator + denomination
+//     }
+//
+//     return accumulator
+//   }, initialChange)
+//
+//   const value = amountSent - (outputsChange ?? initialChange)
+//
+//   return {
+//     hash: response.hash,
+//     chainId: Number(response.chainId),
+//     value,
+//     status,
+//     blockHash: response.blockHash || null,
+//     blockNumber: response.blockNumber || null,
+//   }
+// }
 
 export const processSentQiTransaction = (
-  senderPaymentCode: string, // TODO
-  receiverPaymentCode: string, // TODO
+  senderPaymentCode: string,
+  receiverPaymentCode: string,
   tx: QiTransactionResponse,
   amount: number
 ): QiTransactionDB => {
   return {
+    senderPaymentCode,
+    receiverPaymentCode,
     hash: tx.hash,
     chainId: Number(tx.chainId),
     value: amount,
+    type: UtxoActivityType.SEND,
     status: TransactionStatus.PENDING,
     blockHash: tx.blockHash || null,
     blockNumber: tx.blockNumber || null,

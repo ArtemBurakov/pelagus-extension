@@ -8,12 +8,10 @@ import {
   getZoneForAddress,
   QuaiTransaction,
   TransactionReceipt,
-  TransactionResponse,
   Wallet,
   Zone,
 } from "quais"
 
-import { NeuteredAddressInfo } from "quais/lib/commonjs/wallet/hdwallet"
 import { MAILBOX_INTERFACE } from "../../contracts/payment-channel-mailbox"
 import BaseService from "../base"
 import ChainService from "../chain"
@@ -25,12 +23,7 @@ import { QiTransactionDB, QuaiTransactionDB, TransactionStatus } from "./types"
 import { ServiceCreatorFunction } from "../types"
 import { TransactionServiceEvents } from "./events"
 import NotificationsManager from "../notifications"
-import {
-  getUniqueQiTransactionHashes,
-  processSentQiTransaction,
-  qiTransactionFromResponse,
-  quaiTransactionFromResponse,
-} from "./utils"
+import { processSentQiTransaction, quaiTransactionFromResponse } from "./utils"
 import { isSignerPrivateKeyType } from "../keyring/utils"
 import { getRelevantTransactionAddresses } from "../enrichment/utils"
 import { initializeTransactionsDatabase, TransactionsDatabase } from "./db"
@@ -82,7 +75,8 @@ export default class TransactionService extends BaseService<TransactionServiceEv
     await super.internalStartService()
     this.checkPendingQuaiTransactions()
     await this.initializeQuaiTransactions()
-    await this.initializeQiTransactions()
+    // TODO
+    // await this.initializeQiTransactions()
   }
 
   // ------------------------------------ public methods ------------------------------------
@@ -250,33 +244,34 @@ export default class TransactionService extends BaseService<TransactionServiceEv
     })
   }
 
-  /**
-   * Fetches all transactions from the database and emits them to update the UI,
-   * on TransactionService initialization.
-   */
-  private async initializeQiTransactions(): Promise<void> {
-    const { jsonRpcProvider } = this.chainService
-
-    const qiWallet = await this.keyringService.getQiHDWallet()
-    qiWallet.connect(jsonRpcProvider)
-    await qiWallet.sync(Zone.Cyprus1, 0)
-
-    const outpoints = qiWallet.getOutpoints(Zone.Cyprus1)
-    const uniqueHashes = getUniqueQiTransactionHashes(outpoints)
-    const changeAddresses = qiWallet.getChangeAddressesForZone(Zone.Cyprus1)
-
-    await Promise.all(
-      Array.from(uniqueHashes).map(async (hash) => {
-        const response = await jsonRpcProvider.getTransaction(hash)
-        if (response) {
-          await this.processQiTransactionResponse(response, changeAddresses)
-        }
-      })
-    )
-
-    const transactions = await this.db.getAllQiTransactions()
-    this.emitter.emit("initializeQiTransactions", transactions)
-  }
+  // TODO
+  // /**
+  //  * Fetches all transactions from the database and emits them to update the UI,
+  //  * on TransactionService initialization.
+  //  */
+  // private async initializeQiTransactions(): Promise<void> {
+  //   const { jsonRpcProvider } = this.chainService
+  //
+  //   const qiWallet = await this.keyringService.getQiHDWallet()
+  //   qiWallet.connect(jsonRpcProvider)
+  //   await qiWallet.sync(Zone.Cyprus1, 0)
+  //
+  //   const outpoints = qiWallet.getOutpoints(Zone.Cyprus1)
+  //   const uniqueHashes = getUniqueQiTransactionHashes(outpoints)
+  //   const changeAddresses = qiWallet.getChangeAddressesForZone(Zone.Cyprus1)
+  //
+  //   await Promise.all(
+  //     Array.from(uniqueHashes).map(async (hash) => {
+  //       const response = await jsonRpcProvider.getTransaction(hash)
+  //       if (response) {
+  //         await this.processQiTransactionResponse(response, changeAddresses)
+  //       }
+  //     })
+  //   )
+  //
+  //   const transactions = await this.db.getAllQiTransactions()
+  //   this.emitter.emit("initializeQiTransactions", transactions)
+  // }
 
   /**
    * Gets all pending transactions from the database and attempts to confirm them.
@@ -320,26 +315,27 @@ export default class TransactionService extends BaseService<TransactionServiceEv
     this.subscribeToQuaiTransaction(transactionResponse.hash)
   }
 
-  private async processQiTransactionResponse(
-    transactionResponse: TransactionResponse,
-    changeAddresses: NeuteredAddressInfo[]
-  ): Promise<void> {
-    const { hash } = transactionResponse
-
-    const savedTransaction = await this.db.getQiTransactionByHash(hash)
-    if (savedTransaction) {
-      savedTransaction.status = TransactionStatus.CONFIRMED
-      await this.saveQiTransaction(savedTransaction)
-    } else {
-      const transaction = qiTransactionFromResponse(
-        transactionResponse as QiTransactionResponse,
-        10, // TODO how I can get balance of transaction that was sent to me not by me
-        changeAddresses,
-        TransactionStatus.CONFIRMED
-      )
-      await this.saveQiTransaction(transaction)
-    }
-  }
+  // TODO
+  // private async processQiTransactionResponse(
+  //   transactionResponse: TransactionResponse,
+  //   changeAddresses: NeuteredAddressInfo[]
+  // ): Promise<void> {
+  //   const { hash } = transactionResponse
+  //
+  //   const savedTransaction = await this.db.getQiTransactionByHash(hash)
+  //   if (savedTransaction) {
+  //     savedTransaction.status = TransactionStatus.CONFIRMED
+  //     await this.saveQiTransaction(savedTransaction)
+  //   } else {
+  //     const transaction = qiTransactionFromResponse(
+  //       transactionResponse as QiTransactionResponse,
+  //       10, // TODO how I can get balance of transaction that was sent to me not by me
+  //       changeAddresses,
+  //       TransactionStatus.CONFIRMED
+  //     )
+  //     await this.saveQiTransaction(transaction)
+  //   }
+  // }
 
   /**
    * Subscribes to a transaction confirmation event and updates the transaction status once confirmed.
@@ -393,7 +389,7 @@ export default class TransactionService extends BaseService<TransactionServiceEv
    */
   private async saveQiTransaction(transaction: QiTransactionDB): Promise<void> {
     await this.db.addOrUpdateQiTransaction(transaction)
-    this.emitter.emit("updateQiTransaction", transaction)
+    this.emitter.emit("addUtxoActivity", transaction)
   }
 
   /**

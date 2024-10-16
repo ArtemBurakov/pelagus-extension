@@ -17,6 +17,7 @@ export interface TransactionServiceEvents extends ServiceLifecycleEvents {
     forAccounts: string[]
   }
 
+  addUtxoActivity: QiTransactionDB
   updateQiTransaction: QiTransactionDB
   initializeQiTransactions: QiTransactionDB[]
 }

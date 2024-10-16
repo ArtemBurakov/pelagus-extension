@@ -35,10 +35,19 @@ export type QuaiTransactionDB = {
   logs: LogParams[]
 }
 
+export enum UtxoActivityType {
+  RECEIVE = 0,
+  SEND = 1,
+  CONVERT = 2,
+}
+
 export type QiTransactionDB = {
+  senderPaymentCode: string
+  receiverPaymentCode: string
   hash: string
   chainId: number
   value: number
+  type: UtxoActivityType
   status: TransactionStatus
   blockHash: string | null
   blockNumber: number | null
