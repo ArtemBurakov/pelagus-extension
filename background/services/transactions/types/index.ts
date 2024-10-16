@@ -49,6 +49,7 @@ export type QiTransactionDB = {
   value: number
   type: UtxoActivityType
   status: TransactionStatus
+  timestamp: number
   blockHash: string | null
   blockNumber: number | null
 }

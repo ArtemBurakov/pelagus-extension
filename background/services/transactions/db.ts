@@ -33,7 +33,7 @@ export class TransactionsDatabase extends Dexie {
 
     this.version(2).stores({
       qiTransactions:
-        "&[hash+chainId],hash,from,status,[from+chainId],to,[to+chainId],nonce,[nonce+from+chainId],blockHash,blockNumber,chainId,firstSeen,dataSource",
+        "&[hash+chainId],hash,from,status,[from+chainId],to,[to+chainId],nonce,[nonce+from+chainId],blockHash,blockNumber,chainId,timestamp,firstSeen,dataSource",
     })
   }
 

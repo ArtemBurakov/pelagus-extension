@@ -84,6 +84,7 @@ export const processSentQiTransaction = (
     chainId: Number(tx.chainId),
     value: amount,
     type: UtxoActivityType.SEND,
+    timestamp: Date.now(),
     status: TransactionStatus.PENDING,
     blockHash: tx.blockHash || null,
     blockNumber: tx.blockNumber || null,
