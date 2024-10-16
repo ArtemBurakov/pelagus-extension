@@ -8,10 +8,12 @@ import {
   getZoneForAddress,
   QuaiTransaction,
   TransactionReceipt,
+  TransactionResponse,
   Wallet,
   Zone,
 } from "quais"
 
+import { NeuteredAddressInfo } from "quais/lib/commonjs/wallet/hdwallet"
 import { MAILBOX_INTERFACE } from "../../contracts/payment-channel-mailbox"
 import BaseService from "../base"
 import ChainService from "../chain"
@@ -25,6 +27,7 @@ import { TransactionServiceEvents } from "./events"
 import NotificationsManager from "../notifications"
 import {
   getUniqueQiTransactionHashes,
+  processSentQiTransaction,
   qiTransactionFromResponse,
   quaiTransactionFromResponse,
 } from "./utils"
@@ -171,21 +174,19 @@ export default class TransactionService extends BaseService<TransactionServiceEv
       qiWallet.connect(jsonRpcProvider)
       await qiWallet.scan(Zone.Cyprus1)
 
-      const tx = await qiWallet.sendTransaction(
+      const tx = (await qiWallet.sendTransaction(
         receiverPaymentCode,
         amount,
         Zone.Cyprus1,
         Zone.Cyprus1
-      )
+      )) as QiTransactionResponse
 
-      const changeAddresses = qiWallet.getChangeAddressesForZone(Zone.Cyprus1)
-      const transaction = qiTransactionFromResponse(
-        tx as QiTransactionResponse,
-        Number(amount),
-        changeAddresses,
-        TransactionStatus.PENDING
+      await this.handleQiTransactionSend(
+        senderPaymentCode,
+        receiverPaymentCode,
+        tx,
+        amount
       )
-      await this.saveQiTransaction(transaction)
 
       await this.notifyQiRecipient(
         quaiAddress,
@@ -194,6 +195,9 @@ export default class TransactionService extends BaseService<TransactionServiceEv
         minerTip
       )
       NotificationsManager.createSendQiTxNotification()
+
+      // tx.await()
+      // then handle confirmed qi tx
     } catch (error) {
       logger.error("Failed to send Qi transaction", error)
       NotificationsManager.createFailedQiTxNotification()
@@ -265,16 +269,7 @@ export default class TransactionService extends BaseService<TransactionServiceEv
       Array.from(uniqueHashes).map(async (hash) => {
         const response = await jsonRpcProvider.getTransaction(hash)
         if (response) {
-          const savedTransaction = await this.db.getQiTransactionByHash(hash)
-          if (!savedTransaction) return
-
-          const transaction = qiTransactionFromResponse(
-            response as QiTransactionResponse,
-            savedTransaction.value,
-            changeAddresses,
-            TransactionStatus.PENDING
-          )
-          await this.db.addOrUpdateQiTransaction(transaction)
+          await this.processQiTransactionResponse(response, changeAddresses)
         }
       })
     )
@@ -323,6 +318,27 @@ export default class TransactionService extends BaseService<TransactionServiceEv
     await this.saveQuaiTransaction(transaction)
     this.emitter.emit("transactionSend", transactionResponse.hash)
     this.subscribeToQuaiTransaction(transactionResponse.hash)
+  }
+
+  private async processQiTransactionResponse(
+    transactionResponse: TransactionResponse,
+    changeAddresses: NeuteredAddressInfo[]
+  ): Promise<void> {
+    const { hash } = transactionResponse
+
+    const savedTransaction = await this.db.getQiTransactionByHash(hash)
+    if (savedTransaction) {
+      savedTransaction.status = TransactionStatus.CONFIRMED
+      await this.saveQiTransaction(savedTransaction)
+    } else {
+      const transaction = qiTransactionFromResponse(
+        transactionResponse as QiTransactionResponse,
+        10, // TODO how I can get balance of transaction that was sent to me not by me
+        changeAddresses,
+        TransactionStatus.CONFIRMED
+      )
+      await this.saveQiTransaction(transaction)
+    }
   }
 
   /**
@@ -430,6 +446,21 @@ export default class TransactionService extends BaseService<TransactionServiceEv
       transaction.status = TransactionStatus.FAILED
       await this.saveQuaiTransaction(transaction)
     }
+  }
+
+  private async handleQiTransactionSend(
+    senderPaymentCode: string,
+    receiverPaymentCode: string,
+    tx: QiTransactionResponse,
+    amount: bigint
+  ): Promise<void> {
+    const transaction = processSentQiTransaction(
+      senderPaymentCode,
+      receiverPaymentCode,
+      tx,
+      Number(amount)
+    )
+    await this.saveQiTransaction(transaction)
   }
 
   private async notifyQiRecipient(

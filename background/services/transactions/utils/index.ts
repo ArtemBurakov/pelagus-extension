@@ -67,6 +67,22 @@ export const qiTransactionFromResponse = (
   }
 }
 
+export const processSentQiTransaction = (
+  senderPaymentCode: string, // TODO
+  receiverPaymentCode: string, // TODO
+  tx: QiTransactionResponse,
+  amount: number
+): QiTransactionDB => {
+  return {
+    hash: tx.hash,
+    chainId: Number(tx.chainId),
+    value: amount,
+    status: TransactionStatus.PENDING,
+    blockHash: tx.blockHash || null,
+    blockNumber: tx.blockNumber || null,
+  }
+}
+
 export const getUniqueQiTransactionHashes = (
   outpointInfos: OutpointInfo[]
 ): string[] => {
