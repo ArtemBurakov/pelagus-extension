@@ -1,4 +1,5 @@
 import {
+  QiTransactionResponse,
   QuaiTransactionRequest,
   QuaiTransactionResponse,
 } from "quais/lib/commonjs/providers"
@@ -18,11 +19,15 @@ import logger from "../../lib/logger"
 import KeyringService from "../keyring"
 import { HexString } from "../../types"
 import { MAILBOX_CONTRACT_ADDRESS, MINUTE } from "../../constants"
-import { QuaiTransactionDB, QuaiTransactionStatus } from "./types"
+import { QiTransactionDB, QuaiTransactionDB, TransactionStatus } from "./types"
 import { ServiceCreatorFunction } from "../types"
 import { TransactionServiceEvents } from "./events"
 import NotificationsManager from "../notifications"
-import { quaiTransactionFromResponse } from "./utils"
+import {
+  getUniqueQiTransactionHashes,
+  qiTransactionFromResponse,
+  quaiTransactionFromResponse,
+} from "./utils"
 import { isSignerPrivateKeyType } from "../keyring/utils"
 import { getRelevantTransactionAddresses } from "../enrichment/utils"
 import { initializeTransactionsDatabase, TransactionsDatabase } from "./db"
@@ -74,6 +79,7 @@ export default class TransactionService extends BaseService<TransactionServiceEv
     await super.internalStartService()
     this.checkPendingQuaiTransactions()
     await this.initializeQuaiTransactions()
+    await this.initializeQiTransactions()
   }
 
   // ------------------------------------ public methods ------------------------------------
@@ -172,6 +178,15 @@ export default class TransactionService extends BaseService<TransactionServiceEv
         Zone.Cyprus1
       )
 
+      const changeAddresses = qiWallet.getChangeAddressesForZone(Zone.Cyprus1)
+      const transaction = qiTransactionFromResponse(
+        tx as QiTransactionResponse,
+        Number(amount),
+        changeAddresses,
+        TransactionStatus.PENDING
+      )
+      await this.saveQiTransaction(transaction)
+
       await this.notifyQiRecipient(
         quaiAddress,
         senderPaymentCode,
@@ -180,7 +195,7 @@ export default class TransactionService extends BaseService<TransactionServiceEv
       )
       NotificationsManager.createSendQiTxNotification()
     } catch (error) {
-      logger.error()
+      logger.error("Failed to send Qi transaction", error)
       NotificationsManager.createFailedQiTxNotification()
     }
   }
@@ -232,6 +247,43 @@ export default class TransactionService extends BaseService<TransactionServiceEv
   }
 
   /**
+   * Fetches all transactions from the database and emits them to update the UI,
+   * on TransactionService initialization.
+   */
+  private async initializeQiTransactions(): Promise<void> {
+    const { jsonRpcProvider } = this.chainService
+
+    const qiWallet = await this.keyringService.getQiHDWallet()
+    qiWallet.connect(jsonRpcProvider)
+    await qiWallet.sync(Zone.Cyprus1, 0)
+
+    const outpoints = qiWallet.getOutpoints(Zone.Cyprus1)
+    const uniqueHashes = getUniqueQiTransactionHashes(outpoints)
+    const changeAddresses = qiWallet.getChangeAddressesForZone(Zone.Cyprus1)
+
+    await Promise.all(
+      Array.from(uniqueHashes).map(async (hash) => {
+        const response = await jsonRpcProvider.getTransaction(hash)
+        if (response) {
+          const savedTransaction = await this.db.getQiTransactionByHash(hash)
+          if (!savedTransaction) return
+
+          const transaction = qiTransactionFromResponse(
+            response as QiTransactionResponse,
+            savedTransaction.value,
+            changeAddresses,
+            TransactionStatus.PENDING
+          )
+          await this.db.addOrUpdateQiTransaction(transaction)
+        }
+      })
+    )
+
+    const transactions = await this.db.getAllQiTransactions()
+    this.emitter.emit("initializeQiTransactions", transactions)
+  }
+
+  /**
    * Gets all pending transactions from the database and attempts to confirm them.
    * If the transaction is already confirmed and has a receipt, it updates the transaction with the receipt.
    * Otherwise, subscribes to transaction confirmation.
@@ -266,7 +318,7 @@ export default class TransactionService extends BaseService<TransactionServiceEv
   ): Promise<void> {
     const transaction = quaiTransactionFromResponse(
       transactionResponse,
-      QuaiTransactionStatus.PENDING
+      TransactionStatus.PENDING
     )
     await this.saveQuaiTransaction(transaction)
     this.emitter.emit("transactionSend", transactionResponse.hash)
@@ -318,6 +370,17 @@ export default class TransactionService extends BaseService<TransactionServiceEv
   }
 
   /**
+   * Saves or updates a transaction in the database and notifies the UI about the updated transaction.
+   * Emits an event to notify the UI about a transaction update.
+   *
+   * @param {QiTransactionDB} transaction - The transaction to save or update.
+   */
+  private async saveQiTransaction(transaction: QiTransactionDB): Promise<void> {
+    await this.db.addOrUpdateQiTransaction(transaction)
+    this.emitter.emit("updateQiTransaction", transaction)
+  }
+
+  /**
    * Updates a transaction in the database with the receipt data.
    * Checks the status of a receipt to determine whether the transaction has been confirmed or reverted.
    *
@@ -329,18 +392,17 @@ export default class TransactionService extends BaseService<TransactionServiceEv
     const transaction = await this.db.getQuaiTransactionByHash(receipt.hash)
     if (!transaction) return
 
-    const { status, blockHash, blockNumber, gasPrice, gasUsed, outboundEtxs } =
-      receipt
+    const { status, blockHash, blockNumber, gasPrice, gasUsed } = receipt
 
     if (status === 1) {
-      transaction.status = QuaiTransactionStatus.CONFIRMED
+      transaction.status = TransactionStatus.CONFIRMED
       NotificationsManager.createSuccessTxNotification(
         transaction.nonce,
         transaction.hash
       )
     } else if (status === 0) {
       // reverted
-      transaction.status = QuaiTransactionStatus.FAILED
+      transaction.status = TransactionStatus.FAILED
     }
 
     transaction.blockHash = blockHash
@@ -365,7 +427,7 @@ export default class TransactionService extends BaseService<TransactionServiceEv
   private async handleQuaiTransactionFail(hash: string): Promise<void> {
     const transaction = await this.db.getQuaiTransactionByHash(hash)
     if (transaction) {
-      transaction.status = QuaiTransactionStatus.FAILED
+      transaction.status = TransactionStatus.FAILED
       await this.saveQuaiTransaction(transaction)
     }
   }
@@ -394,16 +456,12 @@ export default class TransactionService extends BaseService<TransactionServiceEv
         wallet
       )
       const gasOptions = minerTip ? { minerTip } : {}
-      console.log("senderPaymentCode", senderPaymentCode)
-      console.log("receiverPaymentCode", receiverPaymentCode)
       const tx = await mailboxContract.notify(
         senderPaymentCode,
         receiverPaymentCode,
         gasOptions
       )
-      console.log("notified tx", tx)
-      const receipt = await tx.wait()
-      console.log("notified receipt", receipt)
+      await tx.wait()
     } catch (error) {
       logger.error("Error occurs while notifying Qi recipient", error)
     }
