@@ -8,6 +8,7 @@ import {
   getZoneForAddress,
   QuaiTransaction,
   TransactionReceipt,
+  TransactionResponse,
   Wallet,
   Zone,
 } from "quais"
@@ -18,7 +19,7 @@ import ChainService from "../chain"
 import logger from "../../lib/logger"
 import KeyringService from "../keyring"
 import { HexString } from "../../types"
-import { MAILBOX_CONTRACT_ADDRESS, MINUTE } from "../../constants"
+import { MAILBOX_CONTRACT_ADDRESS, MINUTE, SECOND } from "../../constants"
 import { QiTransactionDB, QuaiTransactionDB, TransactionStatus } from "./types"
 import { ServiceCreatorFunction } from "../types"
 import { TransactionServiceEvents } from "./events"
@@ -29,6 +30,7 @@ import { getRelevantTransactionAddresses } from "../enrichment/utils"
 import { initializeTransactionsDatabase, TransactionsDatabase } from "./db"
 
 const TRANSACTION_CONFIRMATIONS = 1
+const QI_TRANSACTIONS_FETCH_INTERVAL = 10 * SECOND
 const TRANSACTION_RECEIPT_WAIT_TIMEOUT = 10 * MINUTE
 
 /**
@@ -73,10 +75,12 @@ export default class TransactionService extends BaseService<TransactionServiceEv
    */
   override async internalStartService(): Promise<void> {
     await super.internalStartService()
+
+    this.checkPendingQiTransactions()
     this.checkPendingQuaiTransactions()
+
+    await this.initializeQiTransactions()
     await this.initializeQuaiTransactions()
-    // TODO
-    // await this.initializeQiTransactions()
   }
 
   // ------------------------------------ public methods ------------------------------------
@@ -175,12 +179,13 @@ export default class TransactionService extends BaseService<TransactionServiceEv
         Zone.Cyprus1
       )) as QiTransactionResponse
 
-      await this.handleQiTransactionSend(
+      const transaction = processSentQiTransaction(
         senderPaymentCode,
         receiverPaymentCode,
         tx,
         amount
       )
+      await this.saveQiTransaction(transaction)
 
       await this.notifyQiRecipient(
         quaiAddress,
@@ -191,7 +196,8 @@ export default class TransactionService extends BaseService<TransactionServiceEv
       NotificationsManager.createSendQiTxNotification()
 
       // tx.await()
-      // then handle confirmed qi tx
+      // await this.handleQiTransaction(tx)
+      // qiWallet.sync()
     } catch (error) {
       logger.error("Failed to send Qi transaction", error)
       NotificationsManager.createFailedQiTxNotification()
@@ -244,34 +250,10 @@ export default class TransactionService extends BaseService<TransactionServiceEv
     })
   }
 
-  // TODO
-  // /**
-  //  * Fetches all transactions from the database and emits them to update the UI,
-  //  * on TransactionService initialization.
-  //  */
-  // private async initializeQiTransactions(): Promise<void> {
-  //   const { jsonRpcProvider } = this.chainService
-  //
-  //   const qiWallet = await this.keyringService.getQiHDWallet()
-  //   qiWallet.connect(jsonRpcProvider)
-  //   await qiWallet.sync(Zone.Cyprus1, 0)
-  //
-  //   const outpoints = qiWallet.getOutpoints(Zone.Cyprus1)
-  //   const uniqueHashes = getUniqueQiTransactionHashes(outpoints)
-  //   const changeAddresses = qiWallet.getChangeAddressesForZone(Zone.Cyprus1)
-  //
-  //   await Promise.all(
-  //     Array.from(uniqueHashes).map(async (hash) => {
-  //       const response = await jsonRpcProvider.getTransaction(hash)
-  //       if (response) {
-  //         await this.processQiTransactionResponse(response, changeAddresses)
-  //       }
-  //     })
-  //   )
-  //
-  //   const transactions = await this.db.getAllQiTransactions()
-  //   this.emitter.emit("initializeQiTransactions", transactions)
-  // }
+  private async initializeQiTransactions(): Promise<void> {
+    const transactions = await this.db.getAllQiTransactions()
+    this.emitter.emit("initializeQiTransactions", transactions)
+  }
 
   /**
    * Gets all pending transactions from the database and attempts to confirm them.
@@ -296,6 +278,24 @@ export default class TransactionService extends BaseService<TransactionServiceEv
     )
   }
 
+  private async checkPendingQiTransactions(): Promise<void> {
+    const { jsonRpcProvider } = this.chainService
+
+    const pendingTransactions = await this.db.getPendingQiTransactions()
+    if (pendingTransactions.length <= 0) return
+
+    await Promise.all(
+      pendingTransactions.map(async ({ hash }) => {
+        const transaction = await jsonRpcProvider.getTransaction(hash)
+        if (transaction) {
+          await this.handleQiTransaction(transaction)
+        } else {
+          await this.subscribeToQiTransaction(hash)
+        }
+      })
+    )
+  }
+
   /**
    * Processes a new Quai transaction response by converting it into a transaction object
    * with a `PENDING` status, saving it to the database, and emitting an event with the transaction hash.
@@ -314,28 +314,6 @@ export default class TransactionService extends BaseService<TransactionServiceEv
     this.emitter.emit("transactionSend", transactionResponse.hash)
     this.subscribeToQuaiTransaction(transactionResponse.hash)
   }
-
-  // TODO
-  // private async processQiTransactionResponse(
-  //   transactionResponse: TransactionResponse,
-  //   changeAddresses: NeuteredAddressInfo[]
-  // ): Promise<void> {
-  //   const { hash } = transactionResponse
-  //
-  //   const savedTransaction = await this.db.getQiTransactionByHash(hash)
-  //   if (savedTransaction) {
-  //     savedTransaction.status = TransactionStatus.CONFIRMED
-  //     await this.saveQiTransaction(savedTransaction)
-  //   } else {
-  //     const transaction = qiTransactionFromResponse(
-  //       transactionResponse as QiTransactionResponse,
-  //       10, // TODO how I can get balance of transaction that was sent to me not by me
-  //       changeAddresses,
-  //       TransactionStatus.CONFIRMED
-  //     )
-  //     await this.saveQiTransaction(transaction)
-  //   }
-  // }
 
   /**
    * Subscribes to a transaction confirmation event and updates the transaction status once confirmed.
@@ -360,6 +338,28 @@ export default class TransactionService extends BaseService<TransactionServiceEv
     } catch (error) {
       // dropped / failed
       await this.handleQuaiTransactionFail(hash)
+    }
+  }
+
+  private async subscribeToQiTransaction(hash: string): Promise<void> {
+    let transaction = null
+    const { jsonRpcProvider } = this.chainService
+
+    while (transaction === null) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, QI_TRANSACTIONS_FETCH_INTERVAL)
+      )
+
+      try {
+        transaction = await jsonRpcProvider.getTransaction(hash)
+      } catch (error) {
+        logger.error("Error fetching qi transaction confirmation", error)
+        break
+      }
+
+      if (transaction) {
+        await this.handleQiTransaction(transaction)
+      }
     }
   }
 
@@ -390,6 +390,28 @@ export default class TransactionService extends BaseService<TransactionServiceEv
   private async saveQiTransaction(transaction: QiTransactionDB): Promise<void> {
     await this.db.addOrUpdateQiTransaction(transaction)
     this.emitter.emit("addUtxoActivity", transaction)
+  }
+
+  private async updateQiTransaction(
+    transaction: QiTransactionDB
+  ): Promise<void> {
+    await this.db.addOrUpdateQiTransaction(transaction)
+    this.emitter.emit("updateUtxoActivity", transaction)
+  }
+
+  private async handleQiTransaction(
+    transactionResponse: TransactionResponse
+  ): Promise<void> {
+    const { hash, blockHash, blockNumber } = transactionResponse
+
+    const transaction = await this.db.getQiTransactionByHash(hash)
+    if (!transaction) return
+
+    transaction.status = TransactionStatus.CONFIRMED
+    transaction.blockHash = blockHash
+    transaction.blockNumber = blockNumber
+
+    await this.updateQiTransaction(transaction)
   }
 
   /**
@@ -442,21 +464,6 @@ export default class TransactionService extends BaseService<TransactionServiceEv
       transaction.status = TransactionStatus.FAILED
       await this.saveQuaiTransaction(transaction)
     }
-  }
-
-  private async handleQiTransactionSend(
-    senderPaymentCode: string,
-    receiverPaymentCode: string,
-    tx: QiTransactionResponse,
-    amount: bigint
-  ): Promise<void> {
-    const transaction = processSentQiTransaction(
-      senderPaymentCode,
-      receiverPaymentCode,
-      tx,
-      Number(amount)
-    )
-    await this.saveQiTransaction(transaction)
   }
 
   private async notifyQiRecipient(
